@@ -66,13 +66,13 @@ type TokenData struct {
 	text     string
 }
 
-func (t TokenData) Id() TokenType {
+func (t *TokenData) Id() TokenType {
 	return t.id
 }
-func (t TokenData) Location() Location {
+func (t *TokenData) Location() Location {
 	return t.location
 }
-func (t TokenData) Text() string {
+func (t *TokenData) Text() string {
 	return t.text
 }
 
@@ -87,15 +87,15 @@ type InvalidTokenData struct {
 	initialId TokenType
 }
 
-func (t InvalidTokenData) Id() TokenType {
+func (t *InvalidTokenData) Id() TokenType {
 	return t.id
 }
-func (t InvalidTokenData) Location() Location {
+func (t *InvalidTokenData) Location() Location {
 	return t.location
 }
-func (t InvalidTokenData) Text() string {
+func (t *InvalidTokenData) Text() string {
 	return t.text
 }
-func (t InvalidTokenData) InitailId() TokenType {
+func (t *InvalidTokenData) InitailId() TokenType {
 	return t.initialId
 }

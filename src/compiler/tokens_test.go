@@ -19,7 +19,7 @@ func Test_TestReader(t *testing.T) {
 
 func Test_TokenNumber(t *testing.T) {
 	code := "1234"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	first := tokens[0]
 	assert.Equal(t, TokenNumber, first.Id())
@@ -35,7 +35,7 @@ func Test_TokenNumber(t *testing.T) {
 
 func Test_TokenNumberAndWS(t *testing.T) {
 	code := "1234 4321 "
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	n1 := tokens[0]
 	assert.Equal(t, TokenNumber, n1.Id())
@@ -59,7 +59,7 @@ func Test_TokenNumberAndWS(t *testing.T) {
 
 func Test_TokenHexNumber(t *testing.T) {
 	code := "0xA5_0F"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	first := tokens[0]
 	assert.Equal(t, TokenNumber, first.Id())
@@ -75,7 +75,7 @@ func Test_TokenHexNumber(t *testing.T) {
 
 func Test_TokenBinNumber(t *testing.T) {
 	code := "0b0110_0011"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	first := tokens[0]
 	assert.Equal(t, TokenNumber, first.Id())
@@ -91,7 +91,7 @@ func Test_TokenBinNumber(t *testing.T) {
 
 func Test_TokenPunctuation(t *testing.T) {
 	code := "!@#$%^&*()[]{};:,./?`~=+_-"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	expected := []TokenType{
 		TokenExclamation, TokenAt, TokenHash, TokenDollar, TokenPercent, TokenCaret, TokenAmpersant, TokenAsterisk,
@@ -108,7 +108,7 @@ func Test_TokenPunctuation(t *testing.T) {
 
 func Test_TokenKeywords(t *testing.T) {
 	code := "and or for if elsif else switch case struct const any"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	expected := []TokenType{
 		TokenAnd, TokenOr, TokenFor, TokenIf, TokenElsif, TokenElse, TokenSwitch,
@@ -123,7 +123,7 @@ func Test_TokenKeywords(t *testing.T) {
 
 func Test_TokenIdentifier(t *testing.T) {
 	code := "andorfor"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	id1 := tokens[0]
 	assert.Equal(t, TokenIdentifier, id1.Id())
@@ -132,7 +132,7 @@ func Test_TokenIdentifier(t *testing.T) {
 
 func Test_TokenIdentifierMulitple(t *testing.T) {
 	code := "andorfor ifelsifelse"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	id1 := tokens[0]
 	assert.Equal(t, TokenIdentifier, id1.Id())
@@ -147,7 +147,7 @@ func Test_TokenIdentifierMulitple(t *testing.T) {
 
 func Test_TokenString(t *testing.T) {
 	code := "\"string\""
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	str1 := tokens[0]
 	assert.Equal(t, TokenString, str1.Id())
@@ -156,15 +156,41 @@ func Test_TokenString(t *testing.T) {
 
 func Test_TokenChar(t *testing.T) {
 	code := "'c'"
-	tokens := runTokenizer(code)
+	tokens := RunTokenizer(code)
 
 	char1 := tokens[0]
 	assert.Equal(t, TokenCharacter, char1.Id())
 	assert.Equal(t, code, char1.Text())
 }
 
+func Test_TokenPublicLabel(t *testing.T) {
+	code := "label:"
+	tokens := RunTokenizer(code)
+
+	id1 := tokens[0]
+	assert.Equal(t, TokenIdentifier, id1.Id())
+	assert.Equal(t, "label", id1.Text())
+
+	t2 := tokens[1]
+	assert.Equal(t, TokenColon, t2.Id())
+	assert.Equal(t, ":", t2.Text())
+}
+
+func Test_TokenPrivateLabel(t *testing.T) {
+	code := ".label"
+	tokens := RunTokenizer(code)
+
+	t1 := tokens[0]
+	assert.Equal(t, TokenDot, t1.Id())
+	assert.Equal(t, ".", t1.Text())
+
+	id2 := tokens[1]
+	assert.Equal(t, TokenIdentifier, id2.Id())
+	assert.Equal(t, "label", id2.Text())
+}
+
 // -----------------------------------------------------------------------------
-func runTokenizer(code string) []Token {
+func RunTokenizer(code string) []Token {
 	tokenizer := TokenizerFromReader(newTestReader(code))
 
 	var tokens []Token

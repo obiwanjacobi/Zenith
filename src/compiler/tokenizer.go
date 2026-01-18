@@ -40,7 +40,7 @@ func (t *Tokenizer) Tokens() <-chan Token {
 			tokenChan <- token
 
 			if err == io.EOF {
-				token = TokenData{TokenEOF, t.makeLocation(), ""}
+				token = &TokenData{TokenEOF, t.makeLocation(), ""}
 				tokenChan <- token
 				// we're done
 				return
@@ -63,7 +63,7 @@ func (t *Tokenizer) Tokens() <-chan Token {
 func (t *Tokenizer) parseToken() (Token, error) {
 	r, err := t.read()
 	if err == io.EOF {
-		return TokenData{TokenEOF, t.makeLocation(), ""}, nil
+		return &TokenData{TokenEOF, t.makeLocation(), ""}, nil
 	}
 
 	location := t.makeLocation()
@@ -79,8 +79,7 @@ func (t *Tokenizer) parseToken() (Token, error) {
 	case unicode.IsLetter(r):
 		token, err = t.parseIdentifierOrKeyword(r, location)
 	default:
-		// todo: parse unknown: token ends on whitespace
-		token = TokenData{TokenUnknown, location, string(r)}
+		token, err = t.parseUnknown(r, location)
 	}
 
 	return token, err
@@ -92,7 +91,7 @@ func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Tok
 
 	for {
 		r, err := t.read()
-		if err == nil && unicode.IsSpace(r) {
+		if err == nil && unicode.IsSpace(r) || unicode.IsPunct(r) {
 			t.unread(r)
 			break
 		}
@@ -100,7 +99,7 @@ func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Tok
 			break
 		}
 		if err != nil {
-			return InvalidTokenData{TokenInvalid, location, builder.String(), TokenIdentifier}, err
+			return &InvalidTokenData{TokenInvalid, location, builder.String(), TokenIdentifier}, err
 		}
 		builder.WriteRune(r)
 	}
@@ -110,29 +109,29 @@ func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Tok
 
 	switch idOrKeyword {
 	case "and":
-		token = TokenData{TokenAnd, location, idOrKeyword}
+		token = &TokenData{TokenAnd, location, idOrKeyword}
 	case "or":
-		token = TokenData{TokenOr, location, idOrKeyword}
+		token = &TokenData{TokenOr, location, idOrKeyword}
 	case "for":
-		token = TokenData{TokenFor, location, idOrKeyword}
+		token = &TokenData{TokenFor, location, idOrKeyword}
 	case "if":
-		token = TokenData{TokenIf, location, idOrKeyword}
+		token = &TokenData{TokenIf, location, idOrKeyword}
 	case "elsif":
-		token = TokenData{TokenElsif, location, idOrKeyword}
+		token = &TokenData{TokenElsif, location, idOrKeyword}
 	case "else":
-		token = TokenData{TokenElse, location, idOrKeyword}
+		token = &TokenData{TokenElse, location, idOrKeyword}
 	case "switch":
-		token = TokenData{TokenSwitch, location, idOrKeyword}
+		token = &TokenData{TokenSwitch, location, idOrKeyword}
 	case "case":
-		token = TokenData{TokenCase, location, idOrKeyword}
+		token = &TokenData{TokenCase, location, idOrKeyword}
 	case "struct":
-		token = TokenData{TokenStruct, location, idOrKeyword}
+		token = &TokenData{TokenStruct, location, idOrKeyword}
 	case "const":
-		token = TokenData{TokenConst, location, idOrKeyword}
+		token = &TokenData{TokenConst, location, idOrKeyword}
 	case "any":
-		token = TokenData{TokenAny, location, idOrKeyword}
+		token = &TokenData{TokenAny, location, idOrKeyword}
 	default:
-		token = TokenData{TokenIdentifier, location, idOrKeyword}
+		token = &TokenData{TokenIdentifier, location, idOrKeyword}
 	}
 
 	return token, nil
@@ -167,9 +166,9 @@ func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
 
 			var token Token
 			if invalid {
-				token = InvalidTokenData{TokenInvalid, location, builder.String(), TokenNumber}
+				token = &InvalidTokenData{TokenInvalid, location, builder.String(), TokenNumber}
 			} else {
-				token = TokenData{TokenNumber, location, builder.String()}
+				token = &TokenData{TokenNumber, location, builder.String()}
 			}
 			return token, err
 		} else {
@@ -189,65 +188,65 @@ func (t *Tokenizer) parsePunctuation(first rune, location Location) (Token, erro
 
 	switch first {
 	case '+':
-		token = TokenData{TokenPlus, location, text}
+		token = &TokenData{TokenPlus, location, text}
 	case '-':
-		token = TokenData{TokenMinus, location, text}
+		token = &TokenData{TokenMinus, location, text}
 	case '*':
-		token = TokenData{TokenAsterisk, location, text}
+		token = &TokenData{TokenAsterisk, location, text}
 	case '/':
-		token = TokenData{TokenSlash, location, text}
+		token = &TokenData{TokenSlash, location, text}
 	case '%':
-		token = TokenData{TokenPercent, location, text}
+		token = &TokenData{TokenPercent, location, text}
 	case '[':
-		token = TokenData{TokenBracketOpen, location, text}
+		token = &TokenData{TokenBracketOpen, location, text}
 	case ']':
-		token = TokenData{TokenBracketClose, location, text}
+		token = &TokenData{TokenBracketClose, location, text}
 	case '{':
-		token = TokenData{TokenBracesOpen, location, text}
+		token = &TokenData{TokenBracesOpen, location, text}
 	case '}':
-		token = TokenData{TokenBracesClose, location, text}
+		token = &TokenData{TokenBracesClose, location, text}
 	case '(':
-		token = TokenData{TokenParenOpen, location, text}
+		token = &TokenData{TokenParenOpen, location, text}
 	case ')':
-		token = TokenData{TokenParenClose, location, text}
+		token = &TokenData{TokenParenClose, location, text}
 	case '.':
-		token = TokenData{TokenDot, location, text}
+		token = &TokenData{TokenDot, location, text}
 	case ',':
-		token = TokenData{TokenComma, location, text}
+		token = &TokenData{TokenComma, location, text}
 	case ';':
-		token = TokenData{TokenSemiColon, location, text}
+		token = &TokenData{TokenSemiColon, location, text}
 	case ':':
-		token = TokenData{TokenColon, location, text}
+		token = &TokenData{TokenColon, location, text}
 	case '=':
-		token = TokenData{TokenEquals, location, text}
+		token = &TokenData{TokenEquals, location, text}
 	case '&':
-		token = TokenData{TokenAmpersant, location, text}
+		token = &TokenData{TokenAmpersant, location, text}
 	case '#':
-		token = TokenData{TokenHash, location, text}
+		token = &TokenData{TokenHash, location, text}
 	case '@':
-		token = TokenData{TokenAt, location, text}
+		token = &TokenData{TokenAt, location, text}
 	case '$':
-		token = TokenData{TokenDollar, location, text}
+		token = &TokenData{TokenDollar, location, text}
 	case '|':
-		token = TokenData{TokenPipe, location, text}
+		token = &TokenData{TokenPipe, location, text}
 	case '^':
-		token = TokenData{TokenCaret, location, text}
+		token = &TokenData{TokenCaret, location, text}
 	case '~':
-		token = TokenData{TokenTilde, location, text}
+		token = &TokenData{TokenTilde, location, text}
 	case '`':
-		token = TokenData{TokenBackTick, location, text}
+		token = &TokenData{TokenBackTick, location, text}
 	case '!':
-		token = TokenData{TokenExclamation, location, text}
+		token = &TokenData{TokenExclamation, location, text}
 	case '?':
-		token = TokenData{TokenQuestion, location, text}
+		token = &TokenData{TokenQuestion, location, text}
 	case '"':
 		token, err = t.parseString(first, location)
 	case '\'':
 		token, err = t.parseChar(first, location)
 	case '_':
-		token = TokenData{TokenUnderscore, location, text}
+		token = &TokenData{TokenUnderscore, location, text}
 	default:
-		token = InvalidTokenData{TokenInvalid, location, text, TokenUnknown}
+		token = &InvalidTokenData{TokenInvalid, location, text, TokenUnknown}
 	}
 
 	return token, err
@@ -268,12 +267,12 @@ func (t *Tokenizer) parseEnclosed(first rune, location Location, tokenId TokenTy
 	for {
 		r, err := t.read()
 		if err != nil {
-			return InvalidTokenData{TokenInvalid, location, builder.String(), tokenId}, err
+			return &InvalidTokenData{TokenInvalid, location, builder.String(), tokenId}, err
 		}
 
 		if r == first {
 			builder.WriteRune(r)
-			return TokenData{tokenId, location, builder.String()}, err
+			return &TokenData{tokenId, location, builder.String()}, err
 		}
 
 		builder.WriteRune(r)
@@ -290,7 +289,24 @@ func (t *Tokenizer) parseWhitespace(first rune, location Location) (Token, error
 			if err != io.EOF {
 				t.unread(r)
 			}
-			return TokenData{TokenWhitespace, location, builder.String()}, err
+			return &TokenData{TokenWhitespace, location, builder.String()}, err
+		}
+
+		builder.WriteRune(r)
+	}
+}
+
+func (t *Tokenizer) parseUnknown(first rune, location Location) (Token, error) {
+	var builder strings.Builder
+	builder.WriteRune(first)
+
+	for {
+		r, err := t.read()
+		if err != nil || unicode.IsSpace(r) {
+			if err != io.EOF {
+				t.unread(r)
+			}
+			return &TokenData{TokenUnknown, location, builder.String()}, err
 		}
 
 		builder.WriteRune(r)
