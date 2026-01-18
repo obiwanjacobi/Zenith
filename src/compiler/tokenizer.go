@@ -100,7 +100,7 @@ func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Tok
 			break
 		}
 		if err != nil {
-			return TokenData{TokenInvalid, location, builder.String()}, err
+			return InvalidTokenData{TokenInvalid, location, builder.String(), TokenIdentifier}, err
 		}
 		builder.WriteRune(r)
 	}
@@ -149,6 +149,7 @@ func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
 		r, err := t.read()
 
 		if err == nil && !unicode.IsSpace(r) && !unicode.IsDigit(r) {
+			// this all is to allow for 0xAA and 0b01101011
 			if builder.Len() == 1 && first == '0' && r == 'x' || r == 'b' {
 				isHex = r == 'x'
 				builder.WriteRune(r)
@@ -183,6 +184,7 @@ func (t *Tokenizer) isPunctuation(r rune) bool {
 
 func (t *Tokenizer) parsePunctuation(first rune, location Location) (Token, error) {
 	var token Token
+	var err error
 	var text = string(first)
 
 	switch first {
@@ -239,16 +241,43 @@ func (t *Tokenizer) parsePunctuation(first rune, location Location) (Token, erro
 	case '?':
 		token = TokenData{TokenQuestion, location, text}
 	case '"':
-		token = TokenData{TokenDoubleQuote, location, text}
+		token, err = t.parseString(first, location)
 	case '\'':
-		token = TokenData{TokenSingleQuote, location, text}
+		token, err = t.parseChar(first, location)
 	case '_':
 		token = TokenData{TokenUnderscore, location, text}
 	default:
-		token = TokenData{TokenInvalid, location, text}
+		token = InvalidTokenData{TokenInvalid, location, text, TokenUnknown}
 	}
 
-	return token, nil
+	return token, err
+}
+
+func (t *Tokenizer) parseString(first rune, location Location) (Token, error) {
+	return t.parseEnclosed(first, location, TokenString)
+}
+
+func (t *Tokenizer) parseChar(first rune, location Location) (Token, error) {
+	return t.parseEnclosed(first, location, TokenCharacter)
+}
+
+func (t *Tokenizer) parseEnclosed(first rune, location Location, tokenId TokenType) (Token, error) {
+	var builder strings.Builder
+	builder.WriteRune(first)
+
+	for {
+		r, err := t.read()
+		if err != nil {
+			return InvalidTokenData{TokenInvalid, location, builder.String(), tokenId}, err
+		}
+
+		if r == first {
+			builder.WriteRune(r)
+			return TokenData{tokenId, location, builder.String()}, err
+		}
+
+		builder.WriteRune(r)
+	}
 }
 
 func (t *Tokenizer) parseWhitespace(first rune, location Location) (Token, error) {

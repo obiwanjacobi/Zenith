@@ -9,6 +9,7 @@ const (
 	TokenIdentifier             // symbol
 	TokenNumber                 // literal number
 	TokenString                 // "<string>"
+	TokenCharacter              // '<c>'
 	TokenPlus                   // +
 	TokenMinus                  // -
 	TokenAsterisk               // *
@@ -36,8 +37,6 @@ const (
 	TokenBackTick               // `
 	TokenExclamation            // !
 	TokenQuestion               // ?
-	TokenDoubleQuote            // "
-	TokenSingleQuote            // '
 	TokenUnderscore             // _
 	TokenAnd                    // and
 	TokenOr                     // or
@@ -50,6 +49,9 @@ const (
 	TokenStruct                 // struct
 	TokenConst                  // const
 	TokenAny                    // any
+
+	//TokenDoubleQuote            // "
+	//TokenSingleQuote            // '
 )
 
 type Token interface {

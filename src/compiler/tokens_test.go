@@ -90,13 +90,13 @@ func Test_TokenBinNumber(t *testing.T) {
 }
 
 func Test_TokenPunctuation(t *testing.T) {
-	code := "!@#$%^&*()[]{};':\",./?`~=+_-"
+	code := "!@#$%^&*()[]{};:,./?`~=+_-"
 	tokens := runTokenizer(code)
 
 	expected := []TokenType{
 		TokenExclamation, TokenAt, TokenHash, TokenDollar, TokenPercent, TokenCaret, TokenAmpersant, TokenAsterisk,
 		TokenParenOpen, TokenParenClose, TokenBracketOpen, TokenBracketClose, TokenBracesOpen, TokenBracesClose,
-		TokenSemiColon, TokenSingleQuote, TokenColon, TokenDoubleQuote, TokenComma, TokenDot, TokenSlash,
+		TokenSemiColon, TokenColon, TokenComma, TokenDot, TokenSlash,
 		TokenQuestion, TokenBackTick, TokenTilde, TokenEquals, TokenPlus, TokenUnderscore, TokenMinus,
 		TokenEOF,
 	}
@@ -143,6 +143,24 @@ func Test_TokenIdentifierMulitple(t *testing.T) {
 	id2 := tokens[2]
 	assert.Equal(t, TokenIdentifier, id2.Id())
 	assert.Equal(t, "ifelsifelse", id2.Text())
+}
+
+func Test_TokenString(t *testing.T) {
+	code := "\"string\""
+	tokens := runTokenizer(code)
+
+	str1 := tokens[0]
+	assert.Equal(t, TokenString, str1.Id())
+	assert.Equal(t, code, str1.Text())
+}
+
+func Test_TokenChar(t *testing.T) {
+	code := "'c'"
+	tokens := runTokenizer(code)
+
+	char1 := tokens[0]
+	assert.Equal(t, TokenCharacter, char1.Id())
+	assert.Equal(t, code, char1.Text())
 }
 
 // -----------------------------------------------------------------------------
