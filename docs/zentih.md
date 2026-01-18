@@ -309,8 +309,8 @@ z:u16 = x + y
 | `<<`     | Shift left               |
 | `>\|`    | Roll right               |
 | `\|<`    | Roll left                |
-| `>\|`c   | Roll right through carry |
-| `\|<`c   | Roll left through carry  |
+| `>\|c`   | Roll right through carry |
+| `\|<c`   | Roll left through carry  |
 
 The result type is the same as the biggest operand type unless the target assignment type is bigger.
 
@@ -324,11 +324,22 @@ The result type is the same as the biggest operand type unless the target assign
 | `<`      | Lesser                      |
 | `>=`     | Greater or Equal            |
 | `<=`     | Lesser or Equal             |
-| `?<f>`   | Test a flag (c, z, s, n, p) |
+| `<f>?`   | Test a flag (c, z, s, n, p) |
 
 The result type is a `bool`.
 
 > TBD: Do we need to include (carry,zero) flags? Or are the comparison operators enough?
+
+#### Logical
+
+| Operator | Description |
+| -------- | ----------- |
+| `!`      | Not         |
+| `and`    | and         |
+| `or`     | Or          |
+| `?`      | Bool*       |
+
+> *) TBD: Boolean operator, if applicable. Makes conditional branches easier.
 
 #### Other
 

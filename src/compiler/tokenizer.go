@@ -63,20 +63,21 @@ func (t *Tokenizer) Tokens() <-chan Token {
 func (t *Tokenizer) parseToken() (Token, error) {
 	r, err := t.read()
 	if err == io.EOF {
-		location := t.makeLocation()
-		return TokenData{TokenEOF, location, ""}, nil
+		return TokenData{TokenEOF, t.makeLocation(), ""}, nil
 	}
 
 	location := t.makeLocation()
 
 	var token Token
 	switch {
-	case t.isPunctuation(r):
-		token, err = t.parsePunctuation(r, location)
 	case unicode.IsSpace(r):
 		token, err = t.parseWhitespace(r, location)
 	case unicode.IsDigit(r):
 		token, err = t.parseNumber(r, location)
+	case t.isPunctuation(r):
+		token, err = t.parsePunctuation(r, location)
+	case unicode.IsLetter(r):
+		token, err = t.parseIdentifierOrKeyword(r, location)
 	default:
 		// todo: parse unknown: token ends on whitespace
 		token = TokenData{TokenUnknown, location, string(r)}
@@ -85,21 +86,80 @@ func (t *Tokenizer) parseToken() (Token, error) {
 	return token, err
 }
 
+func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Token, error) {
+	var builder strings.Builder
+	builder.WriteRune(first)
+
+	for {
+		r, err := t.read()
+		if err == nil && unicode.IsSpace(r) {
+			t.unread(r)
+			break
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return TokenData{TokenInvalid, location, builder.String()}, err
+		}
+		builder.WriteRune(r)
+	}
+
+	var token Token
+	idOrKeyword := builder.String()
+
+	switch idOrKeyword {
+	case "and":
+		token = TokenData{TokenAnd, location, idOrKeyword}
+	case "or":
+		token = TokenData{TokenOr, location, idOrKeyword}
+	case "for":
+		token = TokenData{TokenFor, location, idOrKeyword}
+	case "if":
+		token = TokenData{TokenIf, location, idOrKeyword}
+	case "elsif":
+		token = TokenData{TokenElsif, location, idOrKeyword}
+	case "else":
+		token = TokenData{TokenElse, location, idOrKeyword}
+	case "switch":
+		token = TokenData{TokenSwitch, location, idOrKeyword}
+	case "case":
+		token = TokenData{TokenCase, location, idOrKeyword}
+	case "struct":
+		token = TokenData{TokenStruct, location, idOrKeyword}
+	case "const":
+		token = TokenData{TokenConst, location, idOrKeyword}
+	case "any":
+		token = TokenData{TokenAny, location, idOrKeyword}
+	default:
+		token = TokenData{TokenIdentifier, location, idOrKeyword}
+	}
+
+	return token, nil
+}
+
 func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
 	var invalid = false
+	var isHex = false // allows a-f/A-F
 
 	for {
 		r, err := t.read()
 
-		if err != nil || !unicode.IsDigit(r) {
-			// todo: allow 'x', 'b' (1st=0: 2nd) and '_' (anywhere)
-			if err == nil && !unicode.IsDigit(r) && builder.Len() > 1 {
+		if err == nil && !unicode.IsSpace(r) && !unicode.IsDigit(r) {
+			if builder.Len() == 1 && first == '0' && r == 'x' || r == 'b' {
+				isHex = r == 'x'
+				builder.WriteRune(r)
+			} else if r == '_' {
+				builder.WriteRune(r)
+			} else if isHex && isHexLetter(r) {
+				builder.WriteRune(r)
+			} else {
 				invalid = true
 			}
-
+		} else if err != nil || !unicode.IsDigit(r) {
 			if err != io.EOF {
 				t.unread(r)
 			}
@@ -111,9 +171,9 @@ func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
 				token = TokenData{TokenNumber, location, builder.String()}
 			}
 			return token, err
+		} else {
+			builder.WriteRune(r)
 		}
-
-		builder.WriteRune(r)
 	}
 }
 
@@ -256,4 +316,8 @@ func newCodeReader(file *os.File) CodeReader {
 		file:   file,
 		reader: bufio.NewReader(file),
 	}
+}
+
+func isHexLetter(r rune) bool {
+	return r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F'
 }

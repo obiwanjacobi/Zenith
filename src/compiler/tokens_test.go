@@ -30,7 +30,7 @@ func Test_TokenNumber(t *testing.T) {
 
 	eof := tokens[1]
 	assert.Equal(t, TokenEOF, eof.Id())
-	assert.Equal(t, 4, eof.Location().Index)
+	assert.Equal(t, len(code), eof.Location().Index)
 }
 
 func Test_TokenNumberAndWS(t *testing.T) {
@@ -57,6 +57,38 @@ func Test_TokenNumberAndWS(t *testing.T) {
 	assert.Equal(t, TokenEOF, eof.Id())
 }
 
+func Test_TokenHexNumber(t *testing.T) {
+	code := "0xA5_0F"
+	tokens := runTokenizer(code)
+
+	first := tokens[0]
+	assert.Equal(t, TokenNumber, first.Id())
+	assert.Equal(t, "0xA5_0F", first.Text())
+	assert.Equal(t, 0, first.Location().Index)
+	assert.Equal(t, 1, first.Location().Line)
+	assert.Equal(t, 1, first.Location().Column)
+
+	eof := tokens[1]
+	assert.Equal(t, TokenEOF, eof.Id())
+	assert.Equal(t, len(code), eof.Location().Index)
+}
+
+func Test_TokenBinNumber(t *testing.T) {
+	code := "0b0110_0011"
+	tokens := runTokenizer(code)
+
+	first := tokens[0]
+	assert.Equal(t, TokenNumber, first.Id())
+	assert.Equal(t, "0b0110_0011", first.Text())
+	assert.Equal(t, 0, first.Location().Index)
+	assert.Equal(t, 1, first.Location().Line)
+	assert.Equal(t, 1, first.Location().Column)
+
+	eof := tokens[1]
+	assert.Equal(t, TokenEOF, eof.Id())
+	assert.Equal(t, len(code), eof.Location().Index)
+}
+
 func Test_TokenPunctuation(t *testing.T) {
 	code := "!@#$%^&*()[]{};':\",./?`~=+_-"
 	tokens := runTokenizer(code)
@@ -74,6 +106,46 @@ func Test_TokenPunctuation(t *testing.T) {
 	}
 }
 
+func Test_TokenKeywords(t *testing.T) {
+	code := "and or for if elsif else switch case struct const any"
+	tokens := runTokenizer(code)
+
+	expected := []TokenType{
+		TokenAnd, TokenOr, TokenFor, TokenIf, TokenElsif, TokenElse, TokenSwitch,
+		TokenCase, TokenStruct, TokenConst, TokenAny,
+	}
+
+	// i += 2 => we skip all the TokenWhitespace between the keywords
+	for i := 0; i < len(tokens); i += 2 {
+		assert.Equal(t, expected[i], tokens[i].Id(), tokens[i].Text())
+	}
+}
+
+func Test_TokenIdentifier(t *testing.T) {
+	code := "andorfor"
+	tokens := runTokenizer(code)
+
+	id1 := tokens[0]
+	assert.Equal(t, TokenIdentifier, id1.Id())
+	assert.Equal(t, code, id1.Text())
+}
+
+func Test_TokenIdentifierMulitple(t *testing.T) {
+	code := "andorfor ifelsifelse"
+	tokens := runTokenizer(code)
+
+	id1 := tokens[0]
+	assert.Equal(t, TokenIdentifier, id1.Id())
+	assert.Equal(t, "andorfor", id1.Text())
+
+	// tokens[1] - whitespace token skipped
+
+	id2 := tokens[2]
+	assert.Equal(t, TokenIdentifier, id2.Id())
+	assert.Equal(t, "ifelsifelse", id2.Text())
+}
+
+// -----------------------------------------------------------------------------
 func runTokenizer(code string) []Token {
 	tokenizer := TokenizerFromReader(newTestReader(code))
 
@@ -84,8 +156,6 @@ func runTokenizer(code string) []Token {
 
 	return tokens
 }
-
-// -----------------------------------------------------------------------------
 
 type testReaderImpl struct {
 	reader *strings.Reader

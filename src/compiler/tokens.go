@@ -42,6 +42,7 @@ const (
 	TokenAnd                    // and
 	TokenOr                     // or
 	TokenFor                    // for
+	TokenIf                     // if
 	TokenElsif                  // elsif
 	TokenElse                   // else
 	TokenSwitch                 // switch
