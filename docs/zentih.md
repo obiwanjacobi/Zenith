@@ -20,7 +20,8 @@ The goal is to create a language that understands the Z80's unique architectural
 #### Literals
 
 Default type for a numerical literal is the smallest unsigned type that will fit the value.
-Unless the value is negative, the it is the smallest signed type.
+Unless the value is negative, then it is the smallest signed type.
+If the target it is assigned to is explicitly typed, that type will be used, unless it is incompatible then an error is generated.
 
 `x := 42`       u8
 `x := 420`      u16
@@ -37,7 +38,9 @@ An array is stored as a ponter and a length (capacity) in memory.
 
 Type syntax: `<type>[<len>]`
 
-`u8[3]`
+```c
+arr: u8[3]
+```
 
 Indexing syntax: `<arr>[<index>]`
 
@@ -52,33 +55,43 @@ Static instantiation syntax: `arr:u8[3] = (1, 2, 3)`
 
 A string is an array of (ascii) characters.
 
-`str: u8[] = "String"`
+```c
+str: u8[] = "String"
+```
 
 ### Pointer
 
-> TBD: syntax for void pointer?
-> TBD: null, nullptr, nil
-
 Type syntax: `<type>*`
 
-`u8*`
+```c
+u8*
+any*        //  void pointer
+```
 
 Ref syntax: `&<var>`
 
-`&val`
+```c
+&val
+```
 
 Deref syntax: `*<var>`
 
-`*ptr`
+```c
+*ptr
+```
+
+Null pointer: `ptr u8* = nil`
 
 #### Function Pointers
 
 Syntax: `<fn>`
 
 ```c
-myFn: ()
-fn = myFn   // what is the type?
+myFn: (p1: u8, p2: i16) u8
+fnPtr: fn(u8)u8* = myFn
 ```
+
+> TBD: function pointer type?
 
 ### Struct
 
@@ -86,12 +99,37 @@ A grouping of named (and typed) data elements.
 
 Syntax: `struct <name> { <fields> }`
 
-`struct data { cnt: u8, arr: u8[5] }`
+```c
+struct data { cnt: u8, arr: u8[5] }
+```
 
 Construction Syntax:
 
-`instance := { cnt = 42, arr = "hello" }`   inferred type (matched on field names and data types)
-`instance : data = { cnt = 42, arr = "hello" }`
+```c
+instance := { cnt = 42, arr = "hello" }`   // inferred type (matched on field names and data types)
+instance : data = { cnt = 42, arr = "hello" }
+```
+
+Nesting Structs:
+
+```c
+struct Address {}
+struct Person { address: Address }
+
+instance: Person = { address = { ... } }
+```
+
+Struct Pointers:
+
+```c
+instance.cnt++    // direct struct instance access
+ptr := &instance  // make a ptr to instance
+ptr.cnt++         // struct access via ptr
+```
+
+Accessing a struct instance directly or via a pointer always uses `.`.
+
+> TBD: anonymous structs?
 
 ### Boolean
 
@@ -101,7 +139,9 @@ Also adds the `true` and `false` keywords.
 
 Syntax: `bool`
 
-`b: bool = true`
+```c
+b: bool = true
+```
 
 ---
 
@@ -113,15 +153,25 @@ Syntax: `<label> (<params>) <ret> { <fn body> }`
 
 > TBD: syntax of public label (sum)
 
-`sum: (x: u8, y: u8) u16 { x + y }`   uses return expression.
+```c
+sum: (x: u8, y: u8) u16 { ret x + y }
+```
 
 Invocation syntax: `result := sum(101, 42)`
+
+### Parameters and Return
+
+- Primitive types can be passed by value (param and return).
+- Structs cannot be passed by value (param and return).
+- 
 
 ### Conversions
 
 Syntax: `<type>(<value>)`
 
-`x:= i16(42)`
+```c
+x:= i16(42)
+```
 
 ### Special Functions
 
@@ -130,7 +180,7 @@ For Z80 instructions like RST0-RST38 and Interrupts.
 Use a tag to indicate special use.
 
 ```c
-#tag RST20
+#address 0x20
 reset20: () { ... }
 ```
 
@@ -153,19 +203,36 @@ Value syntax: `const x: u8 = 42`  must be initialzed
 The 'init' and 'next' parts are optional (like in Go).
 For loop syntax: `for <init>; <condition>; <next> { <body> }`
 
-`for i:=0; i < 3; i++ { ... }`
+```c
+for i:=0; i < 3; i++ { ... }
+```
 
-`for i < 3 { i++ }` while loop
+```c
+for i < 3 { i++ }   // while loop
+```
 
 ### Conditional Branching
 
 #### If, Elsif and Else
 
-No '()' are required.
+No '()' are required around condition.
 
 Syntax: `if <condition> { ... } elsif <condition> { ... } else { ... }`
 
+```c
+a := 42
+if a = 42 {
+    ...
+} elsif a == 0 {
+    ...
+} else {
+    ...
+}
+```
+
 #### Switch
+
+> TBD: `select`-`case`?
 
 Compiled to a jump table.
 
@@ -175,7 +242,7 @@ Syntax:
 switch <variable>
 {
     case <value>:
-    default:
+    else:
 }
 ```
 
@@ -281,12 +348,17 @@ All arithmetic (except `++` and `--`) and bitwise operators can be used in this 
 
 Other than the ones already discussed.
 
-| Keyword | Description               |
-| ------- | ------------------------- |
-| `in`    | IO input `r:u8 = in 0x32` |
-| `out`   | IO output `out 0x32, a`   |
+| Keyword       | Description                |
+| ------------- | -------------------------- |
+| `in`          | IO input `r:u8 = in 0x32`  |
+| `out`         | IO output `out 0x32, a`    |
+| `ret`         | Return statement           |
+| `brk`         | Break out of a scope       |
+| `brk` <label> | Break out of scope 'label' |
+| `cnt`         | Skip current iteration     |
+| `goto`        | ??                         |
 
-> TBD: or are these compiler intrinsics?
+> TBD: are 'in' and 'out' compiler intrinsics?
 
 ## Files
 
