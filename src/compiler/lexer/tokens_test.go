@@ -1,21 +1,10 @@
-package compiler
+package lexer
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func Test_TestReader(t *testing.T) {
-	reader := newTestReader("X")
-
-	r, s, err := reader.ReadRune()
-
-	assert.Nil(t, err)
-	assert.Equal(t, 1, s)
-	assert.Equal(t, 'X', r)
-}
 
 func Test_TokenNumber(t *testing.T) {
 	code := "1234"
@@ -93,10 +82,10 @@ func Test_TokenPunctuation(t *testing.T) {
 	code := "!@#$%^&*()[]{};:,./?`~=+_-"
 	tokens := RunTokenizer(code)
 
-	expected := []TokenType{
+	expected := []TokenId{
 		TokenExclamation, TokenAt, TokenHash, TokenDollar, TokenPercent, TokenCaret, TokenAmpersant, TokenAsterisk,
 		TokenParenOpen, TokenParenClose, TokenBracketOpen, TokenBracketClose, TokenBracesOpen, TokenBracesClose,
-		TokenSemiColon, TokenColon, TokenComma, TokenDot, TokenSlash,
+		TokenSemiColon, TokenColon, TokenComma, TokenPeriod, TokenSlash,
 		TokenQuestion, TokenBackTick, TokenTilde, TokenEquals, TokenPlus, TokenUnderscore, TokenMinus,
 		TokenEOF,
 	}
@@ -107,17 +96,17 @@ func Test_TokenPunctuation(t *testing.T) {
 }
 
 func Test_TokenKeywords(t *testing.T) {
-	code := "and or for if elsif else switch case struct const any"
+	code := "and or not for if elsif else select case struct const any"
 	tokens := RunTokenizer(code)
 
-	expected := []TokenType{
-		TokenAnd, TokenOr, TokenFor, TokenIf, TokenElsif, TokenElse, TokenSwitch,
+	expected := []TokenId{
+		TokenAnd, TokenOr, TokenNot, TokenFor, TokenIf, TokenElsif, TokenElse, TokenSelect,
 		TokenCase, TokenStruct, TokenConst, TokenAny,
 	}
 
 	// i += 2 => we skip all the TokenWhitespace between the keywords
-	for i := 0; i < len(tokens); i += 2 {
-		assert.Equal(t, expected[i], tokens[i].Id(), tokens[i].Text())
+	for i := 0; i < len(expected); i++ {
+		assert.Equal(t, expected[i], tokens[i*2].Id(), tokens[i*2].Text())
 	}
 }
 
@@ -181,7 +170,7 @@ func Test_TokenPrivateLabel(t *testing.T) {
 	tokens := RunTokenizer(code)
 
 	t1 := tokens[0]
-	assert.Equal(t, TokenDot, t1.Id())
+	assert.Equal(t, TokenPeriod, t1.Id())
 	assert.Equal(t, ".", t1.Text())
 
 	id2 := tokens[1]
@@ -189,30 +178,17 @@ func Test_TokenPrivateLabel(t *testing.T) {
 	assert.Equal(t, "label", id2.Text())
 }
 
-// -----------------------------------------------------------------------------
-func RunTokenizer(code string) []Token {
-	tokenizer := TokenizerFromReader(newTestReader(code))
+func Test_TokenComment(t *testing.T) {
+	code := "// comment \n"
+	tokens := RunTokenizer(code)
 
-	var tokens []Token
-	for token := range tokenizer.Tokens() {
-		tokens = append(tokens, token)
-	}
+	t1 := tokens[0]
+	assert.Equal(t, TokenComment, t1.Id())
+	assert.Equal(t, "// comment ", t1.Text())
 
-	return tokens
-}
+	t2 := tokens[1]
+	assert.Equal(t, TokenEOL, t2.Id())
 
-type testReaderImpl struct {
-	reader *strings.Reader
-}
-
-func (tr *testReaderImpl) ReadRune() (r rune, size int, err error) {
-	return tr.reader.ReadRune()
-}
-func (tr *testReaderImpl) UnreadRune() error {
-	return tr.reader.UnreadRune()
-}
-func newTestReader(code string) CodeReader {
-	return &testReaderImpl{
-		reader: strings.NewReader(code),
-	}
+	t3 := tokens[2]
+	assert.Equal(t, TokenEOF, t3.Id())
 }

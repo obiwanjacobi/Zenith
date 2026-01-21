@@ -17,6 +17,7 @@ Details on the compiler construction.
 - reduce register shuffling
 - optimize small function call overhead (inline expansion)
 - overflow parameters onto the stack -or- a central place in memory (not used for interrupts).
+- Compiler tag for entry point? Not all progs start at 0x0000
 
 ### Interrupt handling
 

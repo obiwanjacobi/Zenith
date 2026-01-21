@@ -8,6 +8,7 @@ The goal is to create a language that understands the Z80's unique architectural
 
 `u` - unsigned
 `i` - signed
+`d` - decimal (BCD)
 
 | Type  | Size | Desciption   |
 | ----- | ---- | ------------ |
@@ -16,6 +17,8 @@ The goal is to create a language that understands the Z80's unique architectural
 | `u16` | 2    | 0-65535      |
 | `i16` | 2    | -32786-32785 |
 | `u24` | 3    | ?            |
+| `d8`  | 1    | BCD: 0-99    |
+| `d16` | 2    | BCD: 0-9999  |
 
 #### Literals
 
@@ -58,6 +61,16 @@ A string is an array of (ascii) characters.
 ```c
 str: u8[] = "String"
 ```
+
+#### Slice
+
+> TBD
+
+A slice is a reference to a part of an array.
+
+The start is inclusive, the end is exclusive.
+
+Syntax: `slice := arr[1,4]` from second-till fourth elelement.
 
 ### Pointer
 
@@ -143,6 +156,12 @@ Syntax: `bool`
 b: bool = true
 ```
 
+### Alias
+
+All types (incl. `struct`s) can be aliased.
+
+Syntax: `type <alias> = <type>`
+
 ---
 
 ## Functions
@@ -161,7 +180,7 @@ Invocation syntax: `result := sum(101, 42)`
 
 ### Parameters and Return
 
-- Primitive types can be passed by value (param and return).
+- Primitive types can be passed by value (param and return) - except u24?.
 - Structs cannot be passed by value (param and return).
 - 
 
@@ -192,7 +211,13 @@ A variable is variable.
 A value is constant.
 
 Variable syntax: `x: u8`    default value
-Value syntax: `const x: u8 = 42`  must be initialzed
+Constant value syntax: `const x: u8 = 42`  must be initialzed
+
+Constant values are not stored in memory.
+
+```c
+
+```
 
 ---
 
@@ -286,7 +311,7 @@ The compiler will try to result (parts of) expressions at compile-time as much a
 | `++`     | Increment            |
 | `--`     | Decrement            |
 
-*) Implemented in the runtime.
+*) Implemented in software.
 
 The result type is the same as the biggest operand type unless the target assignment type is bigger.
 
@@ -367,6 +392,7 @@ Other than the ones already discussed.
 | `brk`         | Break out of a scope       |
 | `brk` <label> | Break out of scope 'label' |
 | `cnt`         | Skip current iteration     |
+| `cnt` <label> | Skip current iteration of <label> |
 | `goto`        | ??                         |
 
 > TBD: are 'in' and 'out' compiler intrinsics?
@@ -387,31 +413,40 @@ To import a symbol from a module use the qualified name: `<module>.<symbol>`
 
 ## Compiler
 
+### Directives
+
+All directives start with a `#`.
+
+| Directive          | Description                            |
+| ------------------ | -------------------------------------- |
+| #if <const>        | Conditional compilation                |
+| #elsif <const>     | Conditional compilation                |
+| #else              | Conditional compilation                |
+| #end               | Ends a compilation block               |
+| #asm               | Inline assembly block (#end)           |
+| #address <address> | Puts a symbol at a specific address    |
+| #callconv <call>   | Select calling convention for function |
+
 ### Intrinsics
 
-All intrinsics start with a `#`.
+All intrinsics start with a `@`.
 
-| Intrinsic          | Description                         |
-| ------------------ | ----------------------------------- |
-| #if <const>        | Conditional compilation             |
-| #elsif <const>     | Conditional compilation             |
-| #else              | Conditional compilation             |
-| #end               | Ends a compilation block            |
-| #address <address> | Puts a symbol at a specific address |
+| Intrinsic                  | Description                     |
+| -------------------------- | ------------------------------- |
+| @movemem(src, dst, u/d, r) | LDI/LDIR/LDD/LDDR               |
+| @findmem(src, f, u/d, r)   | CPI/CPIR/CPD/CPDR               |
+| @carry(false/true/not)     | Clear, set or toggle carry flag |
 
-> TBD:
-
-- LDI/LDIR + LDD/LDDR
-- CPI/CPIR + CPD/CPDR
-- BCD/DAA
+- BCD/DAA?
 
 ### Configuration
 
 The compiler can be configured to suit the hardware that is being coded for best.
 
-| Setting | Description                  |
-| ------- | ---------------------------- |
-| output  | What output file to generate |
+| Setting | Description                                                 |
+| ------- | ----------------------------------------------------------- |
+| output  | What output file to generate (asm (what flavor?), hex, elf) |
+|         |                                                             |
 
 > TBD:
 
