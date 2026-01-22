@@ -37,7 +37,7 @@ func (ctx *parserContext) fromMark(mark lexer.TokenStreamMark) []lexer.Token {
 
 const (
 	skipEOL = true
-	retEOL  = false
+	takeEOL = false
 )
 
 // returns the next token that is not whitespace (not eol) or comment
@@ -55,6 +55,12 @@ func (ctx *parserContext) next(skipEOL bool) lexer.Token {
 		}
 		ctx.current = t
 		id := t.Id()
+		if id == lexer.TokenUnknown {
+			ctx.error("unknown token: " + t.Text())
+		}
+		if id == lexer.TokenInvalid {
+			ctx.error("invalid token: " + t.Text())
+		}
 		if skipEOL && id == lexer.TokenEOL {
 			continue
 		}
@@ -62,16 +68,6 @@ func (ctx *parserContext) next(skipEOL bool) lexer.Token {
 			return t
 		}
 	}
-}
-
-// end: eol | eof
-// Checks if current token is EOL or EOF and consumes EOL if present
-func (ctx *parserContext) end() bool {
-	if ctx.is(lexer.TokenEOL) {
-		ctx.next(retEOL) // consume EOL
-		return true
-	}
-	return ctx.is(lexer.TokenEOF)
 }
 
 // checks if the current token matches the given token Id
@@ -93,6 +89,7 @@ func (ctx *parserContext) isAny(tokenIds []lexer.TokenId) bool {
 // the token stream is rewound between each attempt
 func (ctx *parserContext) parseOr(parseFuncs []func() ParserNode) ParserNode {
 	mark := ctx.mark()
+	errorCount := len(ctx.errors)
 	for i := 0; i < len(parseFuncs); i++ {
 		node := parseFuncs[i]()
 		if node != nil {
@@ -103,6 +100,8 @@ func (ctx *parserContext) parseOr(parseFuncs []func() ParserNode) ParserNode {
 			break
 		}
 		ctx.gotoMark(mark)
+		// Clear any errors added during this failed attempt
+		ctx.errors = ctx.errors[:errorCount]
 	}
 	return nil
 }

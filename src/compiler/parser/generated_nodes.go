@@ -297,43 +297,6 @@ func (n *functionDeclaration) Body() CodeBlock {
 }
 
 // ============================================================================
-// function_invocation: identifier '(' function_argumentList ')'
-// ============================================================================
-
-type FunctionInvocation interface {
-	ParserNode
-	Identifier() lexer.Token
-	Arguments() FunctionArgumentList
-}
-
-type functionInvocation struct {
-	parserNodeData
-}
-
-func (n *functionInvocation) Children() []ParserNode {
-	return n.parserNodeData.Children()
-}
-
-func (n *functionInvocation) Tokens() []lexer.Token {
-	return n.parserNodeData.Tokens()
-}
-
-func (n *functionInvocation) Identifier() lexer.Token {
-	tokens := n.parserNodeData.tokensOf(lexer.TokenIdentifier)
-	if len(tokens) > 0 {
-		return tokens[0]
-	}
-	return nil
-}
-
-func (n *functionInvocation) Arguments() FunctionArgumentList {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(FunctionArgumentList)
-	}
-	return nil
-}
-
-// ============================================================================
 // function_argumentList: (expression (',' expression)*)?
 // ============================================================================
 

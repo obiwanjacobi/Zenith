@@ -25,16 +25,14 @@ code_block:
 variable_declaration:
     variable_declaration_type | variable_declaration_inferred
 variable_declaration_inferred:
-    label '=' expression end
+    label '=' expression
 variable_declaration_type:
-    label type_ref ('=' expression)? end
+    label type_ref ('=' expression)?
 variable_assignment:
-    identifier (operator_arithmetic | operator_bitwise)? '=' expression end
+    identifier (operator_arithmetic | operator_bitwise)? '=' expression
 
 function_declaration:
     label '(' declaration_fieldlist? ')' type_ref? '{' code_block '}'
-function_invocation:
-    identifier '(' function_argumentList ')'
 function_argumentList:
     (expression (',' expression)*)?
 
@@ -51,7 +49,7 @@ type_initializer_fieldlist:
 type_initializer_field:
     identifier '=' expression
 type_alias:
-    'type' identifier '=' type_ref end
+    'type' identifier '=' type_ref
 
 declaration_fieldlist:
     declaration_field (',' declaration_field)*
@@ -76,7 +74,7 @@ statement_select_cases:
 statement_select_else:
     'else' '{' code_block '}'
 statement_expression:
-    expression_function_invocation end
+    expression_function_invocation
 
 expression:
     expression_precedence |

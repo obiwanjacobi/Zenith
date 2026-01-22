@@ -6,6 +6,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_TokenNumber0(t *testing.T) {
+	code := "0"
+	tokens := RunTokenizer(code)
+
+	t1 := tokens[0]
+	assert.Equal(t, TokenNumber, t1.Id())
+	assert.Equal(t, "0", t1.Text())
+	assert.Equal(t, 0, t1.Location().Index)
+	assert.Equal(t, 1, t1.Location().Line)
+	assert.Equal(t, 1, t1.Location().Column)
+
+	eof := tokens[1]
+	assert.Equal(t, TokenEOF, eof.Id())
+	assert.Equal(t, len(code), eof.Location().Index)
+}
+
 func Test_TokenNumber(t *testing.T) {
 	code := "1234"
 	tokens := RunTokenizer(code)

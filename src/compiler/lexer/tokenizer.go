@@ -15,6 +15,7 @@ type CodeReader interface {
 
 type Tokenizer struct {
 	reader     CodeReader
+	done       bool
 	index      int
 	line       int
 	column     int
@@ -27,6 +28,7 @@ func TokenizerFromFile(file *os.File) *Tokenizer {
 func TokenizerFromReader(reader CodeReader) *Tokenizer {
 	return &Tokenizer{
 		reader: reader,
+		done:   false,
 		index:  -1,
 		line:   1,
 		column: 0,
@@ -136,6 +138,10 @@ func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Tok
 		token = &tokenData{TokenConst, location, idOrKeyword}
 	case "any":
 		token = &tokenData{TokenAny, location, idOrKeyword}
+	case "true":
+		token = &tokenData{TokenTrue, location, idOrKeyword}
+	case "false":
+		token = &tokenData{TokenFalse, location, idOrKeyword}
 	default:
 		token = &tokenData{TokenIdentifier, location, idOrKeyword}
 	}
@@ -147,14 +153,13 @@ func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
-	var invalid = false
 	var isHex = false // allows a-f/A-F
 
 	for {
 		r, err := t.read()
 
-		if r == 0 || err != nil || unicode.IsSpace(r) || !unicode.IsDigit(r) {
-			if r != 0 && err == nil && !unicode.IsSpace(r) && !unicode.IsDigit(r) {
+		if err != nil || !unicode.IsDigit(r) {
+			if err == nil && !unicode.IsDigit(r) {
 				// this all is to allow for 0xAA and 0b01101011
 				if builder.Len() == 1 && first == '0' && (r == 'x' || r == 'b') {
 					isHex = r == 'x'
@@ -166,19 +171,12 @@ func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
 				} else if isHex && isHexLetter(r) {
 					builder.WriteRune(r)
 					continue
-				} else {
-					invalid = true
 				}
 			}
 
 			t.unread(r)
 
-			var token Token
-			if invalid {
-				token = &invalidTokenData{location, builder.String(), TokenNumber}
-			} else {
-				token = &tokenData{TokenNumber, location, builder.String()}
-			}
+			token := &tokenData{TokenNumber, location, builder.String()}
 			return token, err
 		}
 
@@ -417,6 +415,10 @@ func (t *Tokenizer) parseUnknown(first rune, location Location) (Token, error) {
 func (t *Tokenizer) read() (rune, error) {
 	r, _, err := t.reader.ReadRune()
 	if err == io.EOF {
+		if !t.done {
+			t.done = true
+			t.index++ // past end
+		}
 		return 0, nil
 	}
 
@@ -475,7 +477,7 @@ func isHexLetter(r rune) bool {
 	return r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F'
 }
 func isPunctuation(r rune) bool {
-	return unicode.IsPunct(r) || r == '$' || r == '^' || r == '=' || r == '+' || r == '`' || r == '~'
+	return unicode.IsPunct(r) || r == '$' || r == '^' || r == '=' || r == '+' || r == '`' || r == '~' || r == '<' || r == '>' || r == '|' || r == '&'
 }
 func isWhitespace(r rune) bool {
 	return unicode.IsSpace(r) && r != '\n'

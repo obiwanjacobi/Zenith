@@ -26,6 +26,7 @@ Details on the compiler construction.
 
 ## Memory Management
 
+- setup environment: stack ptr, top-mem etc.
 - What memory management feature are required?
 - Do we allow dynamic memory allocation? (how to make it safe(r))
 - allow segmented bounds checking (parts of the code can be optimized when they're debugged and finished)

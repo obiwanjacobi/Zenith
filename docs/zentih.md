@@ -443,10 +443,10 @@ All intrinsics start with a `@`.
 
 The compiler can be configured to suit the hardware that is being coded for best.
 
-| Setting | Description                                                 |
-| ------- | ----------------------------------------------------------- |
-| output  | What output file to generate (asm (what flavor?), hex, elf) |
-|         |                                                             |
+| Setting   | Description                                                 |
+| -------   | ----------------------------------------------------------- |
+| output    | What output file to generate (asm (what flavor?), hex, elf) |
+| z80-undoc | use z80 undocumented assembly instructions                  |
 
 > TBD:
 

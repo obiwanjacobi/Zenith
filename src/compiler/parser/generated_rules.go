@@ -58,7 +58,7 @@ func (ctx *parserContext) codeBlock() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenBracesClose) {
-		ctx.error("expected '}'")
+		ctx.error("expected '}' to close code block")
 		ctx.gotoMark(mark)
 		return nil
 	}
@@ -106,12 +106,6 @@ func (ctx *parserContext) variableDeclarationInferred() ParserNode {
 		return nil
 	}
 
-	if !ctx.end() {
-		ctx.error("expected end of line")
-		ctx.gotoMark(mark)
-		return nil
-	}
-
 	return &variableDeclarationInferred{
 		parserNodeData: parserNodeData{
 			_children: []ParserNode{labelNode, expr},
@@ -148,12 +142,6 @@ func (ctx *parserContext) variableDeclarationType() ParserNode {
 			return nil
 		}
 		children = append(children, expr)
-	}
-
-	if !ctx.end() {
-		ctx.error("expected end of line")
-		ctx.gotoMark(mark)
-		return nil
 	}
 
 	return &variableDeclarationType{
@@ -193,12 +181,6 @@ func (ctx *parserContext) variableAssignment() ParserNode {
 	expr := ctx.expression()
 	if expr == nil {
 		ctx.error("expected expression after '='")
-		ctx.gotoMark(mark)
-		return nil
-	}
-
-	if !ctx.end() {
-		ctx.error("expected end of line")
 		ctx.gotoMark(mark)
 		return nil
 	}
@@ -306,7 +288,7 @@ func (ctx *parserContext) functionInvocation() ParserNode {
 	}
 	ctx.next(skipEOL) // consume ')'
 
-	return &functionInvocation{
+	return &expressionFunctionInvocation{
 		parserNodeData: parserNodeData{
 			_children: children,
 			_tokens:   ctx.fromMark(mark),
@@ -394,7 +376,7 @@ func (ctx *parserContext) typeDeclarationFields() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenBracesClose) {
-		ctx.error("expected '}'")
+		ctx.error("expected '}' to close struct fields")
 		ctx.gotoMark(mark)
 		return nil
 	}
@@ -467,7 +449,7 @@ func (ctx *parserContext) typeInitializer() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenBracesClose) {
-		ctx.error("expected '}'")
+		ctx.error("expected '}' to close type initializer")
 		ctx.gotoMark(mark)
 		return nil
 	}
@@ -573,12 +555,6 @@ func (ctx *parserContext) typeAlias() ParserNode {
 		return nil
 	}
 
-	if !ctx.end() {
-		ctx.error("expected end of line")
-		ctx.gotoMark(mark)
-		return nil
-	}
-
 	return &typeAlias{
 		parserNodeData: parserNodeData{
 			_children: []ParserNode{typeRefNode},
@@ -673,7 +649,6 @@ func (ctx *parserContext) statementIf() ParserNode {
 		ctx.gotoMark(mark)
 		return nil
 	}
-	ctx.next(skipEOL) // skip to '{'
 
 	thenBlock := ctx.codeBlock()
 	if thenBlock == nil {
@@ -726,7 +701,6 @@ func (ctx *parserContext) statementElsif() ParserNode {
 		ctx.gotoMark(mark)
 		return nil
 	}
-	ctx.next(skipEOL) // skip to '{'
 
 	block := ctx.codeBlock()
 	if block == nil {
@@ -838,9 +812,10 @@ func (ctx *parserContext) statementSelect() ParserNode {
 	// Parse case clauses
 	for ctx.is(lexer.TokenCase) {
 		caseNode := ctx.statementSelectCase()
-		if caseNode != nil {
-			children = append(children, caseNode)
+		if caseNode == nil {
+			break
 		}
+		children = append(children, caseNode)
 	}
 
 	// Optional else clause
@@ -852,7 +827,7 @@ func (ctx *parserContext) statementSelect() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenBracesClose) {
-		ctx.error("expected '}'")
+		ctx.error("expected '}' to close select statement")
 		ctx.gotoMark(mark)
 		return nil
 	}
@@ -930,12 +905,6 @@ func (ctx *parserContext) statementExpression() ParserNode {
 
 	expr := ctx.expressionFunctionInvocation()
 	if expr == nil {
-		return nil
-	}
-
-	if !ctx.end() {
-		ctx.error("expected end of line")
-		ctx.gotoMark(mark)
 		return nil
 	}
 
@@ -1274,7 +1243,7 @@ func (ctx *parserContext) expressionIdentifier() ParserNode {
 	if !ctx.is(lexer.TokenIdentifier) {
 		return nil
 	}
-	ctx.next(retEOL) // consume identifier, preserve EOL
+	ctx.next(skipEOL) // consume identifier
 
 	return &expression{
 		parserNodeData: parserNodeData{
@@ -1285,7 +1254,7 @@ func (ctx *parserContext) expressionIdentifier() ParserNode {
 
 // expression_function_invocation: identifier '(' function_argumentList? ')'
 func (ctx *parserContext) expressionFunctionInvocation() ParserNode {
-	return ctx.functionInvocation() // Reuse function invocation parser
+	return ctx.functionInvocation()
 }
 
 // expression_type_initializer: type_ref type_initializer
@@ -1353,4 +1322,13 @@ func (ctx *parserContext) boolLiteral() ParserNode {
 	}
 
 	return nil
+}
+
+// ============================================================================
+// end: eol | eof (removed - EOL now transparent)
+// ============================================================================
+
+func (ctx *parserContext) end() bool {
+	// EOL handling removed - always return true
+	return true
 }
