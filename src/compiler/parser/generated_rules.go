@@ -76,15 +76,8 @@ func (ctx *parserContext) codeBlock() ParserNode {
 // variable_declaration: variable_declaration_type | variable_declaration_inferred
 // ============================================================================
 
+// variable_declaration: label type_ref? ('=' expression)?
 func (ctx *parserContext) variableDeclaration() ParserNode {
-	return ctx.parseOr([]func() ParserNode{
-		ctx.variableDeclarationType,
-		ctx.variableDeclarationInferred,
-	})
-}
-
-// variable_declaration_inferred: label '=' expression end
-func (ctx *parserContext) variableDeclarationInferred() ParserNode {
 	mark := ctx.mark()
 
 	labelNode := ctx.label()
@@ -93,44 +86,13 @@ func (ctx *parserContext) variableDeclarationInferred() ParserNode {
 		return nil
 	}
 
-	if !ctx.is(lexer.TokenEquals) {
-		ctx.gotoMark(mark)
-		return nil
-	}
-	ctx.next(skipEOL) // consume '='
+	children := []ParserNode{labelNode}
 
-	expr := ctx.expression()
-	if expr == nil {
-		ctx.error("expected expression after '='")
-		ctx.gotoMark(mark)
-		return nil
-	}
-
-	return &variableDeclarationInferred{
-		parserNodeData: parserNodeData{
-			_children: []ParserNode{labelNode, expr},
-			_tokens:   ctx.fromMark(mark),
-		},
-	}
-}
-
-// variable_declaration_type: label type_ref ('=' expression)? end
-func (ctx *parserContext) variableDeclarationType() ParserNode {
-	mark := ctx.mark()
-
-	labelNode := ctx.label()
-	if labelNode == nil {
-		ctx.gotoMark(mark)
-		return nil
-	}
-
+	// Optional type reference
 	typeRefNode := ctx.typeReference()
-	if typeRefNode == nil {
-		ctx.gotoMark(mark)
-		return nil
+	if typeRefNode != nil {
+		children = append(children, typeRefNode)
 	}
-
-	children := []ParserNode{labelNode, typeRefNode}
 
 	// Optional initializer
 	if ctx.is(lexer.TokenEquals) {
@@ -144,7 +106,14 @@ func (ctx *parserContext) variableDeclarationType() ParserNode {
 		children = append(children, expr)
 	}
 
-	return &variableDeclarationType{
+	// Must have either type or initializer
+	if typeRefNode == nil && len(children) < 2 {
+		ctx.error("variable declaration must have either type or initializer")
+		ctx.gotoMark(mark)
+		return nil
+	}
+
+	return &variableDeclaration{
 		parserNodeData: parserNodeData{
 			_children: children,
 			_tokens:   ctx.fromMark(mark),

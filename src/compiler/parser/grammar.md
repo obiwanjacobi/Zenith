@@ -23,11 +23,8 @@ code_block:
     (statement | expression_statement | function_invocation | variable_declaration | variable_assignment)*
 
 variable_declaration:
-    variable_declaration_type | variable_declaration_inferred
-variable_declaration_inferred:
-    label '=' expression
-variable_declaration_type:
-    label type_ref ('=' expression)?
+    # requires extra check to make sure either a type or an initializer is present (or both)
+    label type_ref? ('=' expression)?
 variable_assignment:
     identifier (operator_arithmetic | operator_bitwise)? '=' expression
 

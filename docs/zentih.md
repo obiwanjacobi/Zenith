@@ -15,7 +15,7 @@ The goal is to create a language that understands the Z80's unique architectural
 | `u8`  | 1    | 0-255        |
 | `i8`  | 1    | -128-127     |
 | `u16` | 2    | 0-65535      |
-| `i16` | 2    | -32786-32785 |
+| `i16` | 2    | -32768-32767 |
 | `u24` | 3    | ?            |
 | `d8`  | 1    | BCD: 0-99    |
 | `d16` | 2    | BCD: 0-9999  |

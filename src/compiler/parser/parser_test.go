@@ -23,10 +23,12 @@ func Test_ParseVarDeclType(t *testing.T) {
 	cu := parseCode(t, "Test_ParseVarDeclType", code)
 	assert.Equal(t, 1, len(cu.Declarations()))
 
-	varDeclType, ok := cu.Declarations()[0].(VariableDeclarationType)
+	varDecl, ok := cu.Declarations()[0].(VariableDeclaration)
 	assert.True(t, ok)
-	assert.Equal(t, "var", varDeclType.Label().Name())
-	assert.Equal(t, "u8", varDeclType.TypeRef().TypeName().Text())
+	assert.Equal(t, "var", varDecl.Label().Name())
+	assert.NotNil(t, varDecl.TypeRef())
+	assert.Equal(t, "u8", varDecl.TypeRef().TypeName().Text())
+	assert.Nil(t, varDecl.Initializer())
 }
 
 func Test_ParseVarDeclTypeWithInit(t *testing.T) {
@@ -34,9 +36,10 @@ func Test_ParseVarDeclTypeWithInit(t *testing.T) {
 	cu := parseCode(t, "Test_ParseVarDeclTypeWithInit", code)
 	assert.Equal(t, 1, len(cu.Declarations()))
 
-	varDecl, ok := cu.Declarations()[0].(VariableDeclarationType)
+	varDecl, ok := cu.Declarations()[0].(VariableDeclaration)
 	assert.True(t, ok)
 	assert.Equal(t, "count", varDecl.Label().Name())
+	assert.NotNil(t, varDecl.TypeRef())
 	assert.Equal(t, "u16", varDecl.TypeRef().TypeName().Text())
 	assert.NotNil(t, varDecl.Initializer())
 }
@@ -46,9 +49,10 @@ func Test_ParseVarDeclInferred(t *testing.T) {
 	cu := parseCode(t, "Test_ParseVarDeclInferred", code)
 	assert.Equal(t, 1, len(cu.Declarations()))
 
-	varDecl, ok := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl, ok := cu.Declarations()[0].(VariableDeclaration)
 	assert.True(t, ok)
 	assert.Equal(t, "value", varDecl.Label().Name())
+	assert.Nil(t, varDecl.TypeRef())
 	assert.NotNil(t, varDecl.Initializer())
 }
 
@@ -181,7 +185,7 @@ func Test_ParseSelectStatement(t *testing.T) {
 func Test_ParseExpressionLiteral(t *testing.T) {
 	code := `value: = 42`
 	cu := parseCode(t, "Test_ParseExpressionLiteral", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	expr := varDecl.Initializer()
 	assert.NotNil(t, expr)
@@ -190,7 +194,7 @@ func Test_ParseExpressionLiteral(t *testing.T) {
 func Test_ParseExpressionBinaryArithmetic(t *testing.T) {
 	code := `result: = 10 + 20`
 	cu := parseCode(t, "Test_ParseExpressionBinaryArithmetic", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	binOp, ok := varDecl.Initializer().(ExpressionOperatorBinArithmetic)
 	assert.True(t, ok)
@@ -201,14 +205,14 @@ func Test_ParseExpressionBinaryArithmetic(t *testing.T) {
 func Test_ParseExpressionComplex(t *testing.T) {
 	code := `result: = (a + b) * c - d / 2`
 	cu := parseCode(t, "Test_ParseExpressionComplex", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 	assert.NotNil(t, varDecl.Initializer())
 }
 
 func Test_ParseExpressionComparison(t *testing.T) {
 	code := `check: = x > 5`
 	cu := parseCode(t, "Test_ParseExpressionComparison", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	cmpOp, ok := varDecl.Initializer().(ExpressionOperatorBinComparison)
 	assert.True(t, ok)
@@ -219,7 +223,7 @@ func Test_ParseExpressionComparison(t *testing.T) {
 func Test_ParseExpressionLogical(t *testing.T) {
 	code := `check: = x > 5 and y < 10`
 	cu := parseCode(t, "Test_ParseExpressionLogical", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	logOp, ok := varDecl.Initializer().(ExpressionOperatorBinLogical)
 	assert.True(t, ok)
@@ -230,7 +234,7 @@ func Test_ParseExpressionLogical(t *testing.T) {
 func Test_ParseExpressionBitwise(t *testing.T) {
 	code := `result: = flags & 0xFF`
 	cu := parseCode(t, "Test_ParseExpressionBitwise", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	bitOp, ok := varDecl.Initializer().(ExpressionOperatorBinBitwise)
 	assert.True(t, ok)
@@ -241,7 +245,7 @@ func Test_ParseExpressionBitwise(t *testing.T) {
 func Test_ParseExpressionUnaryPrefix(t *testing.T) {
 	code := `neg: = -value`
 	cu := parseCode(t, "Test_ParseExpressionUnaryPrefix", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	unaryOp, ok := varDecl.Initializer().(ExpressionOperatorUnipreArithmetic)
 	assert.True(t, ok)
@@ -251,7 +255,7 @@ func Test_ParseExpressionUnaryPrefix(t *testing.T) {
 func Test_ParseExpressionMemberAccess(t *testing.T) {
 	code := `value: = obj.field`
 	cu := parseCode(t, "Test_ParseExpressionMemberAccess", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	memberAccess, ok := varDecl.Initializer().(ExpressionMemberAccess)
 	assert.True(t, ok)
@@ -261,7 +265,7 @@ func Test_ParseExpressionMemberAccess(t *testing.T) {
 func Test_ParseFunctionCall(t *testing.T) {
 	code := `result: = add(1, 2)`
 	cu := parseCode(t, "Test_ParseFunctionCall", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	funcCall, ok := varDecl.Initializer().(ExpressionFunctionInvocation)
 	assert.True(t, ok)
@@ -271,7 +275,7 @@ func Test_ParseFunctionCall(t *testing.T) {
 func Test_ParseTypeInitializer(t *testing.T) {
 	code := `point: = Point{x = 10, y = 20}`
 	cu := parseCode(t, "Test_ParseTypeInitializer", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	typeInit, ok := varDecl.Initializer().(ExpressionTypeInitializer)
 	assert.True(t, ok)
@@ -282,7 +286,7 @@ func Test_ParseTypeInitializer(t *testing.T) {
 func Test_ParseArrayType(t *testing.T) {
 	code := `buffer: u8[256]`
 	cu := parseCode(t, "Test_ParseArrayType", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationType)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	typeRef := varDecl.TypeRef()
 	assert.NotNil(t, typeRef)
@@ -307,7 +311,7 @@ func Test_ParseMultipleDeclarations(t *testing.T) {
 func Test_ParseOperatorPrecedence(t *testing.T) {
 	code := `result: = 2 + 3 * 4`
 	cu := parseCode(t, "Test_ParseOperatorPrecedence", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	// Should parse as: (2 + 3) * 4 (left-to-right, no operator precedence)
 	mulOp, ok := varDecl.Initializer().(ExpressionOperatorBinArithmetic)
@@ -321,7 +325,7 @@ func Test_ParseOperatorPrecedence(t *testing.T) {
 func Test_ParseStringLiteral(t *testing.T) {
 	code := `msg: = "Hello, World!"`
 	cu := parseCode(t, "Test_ParseStringLiteral", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	literal, ok := varDecl.Initializer().(ExpressionLiteral)
 	assert.True(t, ok)
@@ -331,7 +335,7 @@ func Test_ParseStringLiteral(t *testing.T) {
 func Test_ParseBooleanLiteral(t *testing.T) {
 	code := `flag: = true`
 	cu := parseCode(t, "Test_ParseBooleanLiteral", code)
-	varDecl := cu.Declarations()[0].(VariableDeclarationInferred)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	literal, ok := varDecl.Initializer().(ExpressionLiteral)
 	assert.True(t, ok)

@@ -76,7 +76,7 @@ func (n *codeBlock) Statements() []ParserNode {
 }
 
 // ============================================================================
-// variable_declaration: variable_declaration_type | variable_declaration_inferred
+// variable_declaration: label type_ref? ('=' expression)?
 // ============================================================================
 
 type VariableDeclaration interface {
@@ -118,74 +118,6 @@ func (n *variableDeclaration) Initializer() Expression {
 	children := n.parserNodeData.childrenOf(reflect.TypeFor[Expression]())
 	if len(children) > 0 {
 		return children[0].(Expression)
-	}
-	return nil
-}
-
-// ============================================================================
-// variable_declaration_inferred: label '=' expression
-// ============================================================================
-
-type VariableDeclarationInferred interface {
-	ParserNode
-	Label() Label
-	Initializer() Expression
-}
-
-type variableDeclarationInferred struct {
-	parserNodeData
-}
-
-func (n *variableDeclarationInferred) Children() []ParserNode {
-	return n.parserNodeData.Children()
-}
-
-func (n *variableDeclarationInferred) Tokens() []lexer.Token {
-	return n.parserNodeData.Tokens()
-}
-
-func (n *variableDeclarationInferred) Label() Label {
-	return n.parserNodeData._children[0].(Label)
-}
-
-func (n *variableDeclarationInferred) Initializer() Expression {
-	return n.parserNodeData._children[1].(Expression)
-}
-
-// ============================================================================
-// variable_declaration_type: label type_ref ('=' expression)?
-// ============================================================================
-
-type VariableDeclarationType interface {
-	ParserNode
-	Label() Label
-	TypeRef() TypeRef
-	Initializer() Expression
-}
-
-type variableDeclarationType struct {
-	parserNodeData
-}
-
-func (n *variableDeclarationType) Children() []ParserNode {
-	return n.parserNodeData.Children()
-}
-
-func (n *variableDeclarationType) Tokens() []lexer.Token {
-	return n.parserNodeData.Tokens()
-}
-
-func (n *variableDeclarationType) Label() Label {
-	return n.parserNodeData._children[0].(Label)
-}
-
-func (n *variableDeclarationType) TypeRef() TypeRef {
-	return n.parserNodeData._children[1].(TypeRef)
-}
-
-func (n *variableDeclarationType) Initializer() Expression {
-	if len(n.parserNodeData._children) > 2 {
-		return n.parserNodeData._children[2].(Expression)
 	}
 	return nil
 }
