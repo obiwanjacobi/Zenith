@@ -7,6 +7,7 @@ import (
 	"zenith/compiler/lexer"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // parseCode is a helper function that parses code and returns the CompilationUnit
@@ -252,6 +253,17 @@ func Test_ParseExpressionUnaryPrefix(t *testing.T) {
 	assert.NotNil(t, unaryOp.Operand())
 }
 
+func Test_ParseExpressionIdentifier(t *testing.T) {
+	code := `result: = myVar`
+	cu := parseCode(t, "Test_ParseExpressionIdentifier", code)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
+
+	identifier, ok := varDecl.Initializer().(ExpressionIdentifier)
+	assert.True(t, ok, "Initializer should be ExpressionIdentifier")
+	assert.NotNil(t, identifier.Identifier(), "Identifier token should not be nil")
+	assert.Equal(t, "myVar", identifier.Identifier().Text(), "Identifier name should be 'myVar'")
+}
+
 func Test_ParseExpressionMemberAccess(t *testing.T) {
 	code := `value: = obj.field`
 	cu := parseCode(t, "Test_ParseExpressionMemberAccess", code)
@@ -340,4 +352,28 @@ func Test_ParseBooleanLiteral(t *testing.T) {
 	literal, ok := varDecl.Initializer().(ExpressionLiteral)
 	assert.True(t, ok)
 	assert.NotNil(t, literal)
+}
+
+func Test_ParseStructDeclarationTopLevel(t *testing.T) {
+	code := `struct Point {
+		x: u8,
+		y: u8
+	}`
+	cu := parseCode(t, "Test_ParseStructDeclarationTopLevel", code)
+	require.Equal(t, 1, len(cu.Declarations()))
+
+	structDecl, ok := cu.Declarations()[0].(TypeDeclaration)
+	assert.True(t, ok)
+	assert.NotNil(t, structDecl.Fields())
+}
+
+func Test_ParseStructDeclarationMissingComma(t *testing.T) {
+	code := `struct Point {
+		x: u8
+		y: u8
+	}`
+	tokens := lexer.OpenTokenStream(code)
+	_, errors := Parse("Test_ParseStructDeclarationMissingComma", tokens)
+
+	require.NotEqual(t, 0, len(errors), "Parser should report error for missing comma")
 }

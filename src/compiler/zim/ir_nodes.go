@@ -78,10 +78,9 @@ func (n *IRTypeDecl) AST() parser.TypeDeclaration { return n.astNode }
 // Statements
 // ============================================================================
 
-// IRBlock represents a block of statements with its own scope
+// IRBlock represents a block of statements
 type IRBlock struct {
 	Statements []IRStatement
-	Scope      *SymbolTable
 	astNode    parser.CodeBlock
 }
 

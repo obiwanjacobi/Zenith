@@ -9,12 +9,14 @@ import (
 type ParserNode interface {
 	Children() []ParserNode
 	Tokens() []lexer.Token
+	Errors() []ParserError
 }
 
 // Base parser node data structure
 type parserNodeData struct {
 	_children []ParserNode
 	_tokens   []lexer.Token
+	_errors   []ParserError
 }
 
 func (n *parserNodeData) Children() []ParserNode {
@@ -23,6 +25,10 @@ func (n *parserNodeData) Children() []ParserNode {
 
 func (n *parserNodeData) Tokens() []lexer.Token {
 	return n._tokens
+}
+
+func (n *parserNodeData) Errors() []ParserError {
+	return n._errors
 }
 
 // ============================================================================
@@ -1499,6 +1505,38 @@ func (n *expressionLiteral) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionLiteral) Value() lexer.Token {
+	if len(n.parserNodeData._tokens) > 0 {
+		return n.parserNodeData._tokens[0]
+	}
+	return nil
+}
+
+// ============================================================================
+// expression_identifier: identifier
+// ============================================================================
+
+type ExpressionIdentifier interface {
+	Expression
+	Identifier() lexer.Token
+}
+
+type expressionIdentifier struct {
+	parserNodeData
+}
+
+func (n *expressionIdentifier) Children() []ParserNode {
+	return n.parserNodeData.Children()
+}
+
+func (n *expressionIdentifier) Tokens() []lexer.Token {
+	return n.parserNodeData.Tokens()
+}
+
+func (n *expressionIdentifier) ExpressionKind() ExpressionKind {
+	return ExprIdentifier
+}
+
+func (n *expressionIdentifier) Identifier() lexer.Token {
 	if len(n.parserNodeData._tokens) > 0 {
 		return n.parserNodeData._tokens[0]
 	}

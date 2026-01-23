@@ -11,20 +11,20 @@ type SemanticAnalyzer struct {
 	globalScope  *SymbolTable
 	currentScope *SymbolTable
 	types        map[string]Type
-	errors       []error
+	errors       []*IRError
 }
 
 // NewSemanticAnalyzer creates a new semantic analyzer
 func NewSemanticAnalyzer() *SemanticAnalyzer {
 	sa := &SemanticAnalyzer{
 		types:  make(map[string]Type),
-		errors: make([]error, 0),
+		errors: make([]*IRError, 0),
 	}
 	return sa
 }
 
 // Analyze performs semantic analysis on the AST and returns the IR
-func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationUnit, []error) {
+func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationUnit, []*IRError) {
 	// Initialize global scope
 	sa.globalScope = NewSymbolTable(nil)
 	sa.currentScope = sa.globalScope
@@ -84,7 +84,7 @@ func (sa *SemanticAnalyzer) registerDeclaration(node parser.ParserNode) {
 	case parser.TypeDeclaration:
 		sa.registerType(n)
 	default:
-		sa.error(fmt.Sprintf("unknown declaration type: %T", node))
+		sa.error(fmt.Sprintf("unknown declaration type: %T", node), node)
 	}
 }
 
@@ -101,7 +101,7 @@ func (sa *SemanticAnalyzer) registerVariable(name string, typeRef parser.TypeRef
 	}
 
 	if !sa.currentScope.Add(symbol) {
-		sa.error(fmt.Sprintf("symbol '%s' already declared in this scope", name))
+		sa.error(fmt.Sprintf("symbol '%s' already declared in this scope", name), typeRef)
 	}
 }
 
@@ -131,7 +131,7 @@ func (sa *SemanticAnalyzer) registerFunction(node parser.FunctionDeclaration) {
 	}
 
 	if !sa.currentScope.Add(symbol) {
-		sa.error(fmt.Sprintf("function '%s' already declared", node.Label().Name()))
+		sa.error(fmt.Sprintf("function '%s' already declared", node.Label().Name()), node)
 	}
 }
 
@@ -169,7 +169,7 @@ func (sa *SemanticAnalyzer) processDeclaration(node parser.ParserNode) IRDeclara
 	case parser.TypeDeclaration:
 		return sa.processTypeDecl(n)
 	default:
-		sa.error(fmt.Sprintf("unknown declaration type: %T", node))
+		sa.error(fmt.Sprintf("unknown declaration type: %T", node), node)
 		return nil
 	}
 }
@@ -186,7 +186,7 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 		// Explicit type: lookup symbol registered in pass 1
 		symbol = sa.currentScope.Lookup(name)
 		if symbol == nil {
-			sa.error(fmt.Sprintf("internal error: symbol '%s' not found", name))
+			sa.error(fmt.Sprintf("internal error: symbol '%s' not found", name), node)
 			return nil
 		}
 
@@ -201,7 +201,7 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 	} else {
 		// Inferred type: initializer is mandatory
 		if initExpr == nil {
-			sa.error(fmt.Sprintf("variable '%s' without type must have initializer", name))
+			sa.error(fmt.Sprintf("variable '%s' without type must have initializer", name), node)
 			return nil
 		}
 
@@ -218,7 +218,7 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 			Offset: 0,
 		}
 		if !sa.currentScope.Add(symbol) {
-			sa.error(fmt.Sprintf("symbol '%s' already declared in this scope", name))
+			sa.error(fmt.Sprintf("symbol '%s' already declared in this scope", name), node)
 			return nil
 		}
 	}
@@ -234,7 +234,7 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 	name := node.Label().Name()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
-		sa.error(fmt.Sprintf("internal error: function '%s' not found", name))
+		sa.error(fmt.Sprintf("internal error: function '%s' not found", name), node)
 		return nil
 	}
 
@@ -279,7 +279,17 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 
 func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *IRTypeDecl {
 	name := node.Name().Text()
-	structType := sa.types[name].(*StructType)
+	typ, ok := sa.types[name]
+	if !ok {
+		sa.error(fmt.Sprintf("internal error: type '%s' not found in type registry", name), node)
+		return nil
+	}
+
+	structType, ok := typ.(*StructType)
+	if !ok {
+		sa.error(fmt.Sprintf("internal error: type '%s' is not a struct type", name), node)
+		return nil
+	}
 
 	return &IRTypeDecl{
 		Type:    structType,
@@ -292,10 +302,7 @@ func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *IRType
 // ============================================================================
 
 func (sa *SemanticAnalyzer) processBlock(node parser.CodeBlock) *IRBlock {
-	// Create new scope for block
-	blockScope := NewSymbolTable(sa.currentScope)
-	sa.pushScope(blockScope)
-	defer sa.popScope()
+	// Use current scope (function scope) - no new scope for blocks
 
 	statements := []IRStatement{}
 	for _, stmt := range node.Statements() {
@@ -307,7 +314,6 @@ func (sa *SemanticAnalyzer) processBlock(node parser.CodeBlock) *IRBlock {
 
 	return &IRBlock{
 		Statements: statements,
-		Scope:      blockScope,
 		astNode:    node,
 	}
 }
@@ -327,7 +333,7 @@ func (sa *SemanticAnalyzer) processStatement(node parser.ParserNode) IRStatement
 	case parser.StatementExpression:
 		return sa.processExpressionStmt(n)
 	default:
-		sa.error(fmt.Sprintf("unknown statement type: %T", node))
+		sa.error(fmt.Sprintf("unknown statement type: %T", node), node)
 		return nil
 	}
 }
@@ -336,7 +342,7 @@ func (sa *SemanticAnalyzer) processAssignment(node parser.VariableAssignment) *I
 	name := node.Identifier().Text()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
-		sa.error(fmt.Sprintf("undefined variable '%s'", name))
+		sa.error(fmt.Sprintf("undefined variable '%s'", name), node)
 		return nil
 	}
 
@@ -417,14 +423,10 @@ func (sa *SemanticAnalyzer) processExpression(node parser.Expression) IRExpressi
 		return sa.processMemberAccess(n)
 	case parser.ExpressionTypeInitializer:
 		return sa.processTypeInitializer(n)
+	case parser.ExpressionIdentifier:
+		return sa.processIdentifier(n)
 	default:
-		// Try to extract identifier from generic Expression
-		if expr, ok := node.(interface{ ExpressionKind() parser.ExpressionKind }); ok {
-			if expr.ExpressionKind() == parser.ExprIdentifier {
-				return sa.processIdentifier(node)
-			}
-		}
-		sa.error(fmt.Sprintf("unknown expression type: %T", node))
+		sa.error(fmt.Sprintf("unknown expression type: %T", node), node)
 		return nil
 	}
 }
@@ -448,7 +450,7 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *IRCon
 		value = token.Id() == lexer.TokenTrue
 		typ = BoolType
 	default:
-		sa.error(fmt.Sprintf("unknown literal type: %s", token.Text()))
+		sa.error(fmt.Sprintf("unknown literal type: %s", token.Text()), node)
 		return nil
 	}
 
@@ -459,14 +461,19 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *IRCon
 	}
 }
 
-func (sa *SemanticAnalyzer) processIdentifier(node parser.Expression) *IRSymbolRef {
-	// TODO: Extract identifier name from expression
-	// This is a bit tricky with the current AST structure
-	name := "" // Extract from tokens
+// processIdentifier handles identifier expressions (variable/parameter references)
+func (sa *SemanticAnalyzer) processIdentifier(node parser.ExpressionIdentifier) *IRSymbolRef {
+	// Get the identifier token directly from the node
+	token := node.Identifier()
+	if token == nil {
+		sa.error("identifier expression has no identifier token", node)
+		return nil
+	}
 
+	name := token.Text()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
-		sa.error(fmt.Sprintf("undefined identifier '%s'", name))
+		sa.error(fmt.Sprintf("undefined identifier '%s'", name), node)
 		return nil
 	}
 
@@ -504,7 +511,7 @@ func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionIn
 	name := node.FunctionName().Text()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
-		sa.error(fmt.Sprintf("undefined function '%s'", name))
+		sa.error(fmt.Sprintf("undefined function '%s'", name), node)
 		return nil
 	}
 
@@ -534,13 +541,113 @@ func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionIn
 }
 
 func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAccess) *IRMemberAccess {
-	// TODO: Implement
-	return nil
+	// Process the object expression
+	object := sa.processExpression(node.Object())
+	if object == nil {
+		return nil
+	}
+
+	// Get the member name
+	memberToken := node.Member()
+	if memberToken == nil {
+		sa.error("member access has no member name", node)
+		return nil
+	}
+	memberName := memberToken.Text()
+
+	// Get the struct type from the object
+	structType, ok := object.Type().(*StructType)
+	if !ok {
+		sa.error(fmt.Sprintf("cannot access member '%s' on non-struct type", memberName), node)
+		return nil
+	}
+
+	// Find the field in the struct
+	var field *StructField
+	for _, f := range structType.Fields() {
+		if f.Name == memberName {
+			field = f
+			break
+		}
+	}
+
+	if field == nil {
+		sa.error(fmt.Sprintf("struct '%s' has no field '%s'", structType.Name(), memberName), node)
+		return nil
+	}
+
+	return &IRMemberAccess{
+		Object:  &object,
+		Field:   field,
+		typ:     field.Type,
+		astNode: node,
+	}
 }
 
 func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeInitializer) *IRTypeInitializer {
-	// TODO: Implement
-	return nil
+	// Get the type reference
+	typeRef := node.TypeRef()
+	if typeRef == nil {
+		sa.error("type initializer has no type reference", node)
+		return nil
+	}
+
+	// Resolve the type
+	typ := sa.resolveTypeRef(typeRef)
+	if typ == nil {
+		return nil
+	}
+
+	// Ensure it's a struct type
+	structType, ok := typ.(*StructType)
+	if !ok {
+		sa.error(fmt.Sprintf("cannot initialize non-struct type '%s'", typeRef.TypeName().Text()), node)
+		return nil
+	}
+
+	// Process field initializers
+	fieldInits := []*IRFieldInit{}
+	if initializer := node.Initializer(); initializer != nil {
+		if fieldList := initializer.Fields(); fieldList != nil {
+			for _, fieldNode := range fieldList.Fields() {
+				fieldName := fieldNode.Identifier().Text()
+
+				// Find the field in the struct
+				var structField *StructField
+				for _, f := range structType.Fields() {
+					if f.Name == fieldName {
+						structField = f
+						break
+					}
+				}
+
+				if structField == nil {
+					sa.error(fmt.Sprintf("struct '%s' has no field '%s'", structType.Name(), fieldName), fieldNode)
+					continue
+				}
+
+				// Process the field value expression
+				valueExpr := sa.processExpression(fieldNode.Expression())
+				if valueExpr == nil {
+					continue
+				}
+
+				// TODO: Type check that valueExpr type matches structField type
+
+				fieldInits = append(fieldInits, &IRFieldInit{
+					Field: structField,
+					Value: valueExpr,
+				})
+			}
+		}
+	}
+
+	return &IRTypeInitializer{
+		StructType: structType,
+		Fields:     fieldInits,
+		typ:        structType,
+		astNode:    node,
+	}
 }
 
 // ============================================================================
@@ -555,7 +662,7 @@ func (sa *SemanticAnalyzer) resolveTypeRef(typeRef parser.TypeRef) Type {
 	typeName := typeRef.TypeName().Text()
 	typ := sa.types[typeName]
 	if typ == nil {
-		sa.error(fmt.Sprintf("undefined type '%s'", typeName))
+		sa.error(fmt.Sprintf("undefined type '%s'", typeName), typeRef)
 		return nil
 	}
 
@@ -605,7 +712,8 @@ func (sa *SemanticAnalyzer) mapBinaryOperator(token lexer.TokenId) BinaryOperato
 	case lexer.TokenOr:
 		return OpLogicalOr
 	default:
-		sa.error(fmt.Sprintf("unknown binary operator: %d", token))
+		// Note: We can't pass a node here because we don't have access to it
+		sa.error(fmt.Sprintf("unknown binary operator: %d", token), nil)
 		return OpAdd // Default
 	}
 }
@@ -620,6 +728,6 @@ func (sa *SemanticAnalyzer) popScope() {
 	}
 }
 
-func (sa *SemanticAnalyzer) error(msg string) {
-	sa.errors = append(sa.errors, fmt.Errorf("%s", msg))
+func (sa *SemanticAnalyzer) error(msg string, node parser.ParserNode) {
+	sa.errors = append(sa.errors, NewIRError(msg, node))
 }

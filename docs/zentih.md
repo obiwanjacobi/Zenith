@@ -439,6 +439,8 @@ All intrinsics start with a `@`.
 
 - BCD/DAA?
 
+- Provide prolog 'macros' for working with the calling conventions for custom asm code.
+
 ### Configuration
 
 The compiler can be configured to suit the hardware that is being coded for best.

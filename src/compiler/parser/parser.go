@@ -87,34 +87,67 @@ func (ctx *parserContext) isAny(tokenIds []lexer.TokenId) bool {
 
 // calls each parse function in order until one returns a non-nil node
 // the token stream is rewound between each attempt
+// Prefers nodes without errors; if all have errors, returns the one with fewest errors
 func (ctx *parserContext) parseOr(parseFuncs []func() ParserNode) ParserNode {
 	mark := ctx.mark()
-	errorCount := len(ctx.errors)
+	var bestNode ParserNode
+	bestErrorCount := -1
+
 	for i := 0; i < len(parseFuncs); i++ {
 		node := parseFuncs[i]()
 		if node != nil {
-			return node
+			errorCount := len(node.Errors())
+			// If this node has no errors, return it immediately
+			if errorCount == 0 {
+				return node
+			}
+			// Keep track of node with fewest errors
+			if bestNode == nil || errorCount < bestErrorCount {
+				bestNode = node
+				bestErrorCount = errorCount
+			}
 		}
 		// no use to continue now
 		if ctx.is(lexer.TokenEOF) {
 			break
 		}
 		ctx.gotoMark(mark)
-		// Clear any errors added during this failed attempt
-		ctx.errors = ctx.errors[:errorCount]
 	}
-	return nil
+
+	// Return best node found (may be nil, or may have errors)
+	return bestNode
 }
 
 //
 // Parse entry point
 //
 
+// collectErrors recursively collects all errors from nodes in the AST
+func collectErrors(node ParserNode, errors []ParserError) []ParserError {
+	if node == nil {
+		return errors
+	}
+
+	// Add errors from this node
+	errors = append(errors, node.Errors()...)
+
+	// Recursively collect from children
+	for _, child := range node.Children() {
+		errors = collectErrors(child, errors)
+	}
+
+	return errors
+}
+
 func Parse(source string, tokens lexer.TokenStream) (ParserNode, []ParserError) {
 	ctx := parserContext{source, tokens, nil, make([]ParserError, 0, 10)}
 	if ctx.next(skipEOL) != nil {
 		node := ctx.compilationUnit()
-		return node, ctx.errors
+
+		// Collect all errors from the AST nodes
+		allErrors := collectErrors(node, ctx.errors)
+
+		return node, allErrors
 	}
 	return nil, ctx.errors
 }
