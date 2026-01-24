@@ -410,8 +410,17 @@ func (sa *SemanticAnalyzer) processIf(node parser.StatementIf) *IRIf {
 	condition := sa.processExpression(node.Condition())
 	thenBlock := sa.processBlock(node.ThenBlock())
 
-	// TODO: Process elsif clauses
+	// Process elsif clauses
 	elsifBlocks := []*IRElsif{}
+	for _, elsifNode := range node.ElsifClauses() {
+		elsifCondition := sa.processExpression(elsifNode.Condition())
+		elsifThenBlock := sa.processBlock(elsifNode.ThenBlock())
+		elsifBlocks = append(elsifBlocks, &IRElsif{
+			Condition: elsifCondition,
+			ThenBlock: elsifThenBlock,
+			astNode:   elsifNode,
+		})
+	}
 
 	var elseBlock *IRBlock
 	if eb := node.ElseBlock(); eb != nil {
@@ -428,9 +437,41 @@ func (sa *SemanticAnalyzer) processIf(node parser.StatementIf) *IRIf {
 }
 
 func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
-	// TODO: Implement
+	// Create a new scope for the for loop
+	loopScope := &SymbolTable{
+		parent:  sa.currentScope,
+		symbols: make(map[string]*Symbol),
+	}
+	sa.pushScope(loopScope)
+	defer sa.popScope()
+
+	var initializer IRStatement
+	if init := node.Initializer(); init != nil {
+		// Initializer can be a variable declaration or an expression
+		initializer = sa.processStatement(init)
+	}
+
+	var condition IRExpression
+	if cond := node.Condition(); cond != nil {
+		condition = sa.processExpression(cond)
+	}
+
+	var increment IRExpression
+	if inc := node.Increment(); inc != nil {
+		increment = sa.processExpression(inc)
+	}
+
+	var body *IRBlock
+	if bodyNode := node.Body(); bodyNode != nil {
+		body = sa.processBlock(bodyNode)
+	}
+
 	return &IRFor{
-		astNode: node,
+		Initializer: initializer,
+		Condition:   condition,
+		Increment:   increment,
+		Body:        body,
+		astNode:     node,
 	}
 }
 
@@ -496,6 +537,8 @@ func (sa *SemanticAnalyzer) processExpression(node parser.Expression) IRExpressi
 		return sa.processLiteral(n)
 	case parser.ExpressionOperatorBinary:
 		return sa.processBinaryOp(n, n.Operator().Id())
+	case parser.ExpressionOperatorUnaryPrefix:
+		return sa.processUnaryPrefixOp(n)
 	case parser.ExpressionFunctionInvocation:
 		return sa.processFunctionCall(n)
 	case parser.ExpressionMemberAccess:
@@ -518,13 +561,26 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *IRCon
 
 	switch token.Id() {
 	case lexer.TokenNumber:
-		// TODO: Parse number and determine type (u8, u16, etc.)
-		value = 0
-		typ = U8Type
+		value = node.Number()
+		// Determine type based on value range
+		numVal := node.Number()
+		if numVal < 0 {
+			if numVal >= -128 {
+				typ = I8Type
+			} else {
+				typ = I16Type
+			}
+		} else {
+			if numVal <= 255 {
+				typ = U8Type
+			} else {
+				typ = U16Type
+			}
+		}
 	case lexer.TokenString:
-		value = token.Text()
+		value = node.String()
 		// String is u8[] array
-		typ = NewArrayType(U8Type, len(token.Text()))
+		typ = NewArrayType(U8Type, len(node.String()))
 	case lexer.TokenTrue, lexer.TokenFalse:
 		value = token.Id() == lexer.TokenTrue
 		typ = BoolType
@@ -560,6 +616,39 @@ func (sa *SemanticAnalyzer) processIdentifier(node parser.ExpressionIdentifier) 
 		Symbol:  symbol,
 		astNode: node,
 	}
+}
+
+func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorUnaryPrefix) IRExpression {
+	operand := sa.processExpression(node.Operand())
+	if operand == nil {
+		return nil
+	}
+
+	opToken := node.Operator().Id()
+
+	// Handle unary minus with constant folding for literals
+	if opToken == lexer.TokenMinus {
+		if constant, ok := operand.(*IRConstant); ok {
+			if numVal, ok := constant.Value.(int); ok {
+				negatedVal := -numVal
+				var typ Type
+				if negatedVal >= -128 {
+					typ = I8Type
+				} else {
+					typ = I16Type
+				}
+				return &IRConstant{
+					Value:   negatedVal,
+					typ:     typ,
+					astNode: node,
+				}
+			}
+		}
+	}
+
+	// TODO: Handle other unary operators (unary plus, bitwise not, logical not)
+	sa.error(fmt.Sprintf("unary operator %s not yet implemented", node.Operator().Text()), node)
+	return nil
 }
 
 func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary, opToken lexer.TokenId) *IRBinaryOp {

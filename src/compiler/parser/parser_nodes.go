@@ -2,6 +2,7 @@ package parser
 
 import (
 	"reflect"
+	"strconv"
 	"zenith/compiler"
 	"zenith/compiler/lexer"
 )
@@ -1506,6 +1507,8 @@ func (n *expressionTypeInitializer) Initializer() TypeInitializer {
 type ExpressionLiteral interface {
 	Expression
 	Value() lexer.Token
+	Number() int
+	String() string
 }
 
 type expressionLiteral struct {
@@ -1529,6 +1532,22 @@ func (n *expressionLiteral) Value() lexer.Token {
 		return n.parserNodeData._tokens[0]
 	}
 	return nil
+}
+
+func (n *expressionLiteral) Number() int {
+	if token := n.Value(); token != nil && token.Id() == lexer.TokenNumber {
+		if num, err := strconv.ParseInt(token.Text(), 0, 64); err == nil {
+			return int(num)
+		}
+	}
+	return 0
+}
+
+func (n *expressionLiteral) String() string {
+	if token := n.Value(); token != nil && token.Id() == lexer.TokenString {
+		return token.Text()
+	}
+	return ""
 }
 
 // ============================================================================

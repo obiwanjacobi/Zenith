@@ -321,6 +321,133 @@ func Test_Analyze_IfElseStatement(t *testing.T) {
 	assert.Equal(t, 1, len(ifStmt.ElseBlock.Statements))
 }
 
+func Test_Analyze_IfElsifStatement(t *testing.T) {
+	code := `main: () {
+		if true {
+			x: = 1
+		} elsif false {
+			y: = 2
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_IfElsifStatement", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	ifStmt := funcDecl.Body.Statements[0].(*IRIf)
+
+	assert.NotNil(t, ifStmt.ThenBlock)
+	assert.Equal(t, 1, len(ifStmt.ThenBlock.Statements))
+	assert.Equal(t, 1, len(ifStmt.ElsifBlocks))
+	assert.Nil(t, ifStmt.ElseBlock)
+
+	elsif := ifStmt.ElsifBlocks[0]
+	assert.NotNil(t, elsif.Condition)
+	assert.NotNil(t, elsif.ThenBlock)
+	assert.Equal(t, 1, len(elsif.ThenBlock.Statements))
+}
+
+func Test_Analyze_IfElsifElseStatement(t *testing.T) {
+	code := `main: () {
+		if true {
+			x: = 1
+		} elsif false {
+			y: = 2
+		} elsif true {
+			z: = 3
+		} else {
+			w: = 4
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_IfElsifElseStatement", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	ifStmt := funcDecl.Body.Statements[0].(*IRIf)
+
+	assert.NotNil(t, ifStmt.ThenBlock)
+	assert.Equal(t, 1, len(ifStmt.ThenBlock.Statements))
+	assert.Equal(t, 2, len(ifStmt.ElsifBlocks))
+	assert.NotNil(t, ifStmt.ElseBlock)
+	assert.Equal(t, 1, len(ifStmt.ElseBlock.Statements))
+
+	// Check first elsif
+	elsif1 := ifStmt.ElsifBlocks[0]
+	assert.NotNil(t, elsif1.Condition)
+	assert.NotNil(t, elsif1.ThenBlock)
+	assert.Equal(t, 1, len(elsif1.ThenBlock.Statements))
+
+	// Check second elsif
+	elsif2 := ifStmt.ElsifBlocks[1]
+	assert.NotNil(t, elsif2.Condition)
+	assert.NotNil(t, elsif2.ThenBlock)
+	assert.Equal(t, 1, len(elsif2.ThenBlock.Statements))
+}
+
+// ============================================================================
+// For Loop Tests
+// ============================================================================
+
+func Test_Analyze_ForLoop_Full(t *testing.T) {
+	code := `main: () {
+		for i: = 0; i < 10; i + 1 {
+			x: = i
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_Full", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	require.Equal(t, 1, len(funcDecl.Body.Statements))
+
+	forStmt, ok := funcDecl.Body.Statements[0].(*IRFor)
+	require.True(t, ok, "Statement should be IRFor")
+	assert.NotNil(t, forStmt.Initializer)
+	assert.NotNil(t, forStmt.Condition)
+	assert.NotNil(t, forStmt.Increment)
+	assert.NotNil(t, forStmt.Body)
+	assert.Equal(t, 1, len(forStmt.Body.Statements))
+}
+
+func Test_Analyze_ForLoop_OnlyCondition(t *testing.T) {
+	code := `main: () {
+		for true {
+			x: = 1
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_OnlyCondition", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	forStmt := funcDecl.Body.Statements[0].(*IRFor)
+
+	assert.Nil(t, forStmt.Initializer)
+	assert.NotNil(t, forStmt.Condition)
+	assert.Nil(t, forStmt.Increment)
+	assert.NotNil(t, forStmt.Body)
+}
+
+func Test_Analyze_ForLoop_Scope(t *testing.T) {
+	code := `main: () {
+		for i: = 0; i < 10; i + 1 {
+			j: = i
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_Scope", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	forStmt := funcDecl.Body.Statements[0].(*IRFor)
+
+	// Initializer should be a variable declaration
+	varDecl, ok := forStmt.Initializer.(*IRVariableDecl)
+	require.True(t, ok, "Initializer should be IRVariableDecl")
+	assert.Equal(t, "i", varDecl.Symbol.Name)
+
+	// Body should be able to reference i
+	bodyVarDecl := forStmt.Body.Statements[0].(*IRVariableDecl)
+	assert.NotNil(t, bodyVarDecl.Initializer, "Loop variable should be accessible in body")
+}
+
 // ============================================================================
 // Expression Tests
 // ============================================================================
@@ -352,6 +479,102 @@ func Test_Analyze_BooleanLiteral(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, true, constant.Value)
 	assert.Equal(t, BoolType, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_U8(t *testing.T) {
+	code := `num: = 42`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_U8", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, 42, constant.Value)
+	assert.Equal(t, U8Type, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_U16(t *testing.T) {
+	code := `num: = 300`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_U16", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, 300, constant.Value)
+	assert.Equal(t, U16Type, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_I8(t *testing.T) {
+	code := `num: = -50`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_I8", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, -50, constant.Value)
+	assert.Equal(t, I8Type, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_I16(t *testing.T) {
+	code := `num: = -1000`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_I16", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, -1000, constant.Value)
+	assert.Equal(t, I16Type, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_Hex(t *testing.T) {
+	code := `num: = 0xFF`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_Hex", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, 255, constant.Value)
+	assert.Equal(t, U8Type, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_HexLarge(t *testing.T) {
+	code := `num: = 0xAB00`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_HexLarge", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, 0xAB00, constant.Value)
+	assert.Equal(t, U16Type, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_Binary(t *testing.T) {
+	code := `num: = 0b00101010`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_Binary", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, 0b00101010, constant.Value)
+	assert.Equal(t, U8Type, constant.Type())
+}
+
+func Test_Analyze_NumberLiteral_BinaryLarge(t *testing.T) {
+	code := `num: = 0b100000000`
+	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_BinaryLarge", code)
+	requireNoErrors(t, errors)
+
+	varDecl := irCU.Declarations[0].(*IRVariableDecl)
+	constant, ok := varDecl.Initializer.(*IRConstant)
+	require.True(t, ok)
+	assert.Equal(t, 0b100000000, constant.Value)
+	assert.Equal(t, U16Type, constant.Type())
 }
 
 func Test_Analyze_StringLiteral(t *testing.T) {

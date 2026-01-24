@@ -169,12 +169,12 @@ func (n *IRExpressionStmt) AST() parser.StatementExpression { return n.astNode }
 type IRConstant struct {
 	Value   interface{} // int, string, bool
 	typ     Type
-	astNode parser.ExpressionLiteral
+	astNode parser.Expression
 }
 
-func (n *IRConstant) ASTNode() parser.ParserNode    { return n.astNode }
-func (n *IRConstant) AST() parser.ExpressionLiteral { return n.astNode }
-func (n *IRConstant) Type() Type                    { return n.typ }
+func (n *IRConstant) ASTNode() parser.ParserNode { return n.astNode }
+func (n *IRConstant) AST() parser.Expression     { return n.astNode }
+func (n *IRConstant) Type() Type                 { return n.typ }
 
 // IRSymbolRef represents a reference to a symbol (variable, parameter)
 type IRSymbolRef struct {
