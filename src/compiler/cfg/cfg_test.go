@@ -1,10 +1,11 @@
-package zir
+package cfg
 
 import (
 	"testing"
 
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
+	"zenith/compiler/zir"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ func buildCFGFromCode(t *testing.T, code string) *CFG {
 	require.True(t, ok)
 
 	// Analyze to get IR
-	analyzer := NewSemanticAnalyzer()
+	analyzer := zir.NewSemanticAnalyzer()
 	irCU, irErrors := analyzer.Analyze(cu)
 	if len(irErrors) > 0 {
 		t.Logf("IR errors: %v", irErrors)
@@ -33,7 +34,7 @@ func buildCFGFromCode(t *testing.T, code string) *CFG {
 	require.Greater(t, len(irCU.Declarations), 0)
 
 	// Get function declaration
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := irCU.Declarations[0].(*zir.IRFunctionDecl)
 	require.True(t, ok)
 
 	// Build CFG
