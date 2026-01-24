@@ -16,6 +16,12 @@ func (ctx *parserContext) error(msg string) {
 	err := ParserError{ctx.source, ctx.current.Location(), msg}
 	ctx.errors = append(ctx.errors, err)
 }
+
+func (ctx *parserContext) appendError(errors *[]ParserError, msg string) {
+	err := ParserError{ctx.source, ctx.current.Location(), msg}
+	*errors = append(*errors, err)
+}
+
 func (ctx *parserContext) internal_error(err error) {
 	msg := fmt.Sprintf("INTERNAL ERROR: %s", err.Error())
 	ctx.error(msg)
@@ -91,6 +97,7 @@ func (ctx *parserContext) isAny(tokenIds []lexer.TokenId) bool {
 func (ctx *parserContext) parseOr(parseFuncs []func() ParserNode) ParserNode {
 	mark := ctx.mark()
 	var bestNode ParserNode
+	var bestMark lexer.TokenStreamMark
 	bestErrorCount := -1
 
 	for i := 0; i < len(parseFuncs); i++ {
@@ -105,6 +112,7 @@ func (ctx *parserContext) parseOr(parseFuncs []func() ParserNode) ParserNode {
 			if bestNode == nil || errorCount < bestErrorCount {
 				bestNode = node
 				bestErrorCount = errorCount
+				bestMark = ctx.mark() // Save position after parsing this node
 			}
 		}
 		// no use to continue now
@@ -112,6 +120,11 @@ func (ctx *parserContext) parseOr(parseFuncs []func() ParserNode) ParserNode {
 			break
 		}
 		ctx.gotoMark(mark)
+	}
+
+	// Restore stream position to match the best node we're returning
+	if bestNode != nil {
+		ctx.gotoMark(bestMark)
 	}
 
 	// Return best node found (may be nil, or may have errors)

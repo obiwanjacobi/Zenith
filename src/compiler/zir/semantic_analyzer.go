@@ -11,7 +11,6 @@ type SemanticAnalyzer struct {
 	globalScope     *SymbolTable
 	currentScope    *SymbolTable
 	currentFunction string // Track which function we're analyzing
-	types           map[string]Type
 	callGraph       *CallGraph
 	errors          []*IRError
 }
@@ -19,7 +18,6 @@ type SemanticAnalyzer struct {
 // NewSemanticAnalyzer creates a new semantic analyzer
 func NewSemanticAnalyzer() *SemanticAnalyzer {
 	sa := &SemanticAnalyzer{
-		types:     make(map[string]Type),
 		callGraph: NewCallGraph(),
 		errors:    make([]*IRError, 0),
 	}
@@ -51,7 +49,6 @@ func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationU
 	return &IRCompilationUnit{
 		Declarations: irDecls,
 		GlobalScope:  sa.globalScope,
-		Types:        sa.types,
 		CallGraph:    sa.callGraph,
 		astNode:      ast,
 	}, sa.errors
@@ -62,13 +59,23 @@ func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationU
 // ============================================================================
 
 func (sa *SemanticAnalyzer) initBuiltinTypes() {
-	sa.types["u8"] = U8Type
-	sa.types["u16"] = U16Type
-	sa.types["i8"] = I8Type
-	sa.types["i16"] = I16Type
-	sa.types["d8"] = D8Type
-	sa.types["d16"] = D16Type
-	sa.types["bool"] = BoolType
+	// Add builtin types as type symbols in global scope
+	builtins := map[string]Type{
+		"u8":   U8Type,
+		"u16":  U16Type,
+		"i8":   I8Type,
+		"i16":  I16Type,
+		"d8":   D8Type,
+		"d16":  D16Type,
+		"bool": BoolType,
+	}
+	for name, typ := range builtins {
+		sa.globalScope.Add(&Symbol{
+			Name: name,
+			Kind: SymbolType,
+			Type: typ,
+		})
+	}
 }
 
 // ============================================================================
@@ -100,6 +107,7 @@ func (sa *SemanticAnalyzer) registerVariable(name string, typeRef parser.TypeRef
 
 	symbol := &Symbol{
 		Name:   name,
+		Kind:   SymbolVariable,
 		Type:   typ,
 		Offset: 0, // Will be computed during layout phase
 	}
@@ -130,6 +138,7 @@ func (sa *SemanticAnalyzer) registerFunction(node parser.FunctionDeclaration) {
 	funcType := NewFunctionType(paramTypes, returnType)
 	symbol := &Symbol{
 		Name:   node.Label().Name(),
+		Kind:   SymbolFunction,
 		Type:   funcType,
 		Offset: 0,
 	}
@@ -157,7 +166,13 @@ func (sa *SemanticAnalyzer) registerType(node parser.TypeDeclaration) {
 	}
 
 	structType := NewStructType(name, fields)
-	sa.types[name] = structType
+
+	// Add type as a symbol
+	sa.currentScope.Add(&Symbol{
+		Name: name,
+		Kind: SymbolType,
+		Type: structType,
+	})
 }
 
 // ============================================================================
@@ -188,9 +203,10 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 
 	if typeRef != nil {
 		// Explicit type: lookup symbol registered in pass 1
-		symbol = sa.currentScope.Lookup(name)
+		typeName := typeRef.TypeName().Text()
+		symbol = sa.currentScope.Lookup(typeName)
 		if symbol == nil {
-			sa.error(fmt.Sprintf("internal error: symbol '%s' not found", name), node)
+			sa.error(fmt.Sprintf("symbol '%s' not found", typeName), node)
 			return nil
 		}
 
@@ -202,10 +218,27 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 			}
 			// TODO: Check that initializer type matches variable type
 		}
+
+		symbol = &Symbol{
+			Name:   name,
+			Kind:   SymbolVariable,
+			Type:   symbol.Type,
+			Offset: 0,
+		}
+
+		// globals have been registered already
+		if !sa.currentScope.IsGlobal() {
+			// Create symbol with inferred type
+
+			if !sa.currentScope.Add(symbol) {
+				sa.error(fmt.Sprintf("symbol '%s' already declared in this scope", name), node)
+				return nil
+			}
+		}
 	} else {
 		// Inferred type: initializer is mandatory
 		if initExpr == nil {
-			sa.error(fmt.Sprintf("variable '%s' without type must have initializer", name), node)
+			sa.error(fmt.Sprintf("internal error: variable '%s' without type must have initializer", name), node)
 			return nil
 		}
 
@@ -218,6 +251,7 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 		// Create symbol with inferred type
 		symbol = &Symbol{
 			Name:   name,
+			Kind:   SymbolVariable,
 			Type:   initializer.Type(),
 			Offset: 0,
 		}
@@ -260,6 +294,7 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 			paramType := sa.resolveTypeRef(field.TypeRef())
 			paramSymbol := &Symbol{
 				Name:   field.Label().Name(),
+				Kind:   SymbolVariable,
 				Type:   paramType,
 				Offset: 0,
 			}
@@ -289,11 +324,12 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 
 func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *IRTypeDecl {
 	name := node.Name().Text()
-	typ, ok := sa.types[name]
-	if !ok {
-		sa.error(fmt.Sprintf("internal error: type '%s' not found in type registry", name), node)
+	symbol := sa.currentScope.Lookup(name)
+	if symbol == nil || symbol.Kind != SymbolType {
+		sa.error(fmt.Sprintf("internal error: type '%s' not found", name), node)
 		return nil
 	}
+	typ := symbol.Type
 
 	structType, ok := typ.(*StructType)
 	if !ok {
@@ -399,9 +435,42 @@ func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
 }
 
 func (sa *SemanticAnalyzer) processSelect(node parser.StatementSelect) *IRSelect {
-	// TODO: Implement
+	// Process the select expression
+	expr := sa.processExpression(node.Expression())
+	if expr == nil {
+		return nil
+	}
+
+	// Process cases
+	cases := []*IRSelectCase{}
+	for _, caseNode := range node.Cases() {
+		// Process case value
+		caseValue := sa.processExpression(caseNode.Expression())
+		if caseValue == nil {
+			continue
+		}
+
+		// Process case body
+		caseBody := sa.processBlock(caseNode.Body())
+
+		cases = append(cases, &IRSelectCase{
+			Value:   caseValue,
+			Body:    caseBody,
+			astNode: caseNode,
+		})
+	}
+
+	// Process optional else clause
+	var elseBody *IRBlock
+	if elseNode := node.Else(); elseNode != nil {
+		elseBody = sa.processBlock(elseNode.Body())
+	}
+
 	return &IRSelect{
-		astNode: node,
+		Expression: expr,
+		Cases:      cases,
+		Else:       elseBody,
+		astNode:    node,
 	}
 }
 
@@ -675,11 +744,12 @@ func (sa *SemanticAnalyzer) resolveTypeRef(typeRef parser.TypeRef) Type {
 	}
 
 	typeName := typeRef.TypeName().Text()
-	typ := sa.types[typeName]
-	if typ == nil {
+	symbol := sa.currentScope.Lookup(typeName)
+	if symbol == nil || symbol.Kind != SymbolType {
 		sa.error(fmt.Sprintf("undefined type '%s'", typeName), typeRef)
 		return nil
 	}
+	typ := symbol.Type
 
 	// Handle array types
 	if typeRef.IsArray() {

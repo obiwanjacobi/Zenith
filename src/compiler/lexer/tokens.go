@@ -175,7 +175,8 @@ func (ts *tokenStreamImpl) Mark() TokenStreamMark {
 	return TokenStreamMark{ts.buffer_pos}
 }
 func (ts *tokenStreamImpl) GotoMark(mark TokenStreamMark) bool {
-	if mark.streamPosition <= ts.buffer_pos {
+	// can go forward and backward within the buffer
+	if mark.streamPosition < len(ts.buffer) {
 		ts.buffer_pos = mark.streamPosition
 		return true
 	}

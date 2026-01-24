@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"zenith/compiler"
 	"zenith/compiler/lexer"
 )
 
@@ -40,6 +41,7 @@ func (ctx *parserContext) codeBlock() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenBracesOpen) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume '{'
@@ -60,7 +62,7 @@ func (ctx *parserContext) codeBlock() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenBracesClose) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected '}' to close code block"})
+		ctx.appendError(&errors, "expected '}' to close code block")
 	} else {
 		ctx.next(skipEOL) // consume '}'
 	}
@@ -126,6 +128,7 @@ func (ctx *parserContext) variableAssignment() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenIdentifier) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume identifier
@@ -189,7 +192,7 @@ func (ctx *parserContext) functionDeclaration() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenParenClose) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected ')'"})
+		ctx.appendError(&errors, "expected ')'")
 	} else {
 		ctx.next(skipEOL) // consume ')'
 	}
@@ -204,7 +207,7 @@ func (ctx *parserContext) functionDeclaration() ParserNode {
 
 	bodyNode := ctx.codeBlock()
 	if bodyNode == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected function body"})
+		ctx.appendError(&errors, "expected function body")
 	}
 	children = append(children, bodyNode)
 
@@ -225,6 +228,7 @@ func (ctx *parserContext) functionInvocation() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenIdentifier) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume identifier
@@ -247,7 +251,7 @@ func (ctx *parserContext) functionInvocation() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenParenClose) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected ')'"})
+		ctx.appendError(&errors, "expected ')'")
 	} else {
 		ctx.next(skipEOL) // consume ')'
 	}
@@ -268,6 +272,7 @@ func (ctx *parserContext) functionArgumentList() ParserNode {
 
 	expr := ctx.expression()
 	if expr == nil {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	children = append(children, expr)
@@ -277,7 +282,7 @@ func (ctx *parserContext) functionArgumentList() ParserNode {
 		ctx.next(skipEOL) // consume ','
 		expr := ctx.expression()
 		if expr == nil {
-			errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected expression after ','"})
+			ctx.appendError(&errors, "expected expression after ','")
 			break
 		}
 		children = append(children, expr)
@@ -300,13 +305,14 @@ func (ctx *parserContext) typeDeclaration() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenStruct) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'struct'
 
 	errors := make([]ParserError, 0)
 	if !ctx.is(lexer.TokenIdentifier) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected identifier after 'struct'"})
+		ctx.appendError(&errors, "expected identifier after 'struct'")
 	} else {
 		ctx.next(skipEOL) // consume identifier
 	}
@@ -314,7 +320,7 @@ func (ctx *parserContext) typeDeclaration() ParserNode {
 	children := []ParserNode{}
 	fields := ctx.typeDeclarationFields()
 	if fields == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected struct fields"})
+		ctx.appendError(&errors, "expected struct fields")
 	} else {
 		children = append(children, fields)
 	}
@@ -333,6 +339,7 @@ func (ctx *parserContext) typeDeclarationFields() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenBracesOpen) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume '{'
@@ -341,13 +348,13 @@ func (ctx *parserContext) typeDeclarationFields() ParserNode {
 	children := []ParserNode{}
 	fields := ctx.declarationFieldList()
 	if fields == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected field list"})
+		ctx.appendError(&errors, "expected field list")
 	} else {
 		children = append(children, fields)
 	}
 
 	if !ctx.is(lexer.TokenBracesClose) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected '}' to close struct fields"})
+		ctx.appendError(&errors, "expected '}' to close struct fields")
 	} else {
 		ctx.next(skipEOL) // consume '}'
 	}
@@ -369,6 +376,7 @@ func (ctx *parserContext) typeReference() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenIdentifier) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume identifier
@@ -384,7 +392,7 @@ func (ctx *parserContext) typeReference() ParserNode {
 		}
 
 		if !ctx.is(lexer.TokenBracketClose) {
-			errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected ']'"})
+			ctx.appendError(&errors, "expected ']'")
 		} else {
 			ctx.next(skipEOL) // consume ']'
 		}
@@ -406,6 +414,7 @@ func (ctx *parserContext) typeInitializer() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenBracesOpen) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume '{'
@@ -422,7 +431,7 @@ func (ctx *parserContext) typeInitializer() ParserNode {
 	}
 
 	if !ctx.is(lexer.TokenBracesClose) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected '}' to close type initializer"})
+		ctx.appendError(&errors, "expected '}' to close type initializer")
 	} else {
 		ctx.next(skipEOL) // consume '}'
 	}
@@ -443,6 +452,7 @@ func (ctx *parserContext) typeInitializerFieldList() ParserNode {
 
 	field := ctx.typeInitializerField()
 	if field == nil {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	children = append(children, field)
@@ -452,7 +462,7 @@ func (ctx *parserContext) typeInitializerFieldList() ParserNode {
 		ctx.next(skipEOL) // consume ','
 		field := ctx.typeInitializerField()
 		if field == nil {
-			errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected field after ','"})
+			ctx.appendError(&errors, "expected field after ','")
 			break
 		}
 		children = append(children, field)
@@ -472,6 +482,7 @@ func (ctx *parserContext) typeInitializerField() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenIdentifier) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume identifier
@@ -486,7 +497,7 @@ func (ctx *parserContext) typeInitializerField() ParserNode {
 	children := []ParserNode{}
 	expr := ctx.expression()
 	if expr == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected expression after '="})
+		ctx.appendError(&errors, "expected expression after '=")
 	} else {
 		children = append(children, expr)
 	}
@@ -508,19 +519,20 @@ func (ctx *parserContext) typeAlias() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenType) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'type'
 
 	errors := make([]ParserError, 0)
 	if !ctx.is(lexer.TokenIdentifier) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected identifier after 'type'"})
+		ctx.appendError(&errors, "expected identifier after 'type'")
 	} else {
 		ctx.next(skipEOL) // consume identifier
 	}
 
 	if !ctx.is(lexer.TokenEquals) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected '=' in type alias"})
+		ctx.appendError(&errors, "expected '=' in type alias")
 	} else {
 		ctx.next(skipEOL) // consume '='
 	}
@@ -528,7 +540,7 @@ func (ctx *parserContext) typeAlias() ParserNode {
 	children := []ParserNode{}
 	typeRefNode := ctx.typeReference()
 	if typeRefNode == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected type reference"})
+		ctx.appendError(&errors, "expected type reference")
 	} else {
 		children = append(children, typeRefNode)
 	}
@@ -552,6 +564,7 @@ func (ctx *parserContext) declarationFieldList() ParserNode {
 
 	field := ctx.declarationField()
 	if field == nil {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	children = append(children, field)
@@ -561,7 +574,7 @@ func (ctx *parserContext) declarationFieldList() ParserNode {
 		ctx.next(skipEOL) // consume ','
 		field := ctx.declarationField()
 		if field == nil {
-			errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected field after ','"})
+			ctx.appendError(&errors, "expected field after ','")
 			break
 		}
 		children = append(children, field)
@@ -569,7 +582,7 @@ func (ctx *parserContext) declarationFieldList() ParserNode {
 
 	// Check if there's another field without a comma (common error)
 	if ctx.is(lexer.TokenIdentifier) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected ',' between fields"})
+		ctx.appendError(&errors, "expected ',' between fields")
 	}
 
 	return &declarationFieldList{
@@ -587,6 +600,7 @@ func (ctx *parserContext) declarationField() ParserNode {
 
 	labelNode := ctx.label()
 	if labelNode == nil {
+		ctx.gotoMark(mark)
 		return nil
 	}
 
@@ -625,6 +639,7 @@ func (ctx *parserContext) statementIf() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenIf) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'if'
@@ -633,14 +648,14 @@ func (ctx *parserContext) statementIf() ParserNode {
 	children := []ParserNode{}
 	condition := ctx.expression()
 	if condition == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected condition after 'if'"})
+		ctx.appendError(&errors, "expected condition after 'if'")
 	} else {
 		children = append(children, condition)
 	}
 
 	thenBlock := ctx.codeBlock()
 	if thenBlock == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected code block after condition"})
+		ctx.appendError(&errors, "expected code block after condition")
 	} else {
 		children = append(children, thenBlock)
 	}
@@ -658,7 +673,7 @@ func (ctx *parserContext) statementIf() ParserNode {
 		ctx.next(skipEOL) // consume 'else'
 		elseBlock := ctx.codeBlock()
 		if elseBlock == nil {
-			errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected code block after 'else'"})
+			ctx.appendError(&errors, "expected code block after 'else'")
 		} else {
 			children = append(children, elseBlock)
 		}
@@ -678,6 +693,7 @@ func (ctx *parserContext) statementElsif() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenElsif) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'elsif'
@@ -686,14 +702,14 @@ func (ctx *parserContext) statementElsif() ParserNode {
 	children := []ParserNode{}
 	condition := ctx.expression()
 	if condition == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected condition after 'elsif'"})
+		ctx.appendError(&errors, "expected condition after 'elsif'")
 	} else {
 		children = append(children, condition)
 	}
 
 	block := ctx.codeBlock()
 	if block == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected code block after condition"})
+		ctx.appendError(&errors, "expected code block after condition")
 	} else {
 		children = append(children, block)
 	}
@@ -715,6 +731,7 @@ func (ctx *parserContext) statementFor() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenFor) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'for'
@@ -730,7 +747,7 @@ func (ctx *parserContext) statementFor() ParserNode {
 			// Check that variable declaration has an initializer
 			if varDecl, ok := init.(VariableDeclaration); ok {
 				if varDecl.Initializer() == nil {
-					errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "variable declaration in for-loop initialization must have an initializer"})
+					ctx.appendError(&errors, "variable declaration in for-loop initialization must have an initializer")
 				}
 			}
 			children = append(children, init)
@@ -754,7 +771,7 @@ func (ctx *parserContext) statementFor() ParserNode {
 	// Condition (required)
 	condition := ctx.expression()
 	if condition == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected condition in for loop"})
+		ctx.appendError(&errors, "expected condition in for loop")
 	} else {
 		children = append(children, condition)
 	}
@@ -770,7 +787,7 @@ func (ctx *parserContext) statementFor() ParserNode {
 
 	body := ctx.codeBlock()
 	if body == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected code block in for loop"})
+		ctx.appendError(&errors, "expected code block in for loop")
 	} else {
 		children = append(children, body)
 	}
@@ -792,6 +809,7 @@ func (ctx *parserContext) statementSelect() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenSelect) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'select'
@@ -800,13 +818,13 @@ func (ctx *parserContext) statementSelect() ParserNode {
 	children := []ParserNode{}
 	expr := ctx.expression()
 	if expr == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected expression after 'select'"})
+		ctx.appendError(&errors, "expected expression after 'select'")
 	} else {
 		children = append(children, expr)
 	}
 
 	if !ctx.is(lexer.TokenBracesOpen) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected '{' after select expression"})
+		ctx.appendError(&errors, "expected '{' after select expression")
 	} else {
 		ctx.next(skipEOL) // consume '{'
 	}
@@ -828,8 +846,13 @@ func (ctx *parserContext) statementSelect() ParserNode {
 		}
 	}
 
+	// ensure at least one case or else clause
+	if (len(compiler.OfType[StatementSelectCase](children)) == 0) && len(compiler.OfType[StatementSelectElse](children)) == 0 {
+		ctx.appendError(&errors, "expected at least one 'case' or 'else' clause in select statement")
+	}
+
 	if !ctx.is(lexer.TokenBracesClose) {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected '}' to close select statement"})
+		ctx.appendError(&errors, "expected '}' to close select statement")
 	} else {
 		ctx.next(skipEOL) // consume '}'
 	}
@@ -848,6 +871,7 @@ func (ctx *parserContext) statementSelectCase() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenCase) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'case'
@@ -856,14 +880,14 @@ func (ctx *parserContext) statementSelectCase() ParserNode {
 	children := []ParserNode{}
 	expr := ctx.expression()
 	if expr == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected expression after 'case'"})
+		ctx.appendError(&errors, "expected expression after 'case'")
 	} else {
 		children = append(children, expr)
 	}
 
 	block := ctx.codeBlock()
 	if block == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected code block after case"})
+		ctx.appendError(&errors, "expected code block after case")
 	} else {
 		children = append(children, block)
 	}
@@ -882,6 +906,7 @@ func (ctx *parserContext) statementSelectElse() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenElse) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume 'else'
@@ -890,7 +915,7 @@ func (ctx *parserContext) statementSelectElse() ParserNode {
 	children := []ParserNode{}
 	block := ctx.codeBlock()
 	if block == nil {
-		errors = append(errors, ParserError{ctx.source, ctx.current.Location(), "expected code block after 'else'"})
+		ctx.appendError(&errors, "expected code block after 'else'")
 	} else {
 		children = append(children, block)
 	}
@@ -913,6 +938,7 @@ func (ctx *parserContext) statementExpression() ParserNode {
 
 	expr := ctx.expressionFunctionInvocation()
 	if expr == nil {
+		ctx.gotoMark(mark)
 		return nil
 	}
 
@@ -1246,6 +1272,7 @@ func (ctx *parserContext) expressionLiteral() ParserNode {
 		}
 	}
 
+	ctx.gotoMark(mark)
 	return nil
 }
 
@@ -1254,6 +1281,7 @@ func (ctx *parserContext) expressionIdentifier() ParserNode {
 	mark := ctx.mark()
 
 	if !ctx.is(lexer.TokenIdentifier) {
+		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume identifier
@@ -1280,6 +1308,7 @@ func (ctx *parserContext) expressionTypeInitializer() ParserNode {
 
 	typeRefNode := ctx.typeReference()
 	if typeRefNode == nil {
+		ctx.gotoMark(mark)
 		return nil
 	}
 
@@ -1338,6 +1367,7 @@ func (ctx *parserContext) boolLiteral() ParserNode {
 		}
 	}
 
+	ctx.gotoMark(mark)
 	return nil
 }
 

@@ -30,8 +30,7 @@ type IRExpression interface {
 type IRCompilationUnit struct {
 	Declarations []IRDeclaration
 	GlobalScope  *SymbolTable
-	Types        map[string]Type // User-defined types
-	CallGraph    *CallGraph      // Function call relationships
+	CallGraph    *CallGraph // Function call relationships
 	astNode      parser.CompilationUnit
 }
 

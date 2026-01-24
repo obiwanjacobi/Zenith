@@ -35,7 +35,7 @@ func analyzeCode(t *testing.T, testName string, code string) (*IRCompilationUnit
 func requireNoErrors(t *testing.T, errors []*IRError) {
 	if len(errors) > 0 {
 		for _, err := range errors {
-			t.Logf("IR Error: %s", err.Error())
+			t.Log(err.Error())
 		}
 	}
 	require.Equal(t, 0, len(errors), "Expected no IR errors")
@@ -587,7 +587,7 @@ func Test_Analyze_CallGraph_NestedInSelect(t *testing.T) {
 	main: () {
 		x: u8 = 5
 		select x {
-			5 { helper() }
+			case 5 { helper() }
 		}
 	}`
 	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInSelect", code)

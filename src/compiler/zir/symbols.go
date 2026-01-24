@@ -1,10 +1,20 @@
 package zir
 
+// SymbolKind represents the kind of symbol
+type SymbolKind int
+
+const (
+	SymbolType     SymbolKind = iota // Type definition (struct, primitive)
+	SymbolVariable                   // Variable or parameter
+	SymbolFunction                   // Function
+)
+
 // Symbol represents a declared entity (variable, parameter, function, type)
 type Symbol struct {
 	Name   string
-	Type   Type
-	Offset int // Stack offset or memory address (computed during layout)
+	Kind   SymbolKind
+	Type   Type // For variables/functions: their type. For type symbols: the type itself
+	Offset int  // Stack offset or memory address (computed during layout)
 }
 
 // SymbolTable maintains symbols in a particular scope

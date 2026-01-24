@@ -377,3 +377,16 @@ func Test_ParseStructDeclarationMissingComma(t *testing.T) {
 
 	require.NotEqual(t, 0, len(errors), "Parser should report error for missing comma")
 }
+
+func Test_ParseSelectInvalidCaseOrElse(t *testing.T) {
+	code := `main: () {
+		select value {
+			5: {
+			}
+		}
+	}`
+	tokens := lexer.OpenTokenStream(code)
+	_, errors := Parse("Test_ParseSelectInvalidCaseOrElse", tokens)
+
+	require.NotEqual(t, 0, len(errors), "Parser should report error for missing case or else clause")
+}
