@@ -1,4 +1,4 @@
-package zim
+package zir
 
 import (
 	"fmt"
@@ -8,17 +8,20 @@ import (
 
 // SemanticAnalyzer performs semantic analysis on the AST and builds the IR
 type SemanticAnalyzer struct {
-	globalScope  *SymbolTable
-	currentScope *SymbolTable
-	types        map[string]Type
-	errors       []*IRError
+	globalScope     *SymbolTable
+	currentScope    *SymbolTable
+	currentFunction string // Track which function we're analyzing
+	types           map[string]Type
+	callGraph       *CallGraph
+	errors          []*IRError
 }
 
 // NewSemanticAnalyzer creates a new semantic analyzer
 func NewSemanticAnalyzer() *SemanticAnalyzer {
 	sa := &SemanticAnalyzer{
-		types:  make(map[string]Type),
-		errors: make([]*IRError, 0),
+		types:     make(map[string]Type),
+		callGraph: NewCallGraph(),
+		errors:    make([]*IRError, 0),
 	}
 	return sa
 }
@@ -49,6 +52,7 @@ func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationU
 		Declarations: irDecls,
 		GlobalScope:  sa.globalScope,
 		Types:        sa.types,
+		CallGraph:    sa.callGraph,
 		astNode:      ast,
 	}, sa.errors
 }
@@ -237,6 +241,12 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 		sa.error(fmt.Sprintf("internal error: function '%s' not found", name), node)
 		return nil
 	}
+
+	// Track current function for call graph
+	prevFunc := sa.currentFunction
+	sa.currentFunction = name
+	sa.callGraph.AddFunction(name)
+	defer func() { sa.currentFunction = prevFunc }()
 
 	// Create new scope for function
 	funcScope := NewSymbolTable(sa.currentScope)
@@ -531,6 +541,11 @@ func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionIn
 	// Get return type from function type
 	funcType := symbol.Type.(*FunctionType)
 	returnType := funcType.ReturnType()
+
+	// Record call in call graph
+	if sa.currentFunction != "" {
+		sa.callGraph.AddCall(sa.currentFunction, name)
+	}
 
 	return &IRFunctionCall{
 		Function:  symbol,

@@ -1,4 +1,4 @@
-package zim
+package zir
 
 import (
 	"fmt"
@@ -463,4 +463,169 @@ func Test_Analyze_BuiltinTypes(t *testing.T) {
 			assert.NotNil(t, varDecl.Symbol.Type)
 		})
 	}
+}
+
+// ============================================================================
+// Call Graph Tests
+// ============================================================================
+
+func Test_Analyze_CallGraph_Simple(t *testing.T) {
+	code := `helper: () {
+	}
+	main: () {
+		helper()
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_Simple", code)
+	requireNoErrors(t, errors)
+
+	// Check call graph
+	assert.NotNil(t, irCU.CallGraph)
+
+	// main should call helper
+	mainCallees := irCU.CallGraph.GetCallees("main")
+	assert.Equal(t, 1, len(mainCallees))
+	assert.Equal(t, "helper", mainCallees[0])
+
+	// helper should have no callees
+	helperCallees := irCU.CallGraph.GetCallees("helper")
+	assert.Equal(t, 0, len(helperCallees))
+
+	// Both functions should be registered
+	allFuncs := irCU.CallGraph.GetAllFunctions()
+	assert.Equal(t, 2, len(allFuncs))
+}
+
+func Test_Analyze_CallGraph_Chain(t *testing.T) {
+	code := `worker: () {
+	}
+	helper: () {
+		worker()
+	}
+	main: () {
+		helper()
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_Chain", code)
+	requireNoErrors(t, errors)
+
+	// main -> helper
+	mainCallees := irCU.CallGraph.GetCallees("main")
+	assert.Equal(t, 1, len(mainCallees))
+	assert.Equal(t, "helper", mainCallees[0])
+
+	// helper -> worker
+	helperCallees := irCU.CallGraph.GetCallees("helper")
+	assert.Equal(t, 1, len(helperCallees))
+	assert.Equal(t, "worker", helperCallees[0])
+
+	// worker has no callees
+	workerCallees := irCU.CallGraph.GetCallees("worker")
+	assert.Equal(t, 0, len(workerCallees))
+}
+
+func Test_Analyze_CallGraph_MultipleCalls(t *testing.T) {
+	code := `foo: () {
+	}
+	bar: () {
+	}
+	main: () {
+		foo()
+		bar()
+		foo()
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_MultipleCalls", code)
+	requireNoErrors(t, errors)
+
+	// main should call both foo and bar (foo should only appear once despite 2 calls)
+	mainCallees := irCU.CallGraph.GetCallees("main")
+	assert.Equal(t, 2, len(mainCallees))
+	assert.Contains(t, mainCallees, "foo")
+	assert.Contains(t, mainCallees, "bar")
+}
+
+func Test_Analyze_CallGraph_NestedInIf(t *testing.T) {
+	code := `helper: () {
+	}
+	main: () {
+		if true {
+			helper()
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInIf", code)
+	requireNoErrors(t, errors)
+
+	// Call inside if block should still be recorded
+	mainCallees := irCU.CallGraph.GetCallees("main")
+	assert.Equal(t, 1, len(mainCallees))
+	assert.Equal(t, "helper", mainCallees[0])
+}
+
+func Test_Analyze_CallGraph_NestedInIfElse(t *testing.T) {
+	code := `foo: () {
+	}
+	bar: () {
+	}
+	main: () {
+		if true {
+			foo()
+		} else {
+			bar()
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInIfElse", code)
+	requireNoErrors(t, errors)
+
+	// Both calls should be recorded
+	mainCallees := irCU.CallGraph.GetCallees("main")
+	assert.Equal(t, 2, len(mainCallees))
+	assert.Contains(t, mainCallees, "foo")
+	assert.Contains(t, mainCallees, "bar")
+}
+
+func Test_Analyze_CallGraph_NestedInSelect(t *testing.T) {
+	code := `helper: () {
+	}
+	main: () {
+		x: u8 = 5
+		select x {
+			5 { helper() }
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInSelect", code)
+	requireNoErrors(t, errors)
+
+	// Call inside select block should be recorded
+	mainCallees := irCU.CallGraph.GetCallees("main")
+	assert.Equal(t, 1, len(mainCallees))
+	assert.Equal(t, "helper", mainCallees[0])
+}
+
+func Test_Analyze_CallGraph_NestedFunctionCalls(t *testing.T) {
+	code := `bar: () {
+	}
+	foo: () {
+		bar()
+	}
+	main: () {
+		foo()
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedFunctionCalls", code)
+	requireNoErrors(t, errors)
+
+	// main -> foo
+	mainCallees := irCU.CallGraph.GetCallees("main")
+	assert.Equal(t, 1, len(mainCallees))
+	assert.Equal(t, "foo", mainCallees[0])
+
+	// foo -> bar
+	fooCallees := irCU.CallGraph.GetCallees("foo")
+	assert.Equal(t, 1, len(fooCallees))
+	assert.Equal(t, "bar", fooCallees[0])
+
+	// bar has no callees
+	barCallees := irCU.CallGraph.GetCallees("bar")
+	assert.Equal(t, 0, len(barCallees))
+
+	// All three functions should be in the graph
+	allFuncs := irCU.CallGraph.GetAllFunctions()
+	assert.Equal(t, 3, len(allFuncs))
 }

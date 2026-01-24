@@ -1,6 +1,4 @@
-# Zenith Intermediate Model
-
-Semantic/Intermediate model/representation
+# Zenith Intermediate Represenation
 
 ## Post Parser Rules
 

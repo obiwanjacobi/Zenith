@@ -1,4 +1,4 @@
-package zim
+package zir
 
 // Symbol represents a declared entity (variable, parameter, function, type)
 type Symbol struct {
