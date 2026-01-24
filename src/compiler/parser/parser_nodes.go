@@ -780,9 +780,10 @@ func (n *statementSelect) Cases() []StatementSelectCase {
 }
 
 func (n *statementSelect) Else() StatementSelectElse {
-	children := n.parserNodeData.childrenOf(reflect.TypeFor[StatementSelectElse]())
-	if len(children) > 0 {
-		return children[0].(StatementSelectElse)
+	// Use concrete type to avoid matching statementSelectCase
+	elseNodes := compiler.OfType[*statementSelectElse](n.parserNodeData._children)
+	if len(elseNodes) > 0 {
+		return elseNodes[0]
 	}
 	return nil
 }

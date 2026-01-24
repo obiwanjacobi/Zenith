@@ -282,6 +282,10 @@ func Test_Analyze_AssignmentUndefined_Error(t *testing.T) {
 	assert.Contains(t, errors[0].Error(), "undefined variable")
 }
 
+// ============================================================================
+// If, Elfis and Else Tests
+// ============================================================================
+
 func Test_Analyze_IfStatement(t *testing.T) {
 	code := `main: () {
 		if true {
@@ -446,6 +450,123 @@ func Test_Analyze_ForLoop_Scope(t *testing.T) {
 	// Body should be able to reference i
 	bodyVarDecl := forStmt.Body.Statements[0].(*IRVariableDecl)
 	assert.NotNil(t, bodyVarDecl.Initializer, "Loop variable should be accessible in body")
+}
+
+// ============================================================================
+// Select Tests
+// ============================================================================
+
+func Test_Analyze_SelectStatement_Simple(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		select x {
+			case 1 {
+				y: = 10
+			}
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatement_Simple", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	require.Equal(t, 2, len(funcDecl.Body.Statements))
+
+	selectStmt, ok := funcDecl.Body.Statements[1].(*IRSelect)
+	require.True(t, ok, "Statement should be IRSelect")
+	assert.Equal(t, 1, len(selectStmt.Cases))
+}
+
+func Test_Analyze_SelectStatement(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		select x {
+			case 1 {
+				a: = 10
+			}
+			case 2 {
+				b: = 20
+			}
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatement", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	require.Equal(t, 2, len(funcDecl.Body.Statements))
+
+	selectStmt, ok := funcDecl.Body.Statements[1].(*IRSelect)
+	require.True(t, ok, "Statement should be IRSelect")
+	assert.NotNil(t, selectStmt.Expression)
+	assert.Equal(t, 2, len(selectStmt.Cases))
+	assert.Nil(t, selectStmt.Else)
+
+	// Check first case
+	assert.NotNil(t, selectStmt.Cases[0].Value)
+	assert.NotNil(t, selectStmt.Cases[0].Body)
+	assert.Equal(t, 1, len(selectStmt.Cases[0].Body.Statements))
+
+	// Check second case
+	assert.NotNil(t, selectStmt.Cases[1].Value)
+	assert.NotNil(t, selectStmt.Cases[1].Body)
+	assert.Equal(t, 1, len(selectStmt.Cases[1].Body.Statements))
+}
+
+func Test_Analyze_SelectStatementWithElse(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		select x {
+			case 1 {
+				a: = 10
+			}
+			else {
+				b: = 20
+			}
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatementWithElse", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	selectStmt := funcDecl.Body.Statements[1].(*IRSelect)
+
+	assert.Equal(t, 1, len(selectStmt.Cases))
+	assert.NotNil(t, selectStmt.Else)
+	assert.Equal(t, 1, len(selectStmt.Else.Statements))
+}
+
+func Test_Analyze_SelectStatementMultipleCases(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		select x {
+			case 1 {
+				a: = 10
+			}
+			case 2 {
+				b: = 20
+			}
+			case 3 {
+				c: = 30
+			}
+			else {
+				d: = 40
+			}
+		}
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatementMultipleCases", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	selectStmt := funcDecl.Body.Statements[1].(*IRSelect)
+
+	assert.Equal(t, 3, len(selectStmt.Cases))
+	assert.NotNil(t, selectStmt.Else)
+
+	// Verify all cases have bodies
+	for i, c := range selectStmt.Cases {
+		assert.NotNil(t, c.Value, "Case %d should have value", i)
+		assert.NotNil(t, c.Body, "Case %d should have body", i)
+		assert.Equal(t, 1, len(c.Body.Statements), "Case %d should have 1 statement", i)
+	}
 }
 
 // ============================================================================
