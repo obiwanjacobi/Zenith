@@ -751,6 +751,9 @@ func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAcce
 		return nil
 	}
 
+	// Track that the object is being used for pointer/member access
+	sa.trackVariableUsageInExpression(object, VariableUsagePointer)
+
 	// Get the member name
 	memberToken := node.Member()
 	if memberToken == nil {

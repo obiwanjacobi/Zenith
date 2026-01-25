@@ -86,8 +86,7 @@ func Test_VariableUsage_Counter(t *testing.T) {
 	assert.Equal(t, VariableUsageCounter, varDecl.Symbol.Usage, "i should be marked as counter")
 }
 
-func Test_VariableUsage_Pointer(t *testing.T) {
-	t.Skip("Pointers are not implemented in the grammar yet")
+func Test_VariableUsage_MemberAccessPointer(t *testing.T) {
 
 	code := `
 	struct Point {
@@ -96,7 +95,7 @@ func Test_VariableUsage_Pointer(t *testing.T) {
 	}
 	main: () {
 		p: Point = Point{x= 5, y= 10}
-		val: Point* = &p
+		val: u8 = p.x
 	}`
 
 	tokens := lexer.OpenTokenStream(code)
