@@ -2,6 +2,7 @@ package cfg
 
 import (
 	"fmt"
+	"strings"
 
 	"zenith/compiler/zir"
 )
@@ -346,20 +347,21 @@ func (b *CFGBuilder) processSelect(selectStmt *zir.IRSelect, exitBlock *BasicBlo
 
 // String returns a string representation of the CFG
 func (cfg *CFG) String() string {
-	result := "CFG:\n"
+	var sb strings.Builder
+	sb.WriteString("CFG:\n")
 	for _, block := range cfg.Blocks {
-		result += fmt.Sprintf("  Block %d (%s):\n", block.ID, block.GetFullLabel())
-		result += fmt.Sprintf("    Instructions: %d\n", len(block.Instructions))
-		result += fmt.Sprintf("    Successors: ")
+		sb.WriteString(fmt.Sprintf("  Block %d (%s):\n", block.ID, block.GetFullLabel()))
+		sb.WriteString(fmt.Sprintf("    Instructions: %d\n", len(block.Instructions)))
+		sb.WriteString("    Successors: ")
 		for _, succ := range block.Successors {
-			result += fmt.Sprintf("%d ", succ.ID)
+			sb.WriteString(fmt.Sprintf("%d ", succ.ID))
 		}
-		result += "\n"
-		result += fmt.Sprintf("    Predecessors: ")
+		sb.WriteString("\n")
+		sb.WriteString("    Predecessors: ")
 		for _, pred := range block.Predecessors {
-			result += fmt.Sprintf("%d ", pred.ID)
+			sb.WriteString(fmt.Sprintf("%d ", pred.ID))
 		}
-		result += "\n"
+		sb.WriteString("\n")
 	}
-	return result
+	return sb.String()
 }
