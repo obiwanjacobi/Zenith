@@ -79,8 +79,9 @@ func Test_BuildInterferenceGraph_SimultaneouslyLive(t *testing.T) {
 	cfg, liveness := buildLivenessFromCode(t, code)
 	ig := BuildInterferenceGraph(cfg, liveness)
 
+	// Variables now use qualified names (e.g., "main.x")
 	// x and y are both live when z is computed, so they interfere
-	assert.True(t, ig.Interferes("x", "y"))
+	assert.True(t, ig.Interferes("main.x", "main.y"))
 }
 
 func Test_BuildInterferenceGraph_IfStatement(t *testing.T) {

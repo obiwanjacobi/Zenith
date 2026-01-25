@@ -45,6 +45,9 @@ type AllocationResult struct {
 
 	// Variable usage patterns (from symbol table, used for preference-based allocation)
 	VariableUsages map[string]zir.VariableUsage
+
+	// Variable type sizes in bits (8 or 16) - needed to match register width
+	VariableSizes map[string]int
 }
 
 // RegisterAllocator performs graph coloring register allocation
@@ -67,12 +70,22 @@ func (ra *RegisterAllocator) Allocate(ig *InterferenceGraph) *AllocationResult {
 		Allocation:     make(map[string]string),
 		Spilled:        make(map[string]bool),
 		VariableUsages: make(map[string]zir.VariableUsage),
+		VariableSizes:  make(map[string]int),
 	}
 
 	// Get all nodes (variables)
 	nodes := ig.GetNodes()
 	if len(nodes) == 0 {
 		return result
+	}
+
+	// Variables now use fully qualified names from Symbol.GetQualifiedName()
+	// e.g., "main.x", "helper.count" - no collision between different scopes
+
+	// TODO: Populate result.VariableSizes and result.VariableUsages from symbol table
+	// For now, assume all variables are 8-bit (will need to pass symbol table or type info)
+	for _, node := range nodes {
+		result.VariableSizes[node] = 8 // Default to 8-bit
 	}
 
 	// Graph coloring algorithm with simplification

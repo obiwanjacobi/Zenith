@@ -65,14 +65,15 @@ func Test_Liveness_SimpleAssignment(t *testing.T) {
 	}
 	require.NotNil(t, codeBlock)
 
+	// Variables now use qualified names (e.g., "main.x" since function is named "main")
 	// x is defined then used, so it should be in def set
-	assert.True(t, liveness.Def[codeBlock.ID]["x"])
-	assert.True(t, liveness.Def[codeBlock.ID]["y"])
+	assert.True(t, liveness.Def[codeBlock.ID]["main.x"])
+	assert.True(t, liveness.Def[codeBlock.ID]["main.y"])
 
 	// x is used in second statement, so should be in use set
 	// (only if used before being defined in same block)
 	// In this case, x is defined first, then used, so not in use set
-	assert.False(t, liveness.Use[codeBlock.ID]["x"])
+	assert.False(t, liveness.Use[codeBlock.ID]["main.x"])
 }
 
 func Test_Liveness_IfStatement(t *testing.T) {

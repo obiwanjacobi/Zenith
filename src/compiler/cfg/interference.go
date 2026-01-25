@@ -116,8 +116,8 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 			stmt := block.Instructions[i]
 
 			// Get variables used and defined in this statement
-			used := getUsedInStatement(stmt)
-			defined := getDefinedInStatement(stmt)
+			used := getUsedInStatement(stmt, cfg.FunctionName)
+			defined := getDefinedInStatement(stmt, cfg.FunctionName)
 
 			// Any variable defined at this point interferes with all currently live variables
 			for defVar := range defined {
@@ -156,27 +156,27 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 }
 
 // Helper functions to get used/defined variables in a statement
-func getUsedInStatement(stmt zir.IRStatement) map[string]bool {
+func getUsedInStatement(stmt zir.IRStatement, scopeName string) map[string]bool {
 	used := make(map[string]bool)
 	switch s := stmt.(type) {
 	case *zir.IRVariableDecl:
 		if s.Initializer != nil {
-			for _, v := range getUsedInExpression(s.Initializer) {
+			for _, v := range getUsedInExpression(s.Initializer, scopeName) {
 				used[v] = true
 			}
 		}
 	case *zir.IRAssignment:
 		// Right-hand side uses variables
-		for _, v := range getUsedInExpression(s.Value) {
+		for _, v := range getUsedInExpression(s.Value, scopeName) {
 			used[v] = true
 		}
 	case *zir.IRExpressionStmt:
-		for _, v := range getUsedInExpression(s.Expression) {
+		for _, v := range getUsedInExpression(s.Expression, scopeName) {
 			used[v] = true
 		}
 	case *zir.IRReturn:
 		if s.Value != nil {
-			for _, v := range getUsedInExpression(s.Value) {
+			for _, v := range getUsedInExpression(s.Value, scopeName) {
 				used[v] = true
 			}
 		}
@@ -184,14 +184,14 @@ func getUsedInStatement(stmt zir.IRStatement) map[string]bool {
 	return used
 }
 
-func getDefinedInStatement(stmt zir.IRStatement) map[string]bool {
+func getDefinedInStatement(stmt zir.IRStatement, scopeName string) map[string]bool {
 	defined := make(map[string]bool)
 	switch s := stmt.(type) {
 	case *zir.IRVariableDecl:
-		defined[s.Symbol.Name] = true
+		defined[s.Symbol.QualifiedName] = true
 	case *zir.IRAssignment:
 		// Left-hand side defines a variable
-		defined[s.Target.Name] = true
+		defined[s.Target.QualifiedName] = true
 	}
 	return defined
 }

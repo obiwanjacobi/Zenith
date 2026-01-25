@@ -42,24 +42,26 @@ func (vu *VariableUsage) AddFlag(flag VariableUsage) {
 
 // Symbol represents a declared entity (variable, parameter, function, type)
 type Symbol struct {
-	Name   string
-	Kind   SymbolKind
-	Type   Type          // For variables/functions: their type. For type symbols: the type itself
-	Offset int           // Stack offset or memory address (computed during layout)
-	Usage  VariableUsage // How the variable is used (for register allocation hints)
+	Name          string
+	QualifiedName string // Fully qualified name (e.g., "main.x", "<global>.count")
+	Kind          SymbolKind
+	Type          Type          // For variables/functions: their type. For type symbols: the type itself
+	Usage         VariableUsage // How the variable is used (for register allocation hints)
 }
 
 // SymbolTable maintains symbols in a particular scope
 type SymbolTable struct {
-	symbols map[string]*Symbol
-	parent  *SymbolTable
+	symbols   map[string]*Symbol
+	parent    *SymbolTable
+	ScopeName string
 }
 
 // NewSymbolTable creates a new symbol table
-func NewSymbolTable(parent *SymbolTable) *SymbolTable {
+func NewSymbolTable(parent *SymbolTable, scopeName string) *SymbolTable {
 	return &SymbolTable{
-		symbols: make(map[string]*Symbol),
-		parent:  parent,
+		symbols:   make(map[string]*Symbol),
+		parent:    parent,
+		ScopeName: scopeName,
 	}
 }
 
@@ -101,4 +103,13 @@ func (st *SymbolTable) Parent() *SymbolTable {
 // Symbols returns all symbols in this scope
 func (st *SymbolTable) Symbols() map[string]*Symbol {
 	return st.symbols
+}
+
+// GetQualifiedName returns the fully qualified name for a variable in this scope
+// e.g., "main.x", "helper.y", "main.block1.i"
+func (st *SymbolTable) GetQualifiedName(variableName string) string {
+	if st.ScopeName == "" {
+		return variableName // Fallback for unnamed scopes
+	}
+	return st.ScopeName + "." + variableName
 }

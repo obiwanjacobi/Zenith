@@ -79,9 +79,10 @@ type BasicBlock struct {
 
 // CFG represents a control flow graph for a function
 type CFG struct {
-	Entry  *BasicBlock   // Entry block
-	Exit   *BasicBlock   // Exit block (for return statements)
-	Blocks []*BasicBlock // All blocks in the graph
+	Entry        *BasicBlock   // Entry block
+	Exit         *BasicBlock   // Exit block (for return statements)
+	Blocks       []*BasicBlock // All blocks in the graph
+	FunctionName string        // Name of the function (for qualified variable names)
 }
 
 // ============================================================================
@@ -123,9 +124,10 @@ func (b *CFGBuilder) BuildCFG(funcDecl *zir.IRFunctionDecl) *CFG {
 	}
 
 	return &CFG{
-		Entry:  entry,
-		Exit:   exit,
-		Blocks: b.blocks,
+		Entry:        entry,
+		Exit:         exit,
+		Blocks:       b.blocks,
+		FunctionName: funcDecl.Name,
 	}
 }
 

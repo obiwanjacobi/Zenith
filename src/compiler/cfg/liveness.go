@@ -40,7 +40,7 @@ func ComputeLiveness(cfg *CFG) *LivenessInfo {
 		info.LiveIn[block.ID] = make(map[string]bool)
 		info.LiveOut[block.ID] = make(map[string]bool)
 
-		computeUseDefSets(block, info.Use[block.ID], info.Def[block.ID])
+		computeUseDefSets(block, cfg.FunctionName, info.Use[block.ID], info.Def[block.ID])
 	}
 
 	// Step 2: Iterate until live-in/live-out sets converge
@@ -85,10 +85,10 @@ func ComputeLiveness(cfg *CFG) *LivenessInfo {
 }
 
 // computeUseDefSets analyzes a basic block to find used and defined variables
-func computeUseDefSets(block *BasicBlock, use, def map[string]bool) {
+func computeUseDefSets(block *BasicBlock, scopeName string, use, def map[string]bool) {
 	for _, stmt := range block.Instructions {
 		// Get variables used by this statement (before any definitions)
-		used := getUsedVariables(stmt)
+		used := getUsedVariables(stmt, scopeName)
 		for _, varName := range used {
 			if !def[varName] {
 				use[varName] = true
@@ -96,7 +96,7 @@ func computeUseDefSets(block *BasicBlock, use, def map[string]bool) {
 		}
 
 		// Get variables defined by this statement
-		defined := getDefinedVariables(stmt)
+		defined := getDefinedVariables(stmt, scopeName)
 		for _, varName := range defined {
 			def[varName] = true
 		}
@@ -104,28 +104,28 @@ func computeUseDefSets(block *BasicBlock, use, def map[string]bool) {
 }
 
 // getUsedVariables returns the names of variables read by a statement
-func getUsedVariables(stmt zir.IRStatement) []string {
+func getUsedVariables(stmt zir.IRStatement, scopeName string) []string {
 	var used []string
 
 	switch s := stmt.(type) {
 	case *zir.IRVariableDecl:
 		// Initializer uses variables
 		if s.Initializer != nil {
-			used = append(used, getUsedInExpression(s.Initializer)...)
+			used = append(used, getUsedInExpression(s.Initializer, scopeName)...)
 		}
 
 	case *zir.IRAssignment:
 		// Right side uses variables
-		used = append(used, getUsedInExpression(s.Value)...)
+		used = append(used, getUsedInExpression(s.Value, scopeName)...)
 
 	case *zir.IRExpressionStmt:
 		// Expression may use variables
-		used = append(used, getUsedInExpression(s.Expression)...)
+		used = append(used, getUsedInExpression(s.Expression, scopeName)...)
 
 	case *zir.IRReturn:
 		// Return value uses variables
 		if s.Value != nil {
-			used = append(used, getUsedInExpression(s.Value)...)
+			used = append(used, getUsedInExpression(s.Value, scopeName)...)
 		}
 	}
 
@@ -133,24 +133,26 @@ func getUsedVariables(stmt zir.IRStatement) []string {
 }
 
 // getDefinedVariables returns the names of variables written by a statement
-func getDefinedVariables(stmt zir.IRStatement) []string {
+// Uses fully qualified names from Symbol.QualifiedName
+func getDefinedVariables(stmt zir.IRStatement, scopeName string) []string {
 	var defined []string
 
 	switch s := stmt.(type) {
 	case *zir.IRVariableDecl:
 		// Variable declaration defines a variable
-		defined = append(defined, s.Symbol.Name)
+		defined = append(defined, s.Symbol.QualifiedName)
 
 	case *zir.IRAssignment:
 		// Assignment defines the target variable
-		defined = append(defined, s.Target.Name)
+		defined = append(defined, s.Target.QualifiedName)
 	}
 
 	return defined
 }
 
 // getUsedInExpression recursively extracts variable names used in an expression
-func getUsedInExpression(expr zir.IRExpression) []string {
+// Uses fully qualified names from Symbol.QualifiedName
+func getUsedInExpression(expr zir.IRExpression, scopeName string) []string {
 	if expr == nil {
 		return nil
 	}
@@ -159,22 +161,22 @@ func getUsedInExpression(expr zir.IRExpression) []string {
 
 	switch e := expr.(type) {
 	case *zir.IRSymbolRef:
-		// Symbol reference uses the variable
-		used = append(used, e.Symbol.Name)
+		// Symbol reference uses the variable (with its qualified name)
+		used = append(used, e.Symbol.QualifiedName)
 
 	case *zir.IRBinaryOp:
 		// Binary operation uses both operands
-		used = append(used, getUsedInExpression(e.Left)...)
-		used = append(used, getUsedInExpression(e.Right)...)
+		used = append(used, getUsedInExpression(e.Left, scopeName)...)
+		used = append(used, getUsedInExpression(e.Right, scopeName)...)
 
 	case *zir.IRUnaryOp:
 		// Unary operation uses its operand
-		used = append(used, getUsedInExpression(e.Operand)...)
+		used = append(used, getUsedInExpression(e.Operand, scopeName)...)
 
 	case *zir.IRFunctionCall:
 		// Function call uses all arguments
 		for _, arg := range e.Arguments {
-			used = append(used, getUsedInExpression(arg)...)
+			used = append(used, getUsedInExpression(arg, scopeName)...)
 		}
 
 	case *zir.IRConstant:
@@ -183,13 +185,13 @@ func getUsedInExpression(expr zir.IRExpression) []string {
 	case *zir.IRMemberAccess:
 		// Member access uses the base object
 		if e.Object != nil {
-			used = append(used, getUsedInExpression(*e.Object)...)
+			used = append(used, getUsedInExpression(*e.Object, scopeName)...)
 		}
 
 	case *zir.IRTypeInitializer:
 		// Type initializer uses field values
 		for _, field := range e.Fields {
-			used = append(used, getUsedInExpression(field.Value)...)
+			used = append(used, getUsedInExpression(field.Value, scopeName)...)
 		}
 	}
 

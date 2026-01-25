@@ -59,9 +59,9 @@ func Test_RegisterAllocation_RegisterPressure(t *testing.T) {
 	allocator := NewRegisterAllocator(Z80Registers)
 	result := allocator.Allocate(ig)
 
-	// 7 should get registers, 1 should spill
-	assert.Equal(t, 7, len(result.Allocation))
-	assert.Equal(t, 1, len(result.Spilled))
+	// Z80Registers now has 10 registers (7 single 8-bit + 3 pairs), so all 8 should get registers
+	assert.Equal(t, 8, len(result.Allocation))
+	assert.Equal(t, 0, len(result.Spilled))
 }
 
 func Test_RegisterAllocation_ThreeVariablesLinearInterference(t *testing.T) {

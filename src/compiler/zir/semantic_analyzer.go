@@ -27,7 +27,7 @@ func NewSemanticAnalyzer() *SemanticAnalyzer {
 // Analyze performs semantic analysis on the AST and returns the IR
 func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationUnit, []*IRError) {
 	// Initialize global scope
-	sa.globalScope = NewSymbolTable(nil)
+	sa.globalScope = NewSymbolTable(nil, "<global>")
 	sa.currentScope = sa.globalScope
 	sa.initBuiltinTypes()
 
@@ -106,10 +106,9 @@ func (sa *SemanticAnalyzer) registerVariable(name string, typeRef parser.TypeRef
 	}
 
 	symbol := &Symbol{
-		Name:   name,
-		Kind:   SymbolVariable,
-		Type:   typ,
-		Offset: 0, // Will be computed during layout phase
+		Name: name,
+		Kind: SymbolVariable,
+		Type: typ,
 	}
 
 	if !sa.currentScope.Add(symbol) {
@@ -137,10 +136,9 @@ func (sa *SemanticAnalyzer) registerFunction(node parser.FunctionDeclaration) {
 
 	funcType := NewFunctionType(paramTypes, returnType)
 	symbol := &Symbol{
-		Name:   node.Label().Name(),
-		Kind:   SymbolFunction,
-		Type:   funcType,
-		Offset: 0,
+		Name: node.Label().Name(),
+		Kind: SymbolFunction,
+		Type: funcType,
 	}
 
 	if !sa.currentScope.Add(symbol) {
@@ -220,10 +218,10 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 		}
 
 		symbol = &Symbol{
-			Name:   name,
-			Kind:   SymbolVariable,
-			Type:   symbol.Type,
-			Offset: 0,
+			Name:          name,
+			QualifiedName: sa.currentScope.GetQualifiedName(name),
+			Kind:          SymbolVariable,
+			Type:          symbol.Type,
 		}
 
 		// globals have been registered already
@@ -250,10 +248,10 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 
 		// Create symbol with inferred type
 		symbol = &Symbol{
-			Name:   name,
-			Kind:   SymbolVariable,
-			Type:   initializer.Type(),
-			Offset: 0,
+			Name:          name,
+			QualifiedName: sa.currentScope.GetQualifiedName(name),
+			Kind:          SymbolVariable,
+			Type:          initializer.Type(),
 		}
 		if !sa.currentScope.Add(symbol) {
 			sa.error(fmt.Sprintf("symbol '%s' already declared in this scope", name), node)
@@ -288,7 +286,7 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 	defer func() { sa.currentFunction = prevFunc }()
 
 	// Create new scope for function
-	funcScope := NewSymbolTable(sa.currentScope)
+	funcScope := NewSymbolTable(sa.currentScope, name)
 	sa.pushScope(funcScope)
 	defer sa.popScope()
 
@@ -298,10 +296,9 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 		for _, field := range params.Fields() {
 			paramType := sa.resolveTypeRef(field.TypeRef())
 			paramSymbol := &Symbol{
-				Name:   field.Label().Name(),
-				Kind:   SymbolVariable,
-				Type:   paramType,
-				Offset: 0,
+				Name: field.Label().Name(),
+				Kind: SymbolVariable,
+				Type: paramType,
 			}
 			funcScope.Add(paramSymbol)
 			parameters = append(parameters, paramSymbol)
