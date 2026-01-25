@@ -159,3 +159,23 @@ func Test_BuildInterferenceGraph_NoInterference(t *testing.T) {
 	require.Contains(t, nodes, "y")
 	require.Contains(t, nodes, "z")
 }
+
+func Test_BuildInterferenceGraph_ReturnStatement(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		y: = 10
+		ret x + y
+	}`
+
+	cfg, liveness := buildLivenessFromCode(t, code)
+	ig := BuildInterferenceGraph(cfg, liveness)
+
+	// x and y are both live when the return statement is executed
+	// so they should interfere
+	assert.True(t, ig.Interferes("x", "y"), "x and y should interfere at return")
+
+	// Verify both variables are in the graph
+	nodes := ig.GetNodes()
+	assert.Contains(t, nodes, "x")
+	assert.Contains(t, nodes, "y")
+}

@@ -245,3 +245,32 @@ func Test_Liveness_BinaryExpression(t *testing.T) {
 	assert.False(t, liveness.Use[codeBlock.ID]["a"])
 	assert.False(t, liveness.Use[codeBlock.ID]["b"])
 }
+
+func Test_Liveness_ReturnStatement(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		y: = 10
+		ret x + y
+	}`
+
+	cfg, liveness := buildLivenessFromCode(t, code)
+
+	// Find the block with instructions
+	var codeBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		if len(block.Instructions) > 0 {
+			codeBlock = block
+			break
+		}
+	}
+	require.NotNil(t, codeBlock)
+
+	// x and y are defined in the block
+	assert.True(t, liveness.Def[codeBlock.ID]["x"])
+	assert.True(t, liveness.Def[codeBlock.ID]["y"])
+
+	// x and y are NOT in the Use set because they're defined before used within the same block
+	// (Use set only tracks variables used before being defined in a block)
+	assert.False(t, liveness.Use[codeBlock.ID]["x"])
+	assert.False(t, liveness.Use[codeBlock.ID]["y"])
+}

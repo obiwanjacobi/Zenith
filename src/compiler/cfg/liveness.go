@@ -121,6 +121,12 @@ func getUsedVariables(stmt zir.IRStatement) []string {
 	case *zir.IRExpressionStmt:
 		// Expression may use variables
 		used = append(used, getUsedInExpression(s.Expression)...)
+
+	case *zir.IRReturn:
+		// Return value uses variables
+		if s.Value != nil {
+			used = append(used, getUsedInExpression(s.Value)...)
+		}
 	}
 
 	return used

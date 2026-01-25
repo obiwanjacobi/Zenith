@@ -174,6 +174,12 @@ func getUsedInStatement(stmt zir.IRStatement) map[string]bool {
 		for _, v := range getUsedInExpression(s.Expression) {
 			used[v] = true
 		}
+	case *zir.IRReturn:
+		if s.Value != nil {
+			for _, v := range getUsedInExpression(s.Value) {
+				used[v] = true
+			}
+		}
 	}
 	return used
 }
