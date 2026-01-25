@@ -123,10 +123,8 @@ func (ra *RegisterAllocator) AllocateWithPrecoloring(ig *InterferenceGraph, symb
 	}
 
 	// Apply pre-coloring (e.g., function parameters)
-	if precolored != nil {
-		for varName, regName := range precolored {
-			result.Allocation[varName] = regName
-		}
+	for varName, regName := range precolored {
+		result.Allocation[varName] = regName
 	}
 
 	// Graph coloring algorithm with simplification
