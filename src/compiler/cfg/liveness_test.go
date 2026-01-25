@@ -19,7 +19,7 @@ func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo) {
 	// Parse
 	astNode, parseErrors := parser.Parse("test", tokens)
 	require.NotNil(t, astNode)
-	require.Equal(t, 0, len(parseErrors))
+	require.Equal(t, 0, len(parseErrors), "Parsing errors: %v", parseErrors)
 
 	cu, ok := astNode.(parser.CompilationUnit)
 	require.True(t, ok)
@@ -27,7 +27,7 @@ func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo) {
 	// Analyze to get IR
 	analyzer := zir.NewSemanticAnalyzer()
 	irCU, irErrors := analyzer.Analyze(cu)
-	require.Equal(t, 0, len(irErrors))
+	require.Equal(t, 0, len(irErrors), "IR analysis errors: %v", irErrors)
 	require.Greater(t, len(irCU.Declarations), 0)
 
 	// Get function declaration
