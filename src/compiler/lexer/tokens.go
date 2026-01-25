@@ -70,6 +70,7 @@ const (
 	TokenAny                     // any
 	TokenTrue                    // true
 	TokenFalse                   // false
+	TokenReturn                  // ret
 
 	//TokenDoubleQuote            // "
 	//TokenSingleQuote            // '

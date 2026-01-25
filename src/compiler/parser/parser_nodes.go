@@ -881,6 +881,34 @@ func (n *statementExpression) Expression() Expression {
 }
 
 // ============================================================================
+// statement_return
+// ============================================================================
+
+type StatementReturn interface {
+	ParserNode
+	Value() Expression
+}
+
+type statementReturn struct {
+	parserNodeData
+}
+
+func (n *statementReturn) Children() []ParserNode {
+	return n.parserNodeData.Children()
+}
+
+func (n *statementReturn) Tokens() []lexer.Token {
+	return n.parserNodeData.Tokens()
+}
+
+func (n *statementReturn) Value() Expression {
+	if len(n.parserNodeData._children) > 0 && n.parserNodeData._children[0] != nil {
+		return n.parserNodeData._children[0].(Expression)
+	}
+	return nil
+}
+
+// ============================================================================
 // expression (base interface for all expression types)
 // ============================================================================
 

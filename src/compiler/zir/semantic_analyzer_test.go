@@ -570,6 +570,67 @@ func Test_Analyze_SelectStatementMultipleCases(t *testing.T) {
 }
 
 // ============================================================================
+// Return Statement Tests
+// ============================================================================
+
+func Test_Analyze_ReturnStatement(t *testing.T) {
+	code := `main: () {
+		ret
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatement", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	require.Equal(t, 1, len(funcDecl.Body.Statements))
+
+	retStmt, ok := funcDecl.Body.Statements[0].(*IRReturn)
+	require.True(t, ok, "Statement should be IRReturn")
+	assert.Nil(t, retStmt.Value, "Return without value should have nil Value")
+}
+
+func Test_Analyze_ReturnStatementWithValue(t *testing.T) {
+	code := `main: () {
+		ret 42
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatementWithValue", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	require.Equal(t, 1, len(funcDecl.Body.Statements))
+
+	retStmt, ok := funcDecl.Body.Statements[0].(*IRReturn)
+	require.True(t, ok, "Statement should be IRReturn")
+	require.NotNil(t, retStmt.Value, "Return with value should have non-nil Value")
+
+	// Verify the value is a constant
+	constant, ok := retStmt.Value.(*IRConstant)
+	require.True(t, ok, "Return value should be IRConstant")
+	assert.Equal(t, 42, constant.Value)
+}
+
+func Test_Analyze_ReturnStatementWithExpression(t *testing.T) {
+	code := `main: () {
+		x: = 10
+		ret x + 5
+	}`
+	irCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatementWithExpression", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	require.Equal(t, 2, len(funcDecl.Body.Statements))
+
+	retStmt, ok := funcDecl.Body.Statements[1].(*IRReturn)
+	require.True(t, ok, "Statement should be IRReturn")
+	require.NotNil(t, retStmt.Value, "Return with expression should have non-nil Value")
+
+	// Verify the value is a binary operation
+	binOp, ok := retStmt.Value.(*IRBinaryOp)
+	require.True(t, ok, "Return value should be IRBinaryOp")
+	assert.NotNil(t, binOp.Left)
+	assert.NotNil(t, binOp.Right)
+}
+
+// ============================================================================
 // Expression Tests
 // ============================================================================
 

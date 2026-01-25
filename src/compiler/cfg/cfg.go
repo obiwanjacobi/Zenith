@@ -181,6 +181,13 @@ func (b *CFGBuilder) processStatement(stmt zir.IRStatement, exitBlock *BasicBloc
 		// Expression statements (e.g., function calls)
 		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
 
+	case *zir.IRReturn:
+		// Return statement - add to current block and connect to exit
+		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
+		b.addEdge(b.currentBlock, exitBlock)
+		// Create a new block for any statements after return (unreachable code)
+		b.currentBlock = b.newBlock(LabelEntry, 0) // Use generic label for continuation
+
 	case *zir.IRIf:
 		b.processIf(s, exitBlock)
 

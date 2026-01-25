@@ -378,6 +378,8 @@ func (sa *SemanticAnalyzer) processStatement(node parser.ParserNode) IRStatement
 		return sa.processSelect(n)
 	case parser.StatementExpression:
 		return sa.processExpressionStmt(n)
+	case parser.StatementReturn:
+		return sa.processReturn(n)
 	default:
 		sa.error(fmt.Sprintf("unknown statement type: %T", node), node)
 		return nil
@@ -520,6 +522,17 @@ func (sa *SemanticAnalyzer) processExpressionStmt(node parser.StatementExpressio
 	return &IRExpressionStmt{
 		Expression: expr,
 		astNode:    node,
+	}
+}
+
+func (sa *SemanticAnalyzer) processReturn(node parser.StatementReturn) *IRReturn {
+	var value IRExpression
+	if node.Value() != nil {
+		value = sa.processExpression(node.Value())
+	}
+	return &IRReturn{
+		Value:   value,
+		astNode: node,
 	}
 }
 

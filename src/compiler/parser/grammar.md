@@ -54,7 +54,7 @@ declaration_field:
     label type_ref
 
 statement:
-    statement_if | statement_for | statement_select | statement_expression
+    statement_if | statement_for | statement_select | statement_return | statement_expression
 statement_if:
     'if' expression '{' code_block '}'
         ('elsif' expression '{' code_block '}')*
@@ -70,6 +70,8 @@ statement_select_cases:
     'case' expression '{' code_block '}'
 statement_select_else:
     'else' '{' code_block '}'
+statement_return:
+    'ret' expression?
 statement_expression:
     expression_function_invocation
 

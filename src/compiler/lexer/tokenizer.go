@@ -142,6 +142,8 @@ func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Tok
 		token = &tokenData{TokenTrue, location, idOrKeyword}
 	case "false":
 		token = &tokenData{TokenFalse, location, idOrKeyword}
+	case "ret":
+		token = &tokenData{TokenReturn, location, idOrKeyword}
 	default:
 		token = &tokenData{TokenIdentifier, location, idOrKeyword}
 	}

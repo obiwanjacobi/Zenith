@@ -161,6 +161,15 @@ type IRExpressionStmt struct {
 func (n *IRExpressionStmt) ASTNode() parser.ParserNode      { return n.astNode }
 func (n *IRExpressionStmt) AST() parser.StatementExpression { return n.astNode }
 
+// IRReturn represents a return statement
+type IRReturn struct {
+	Value   IRExpression // nil if no return value
+	astNode parser.StatementReturn
+}
+
+func (n *IRReturn) ASTNode() parser.ParserNode  { return n.astNode }
+func (n *IRReturn) AST() parser.StatementReturn { return n.astNode }
+
 // ============================================================================
 // Expressions
 // ============================================================================

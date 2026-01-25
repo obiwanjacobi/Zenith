@@ -627,6 +627,7 @@ func (ctx *parserContext) statement() ParserNode {
 		ctx.statementIf,
 		ctx.statementFor,
 		ctx.statementSelect,
+		ctx.statementReturn,
 		ctx.statementExpression,
 	})
 }
@@ -925,6 +926,30 @@ func (ctx *parserContext) statementSelectElse() ParserNode {
 			_children: children,
 			_tokens:   ctx.fromMark(mark),
 			_errors:   errors,
+		},
+	}
+}
+
+// ============================================================================
+// statement_return: 'ret' expression?
+// ============================================================================
+
+func (ctx *parserContext) statementReturn() ParserNode {
+	mark := ctx.mark()
+
+	if !ctx.is(lexer.TokenReturn) {
+		ctx.gotoMark(mark)
+		return nil
+	}
+	ctx.next(skipEOL) // consume 'ret'
+
+	// Optional expression
+	expr := ctx.expression()
+
+	return &statementReturn{
+		parserNodeData: parserNodeData{
+			_children: []ParserNode{expr},
+			_tokens:   ctx.fromMark(mark),
 		},
 	}
 }

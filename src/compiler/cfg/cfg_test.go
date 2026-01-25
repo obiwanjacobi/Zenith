@@ -347,6 +347,71 @@ func Test_CFG_SelectStatementNoElse(t *testing.T) {
 }
 
 // ============================================================================
+// Return Statement Tests
+// ============================================================================
+
+func Test_CFG_ReturnStatement(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		ret
+	}`
+	cfg := buildCFGFromCode(t, code)
+
+	// Entry should have 2 instructions (variable decl + return)
+	assert.Equal(t, 2, len(cfg.Entry.Instructions))
+
+	// Entry should connect to exit (via return)
+	assert.Contains(t, cfg.Entry.Successors, cfg.Exit)
+
+	// Verify the return instruction is present
+	retStmt, ok := cfg.Entry.Instructions[1].(*zir.IRReturn)
+	require.True(t, ok, "Second instruction should be IRReturn")
+	assert.Nil(t, retStmt.Value, "Return without value should have nil Value")
+}
+
+func Test_CFG_ReturnStatementWithValue(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		ret x + 1
+	}`
+	cfg := buildCFGFromCode(t, code)
+
+	// Entry should have 2 instructions
+	assert.Equal(t, 2, len(cfg.Entry.Instructions))
+
+	// Entry should connect to exit
+	assert.Contains(t, cfg.Entry.Successors, cfg.Exit)
+
+	// Verify the return instruction has a value
+	retStmt, ok := cfg.Entry.Instructions[1].(*zir.IRReturn)
+	require.True(t, ok, "Second instruction should be IRReturn")
+	assert.NotNil(t, retStmt.Value, "Return with value should have non-nil Value")
+}
+
+func Test_CFG_ReturnInBranch(t *testing.T) {
+	code := `main: () {
+		if true {
+			ret 42
+		}
+		x: = 10
+	}`
+	cfg := buildCFGFromCode(t, code)
+
+	// Find the then block
+	thenBlock := findBlockByLabel(cfg, LabelIfThen)
+	require.NotNil(t, thenBlock)
+
+	// Then block should have return statement
+	require.Equal(t, 1, len(thenBlock.Instructions))
+	retStmt, ok := thenBlock.Instructions[0].(*zir.IRReturn)
+	require.True(t, ok, "Then block should contain IRReturn")
+	assert.NotNil(t, retStmt.Value)
+
+	// Then block should connect to exit
+	assert.Contains(t, thenBlock.Successors, cfg.Exit)
+}
+
+// ============================================================================
 // Complex CFG Tests
 // ============================================================================
 

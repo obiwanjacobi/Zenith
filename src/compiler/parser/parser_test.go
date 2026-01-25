@@ -183,6 +183,38 @@ func Test_ParseSelectStatement(t *testing.T) {
 	assert.NotNil(t, selectStmt)
 }
 
+func Test_ParseReturnStatement(t *testing.T) {
+	code := `main: () {
+		ret
+	}`
+	cu := parseCode(t, "Test_ParseReturnStatement", code)
+	funcDecl := cu.Declarations()[0].(FunctionDeclaration)
+	body := funcDecl.Body()
+	assert.Equal(t, 1, len(body.Statements()))
+
+	retStmt, ok := body.Statements()[0].(StatementReturn)
+	assert.True(t, ok)
+	assert.Nil(t, retStmt.Value(), "Return without expression should have nil value")
+}
+
+func Test_ParseReturnStatementWithExpression(t *testing.T) {
+	code := `main: () {
+		ret 42
+	}`
+	cu := parseCode(t, "Test_ParseReturnStatementWithExpression", code)
+	funcDecl := cu.Declarations()[0].(FunctionDeclaration)
+	body := funcDecl.Body()
+	assert.Equal(t, 1, len(body.Statements()))
+
+	retStmt, ok := body.Statements()[0].(StatementReturn)
+	assert.True(t, ok)
+	assert.NotNil(t, retStmt.Value(), "Return with expression should have non-nil value")
+
+	// Check that the expression is a number literal
+	_, isLiteral := retStmt.Value().(ExpressionLiteral)
+	assert.True(t, isLiteral, "Return value should be a literal expression")
+}
+
 func Test_ParseExpressionLiteral(t *testing.T) {
 	code := `value: = 42`
 	cu := parseCode(t, "Test_ParseExpressionLiteral", code)
