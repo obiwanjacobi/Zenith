@@ -15,9 +15,10 @@ func Test_RegisterPreference_ArithmeticPreference(t *testing.T) {
 	regB := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
 	regH := Register{Name: "H", Size: 8, Class: RegisterClassIndex}
 
-	scoreA := calculateRegisterPreference(&regA, usage, 8)
-	scoreB := calculateRegisterPreference(&regB, usage, 8)
-	scoreH := calculateRegisterPreference(&regH, usage, 8)
+	cap := &Z80RegisterCapabilities{}
+	scoreA := calculateRegisterPreference(&regA, usage, 8, cap)
+	scoreB := calculateRegisterPreference(&regB, usage, 8, cap)
+	scoreH := calculateRegisterPreference(&regH, usage, 8, cap)
 
 	// A should have highest score for arithmetic
 	if scoreA <= scoreB || scoreA <= scoreH {
@@ -37,10 +38,11 @@ func Test_RegisterPreference_PointerPreference8Bit(t *testing.T) {
 	regL := Register{Name: "L", Size: 8, Class: RegisterClassIndex}
 	regD := Register{Name: "D", Size: 8, Class: RegisterClassGeneral}
 
-	scoreA := calculateRegisterPreference(&regA, usage, 8)
-	scoreH := calculateRegisterPreference(&regH, usage, 8)
-	scoreL := calculateRegisterPreference(&regL, usage, 8)
-	scoreD := calculateRegisterPreference(&regD, usage, 8)
+	cap := &Z80RegisterCapabilities{}
+	scoreA := calculateRegisterPreference(&regA, usage, 8, cap)
+	scoreH := calculateRegisterPreference(&regH, usage, 8, cap)
+	scoreL := calculateRegisterPreference(&regL, usage, 8, cap)
+	scoreD := calculateRegisterPreference(&regD, usage, 8, cap)
 
 	// H or L should have highest score for pointers
 	if scoreH <= scoreA || scoreL <= scoreA {
@@ -59,9 +61,10 @@ func Test_RegisterPreference_PointerPreference16Bit(t *testing.T) {
 	regDE := Register{Name: "DE", Size: 16, Class: RegisterClassGeneral}
 	regBC := Register{Name: "BC", Size: 16, Class: RegisterClassGeneral}
 
-	scoreHL := calculateRegisterPreference(&regHL, usage, 16)
-	scoreDE := calculateRegisterPreference(&regDE, usage, 16)
-	scoreBC := calculateRegisterPreference(&regBC, usage, 16)
+	cap := &Z80RegisterCapabilities{}
+	scoreHL := calculateRegisterPreference(&regHL, usage, 16, cap)
+	scoreDE := calculateRegisterPreference(&regDE, usage, 16, cap)
+	scoreBC := calculateRegisterPreference(&regBC, usage, 16, cap)
 
 	// HL should have highest score for 16-bit pointers
 	if scoreHL <= scoreDE || scoreHL <= scoreBC {
@@ -81,10 +84,11 @@ func Test_RegisterPreference_CounterPreference(t *testing.T) {
 	regC := Register{Name: "C", Size: 8, Class: RegisterClassGeneral}
 	regD := Register{Name: "D", Size: 8, Class: RegisterClassGeneral}
 
-	scoreA := calculateRegisterPreference(&regA, usage, 8)
-	scoreB := calculateRegisterPreference(&regB, usage, 8)
-	scoreC := calculateRegisterPreference(&regC, usage, 8)
-	scoreD := calculateRegisterPreference(&regD, usage, 8)
+	cap := &Z80RegisterCapabilities{}
+	scoreA := calculateRegisterPreference(&regA, usage, 8, cap)
+	scoreB := calculateRegisterPreference(&regB, usage, 8, cap)
+	scoreC := calculateRegisterPreference(&regC, usage, 8, cap)
+	scoreD := calculateRegisterPreference(&regD, usage, 8, cap)
 
 	// B or C should have highest score for counters (Z80's DJNZ uses B)
 	if scoreB <= scoreA || scoreC <= scoreA {
@@ -101,17 +105,18 @@ func Test_RegisterPreference_SizeMatching(t *testing.T) {
 	reg8 := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
 	reg16 := Register{Name: "BC", Size: 16, Class: RegisterClassGeneral}
 
+	cap := &Z80RegisterCapabilities{}
 	// 8-bit variable should strongly prefer 8-bit register
-	score8for8 := calculateRegisterPreference(&reg8, usage, 8)
-	score16for8 := calculateRegisterPreference(&reg16, usage, 8)
+	score8for8 := calculateRegisterPreference(&reg8, usage, 8, cap)
+	score16for8 := calculateRegisterPreference(&reg16, usage, 8, cap)
 
 	if score8for8 <= score16for8 {
 		t.Errorf("8-bit register should have higher score for 8-bit variable. Scores: 8-bit=%d, 16-bit=%d", score8for8, score16for8)
 	}
 
 	// 16-bit variable should strongly prefer 16-bit register
-	score8for16 := calculateRegisterPreference(&reg8, usage, 16)
-	score16for16 := calculateRegisterPreference(&reg16, usage, 16)
+	score8for16 := calculateRegisterPreference(&reg8, usage, 16, cap)
+	score16for16 := calculateRegisterPreference(&reg16, usage, 16, cap)
 	if score16for16 <= score8for16 {
 		t.Errorf("16-bit register should have higher score for 16-bit variable. Scores: 8-bit=%d, 16-bit=%d", score8for16, score16for16)
 	}
@@ -127,9 +132,10 @@ func Test_SelectBestRegister(t *testing.T) {
 
 	registers := Z80Registers
 	usedColors := make(map[int]bool)
+	cap := &Z80RegisterCapabilities{}
 
 	// Select best register for 8-bit arithmetic variable
-	bestIdx := selectBestRegister("x", usage, 8, registers, usedColors)
+	bestIdx := selectBestRegister("x", usage, 8, registers, usedColors, cap)
 	if bestIdx < 0 {
 		t.Fatal("Expected a register to be selected")
 	}
@@ -141,7 +147,7 @@ func Test_SelectBestRegister(t *testing.T) {
 
 	// Now mark A as used and try again
 	usedColors[bestIdx] = true
-	secondBestIdx := selectBestRegister("y", usage, 8, registers, usedColors)
+	secondBestIdx := selectBestRegister("y", usage, 8, registers, usedColors, cap)
 	if secondBestIdx < 0 {
 		t.Fatal("Expected a second-best register to be selected")
 	}
@@ -162,9 +168,10 @@ func Test_SelectBestRegister16Bit(t *testing.T) {
 
 	registers := Z80Registers
 	usedColors := make(map[int]bool)
+	cap := &Z80RegisterCapabilities{}
 
 	// Select best register for 16-bit pointer variable
-	bestIdx := selectBestRegister("ptr", usage, 16, registers, usedColors)
+	bestIdx := selectBestRegister("ptr", usage, 16, registers, usedColors, cap)
 	if bestIdx < 0 {
 		t.Fatal("Expected a register to be selected")
 	}
