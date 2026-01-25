@@ -14,7 +14,7 @@ func Test_RegisterAllocation_SimpleCase(t *testing.T) {
 	// No edge between x and y
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	result := allocator.Allocate(ig)
+	result := allocator.Allocate(ig, nil)
 
 	// Both should get registers
 	assert.Contains(t, result.Allocation, "x")
@@ -30,7 +30,7 @@ func Test_RegisterAllocation_Interference(t *testing.T) {
 	ig.AddEdge("x", "y")
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	result := allocator.Allocate(ig)
+	result := allocator.Allocate(ig, nil)
 
 	// Both should get different registers
 	assert.Contains(t, result.Allocation, "x")
@@ -57,7 +57,7 @@ func Test_RegisterAllocation_RegisterPressure(t *testing.T) {
 	}
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	result := allocator.Allocate(ig)
+	result := allocator.Allocate(ig, nil)
 
 	// Z80Registers now has 10 registers (7 single 8-bit + 3 pairs), so all 8 should get registers
 	assert.Equal(t, 8, len(result.Allocation))
@@ -77,7 +77,7 @@ func Test_RegisterAllocation_ThreeVariablesLinearInterference(t *testing.T) {
 	// x and z don't interfere
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	result := allocator.Allocate(ig)
+	result := allocator.Allocate(ig, nil)
 
 	// All three should get registers
 	assert.Equal(t, 3, len(result.Allocation))
@@ -98,7 +98,7 @@ func Test_RegisterAllocation_FromCode(t *testing.T) {
 		z: u8 = 3
 	}`
 
-	cfg, liveness := buildLivenessFromCode(t, code)
+	cfg, liveness, symbolLookup := buildLivenessFromCode(t, code)
 	assert.NotNil(t, cfg)
 	assert.NotNil(t, liveness)
 
@@ -106,12 +106,12 @@ func Test_RegisterAllocation_FromCode(t *testing.T) {
 	assert.NotNil(t, ig)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	result := allocator.Allocate(ig)
+	result := allocator.Allocate(ig, symbolLookup)
 
 	// All variables should get registers (low register pressure)
-	assert.Contains(t, result.Allocation, "x")
-	assert.Contains(t, result.Allocation, "y")
-	assert.Contains(t, result.Allocation, "z")
+	assert.Contains(t, result.Allocation, "main.x")
+	assert.Contains(t, result.Allocation, "main.y")
+	assert.Contains(t, result.Allocation, "main.z")
 
 	// Should have no spills with only 3 variables
 	assert.Empty(t, result.Spilled)
@@ -131,7 +131,7 @@ func Test_RegisterAllocation_HighPressureCode(t *testing.T) {
 		sum: u8 = a + b + c + d + e + f + g + h
 	}`
 
-	cfg, liveness := buildLivenessFromCode(t, code)
+	cfg, liveness, symbolLookup := buildLivenessFromCode(t, code)
 	assert.NotNil(t, cfg)
 	assert.NotNil(t, liveness)
 
@@ -139,7 +139,7 @@ func Test_RegisterAllocation_HighPressureCode(t *testing.T) {
 	assert.NotNil(t, ig)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	result := allocator.Allocate(ig)
+	result := allocator.Allocate(ig, symbolLookup)
 
 	// Check that allocation was performed
 	assert.NotEmpty(t, result.Allocation)
@@ -154,7 +154,7 @@ func Test_RegisterAllocation_EmptyGraph(t *testing.T) {
 	ig := NewInterferenceGraph()
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	result := allocator.Allocate(ig)
+	result := allocator.Allocate(ig, nil)
 
 	assert.Empty(t, result.Allocation)
 	assert.Empty(t, result.Spilled)

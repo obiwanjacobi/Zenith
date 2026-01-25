@@ -28,6 +28,15 @@ func (rc RegisterClass) String() string {
 	}
 }
 
+// SymbolInfo provides information needed for register allocation
+type SymbolInfo interface {
+	// GetTypeSize returns the size of the symbol's type in bits (8 or 16)
+	GetTypeSize(qualifiedName string) int
+
+	// GetUsage returns the usage pattern of the symbol
+	GetUsage(qualifiedName string) zir.VariableUsage
+}
+
 // Register represents a physical register
 type Register struct {
 	Name  string
@@ -65,7 +74,8 @@ func NewRegisterAllocator(registers []Register) *RegisterAllocator {
 }
 
 // Allocate performs graph coloring on the interference graph
-func (ra *RegisterAllocator) Allocate(ig *InterferenceGraph) *AllocationResult {
+// symbolInfo provides type sizes and usage patterns for variables
+func (ra *RegisterAllocator) Allocate(ig *InterferenceGraph, symbolInfo SymbolInfo) *AllocationResult {
 	result := &AllocationResult{
 		Allocation:     make(map[string]string),
 		Spilled:        make(map[string]bool),
@@ -79,13 +89,17 @@ func (ra *RegisterAllocator) Allocate(ig *InterferenceGraph) *AllocationResult {
 		return result
 	}
 
-	// Variables now use fully qualified names from Symbol.GetQualifiedName()
-	// e.g., "main.x", "helper.count" - no collision between different scopes
-
-	// TODO: Populate result.VariableSizes and result.VariableUsages from symbol table
-	// For now, assume all variables are 8-bit (will need to pass symbol table or type info)
-	for _, node := range nodes {
-		result.VariableSizes[node] = 8 // Default to 8-bit
+	// Populate variable sizes and usage patterns from symbol info
+	if symbolInfo != nil {
+		for _, node := range nodes {
+			result.VariableSizes[node] = symbolInfo.GetTypeSize(node)
+			result.VariableUsages[node] = symbolInfo.GetUsage(node)
+		}
+	} else {
+		// Fallback: assume all variables are 8-bit
+		for _, node := range nodes {
+			result.VariableSizes[node] = 8
+		}
 	}
 
 	// Graph coloring algorithm with simplification

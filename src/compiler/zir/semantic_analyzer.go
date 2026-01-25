@@ -441,13 +441,7 @@ func (sa *SemanticAnalyzer) processIf(node parser.StatementIf) *IRIf {
 }
 
 func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
-	// Create a new scope for the for loop
-	loopScope := &SymbolTable{
-		parent:  sa.currentScope,
-		symbols: make(map[string]*Symbol),
-	}
-	sa.pushScope(loopScope)
-	defer sa.popScope()
+	// No new scope for for loops - variables belong to function scope
 
 	var initializer IRStatement
 	if init := node.Initializer(); init != nil {
