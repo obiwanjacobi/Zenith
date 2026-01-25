@@ -9,32 +9,35 @@ const (
 	SymbolFunction                   // Function
 )
 
-// VariableUsage represents how a variable is used in the program (CPU-agnostic)
+// VariableUsage represents how a variable is initialized and used in the program (CPU-agnostic)
+// Uses bitflags to track multiple usage patterns
 type VariableUsage int
 
 const (
-	VariableUsageGeneral    VariableUsage = iota
-	VariableUsagePointer                  // Used for indirect addressing/dereferencing
-	VariableUsageArithmetic               // Used in arithmetic operations
-	VariableUsageCounter                  // Used as loop counter or iteration variable
-	VariableUsageIO                       // Used in I/O operations
+	// Initialization flags (how the variable was initialized)
+	VarInitNone       VariableUsage = 0
+	VarInitArithmetic VariableUsage = 1 << 0 // Initialized with arithmetic expression
+	VarInitPointer    VariableUsage = 1 << 1 // Initialized with pointer/struct/member access
+	VarInitCounter    VariableUsage = 1 << 2 // Initialized in loop context
+	VarInitIO         VariableUsage = 1 << 3 // Initialized from I/O operation
+	VarInitConstant   VariableUsage = 1 << 4 // Initialized with constant/literal
+
+	// Usage flags (how the variable is referenced/used after initialization)
+	VarUsedArithmetic VariableUsage = 1 << 8  // Used in arithmetic operations
+	VarUsedPointer    VariableUsage = 1 << 9  // Used for indirect addressing/dereferencing
+	VarUsedCounter    VariableUsage = 1 << 10 // Used as loop counter or iteration variable
+	VarUsedIO         VariableUsage = 1 << 11 // Used in I/O operations
+	VarUsedComparison VariableUsage = 1 << 12 // Used in comparison operations
 )
 
-func (vu VariableUsage) String() string {
-	switch vu {
-	case VariableUsageGeneral:
-		return "general"
-	case VariableUsagePointer:
-		return "pointer"
-	case VariableUsageArithmetic:
-		return "arithmetic"
-	case VariableUsageCounter:
-		return "counter"
-	case VariableUsageIO:
-		return "io"
-	default:
-		return "unknown"
-	}
+// HasFlag checks if a variable has a specific flag
+func (vu VariableUsage) HasFlag(flag VariableUsage) bool {
+	return (vu & flag) != 0
+}
+
+// AddFlag adds a flag
+func (vu *VariableUsage) AddFlag(flag VariableUsage) {
+	*vu |= flag
 }
 
 // Symbol represents a declared entity (variable, parameter, function, type)

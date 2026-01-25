@@ -261,6 +261,11 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 		}
 	}
 
+	// Track initialization pattern
+	if initializer != nil {
+		sa.trackInitializationPattern(symbol, initializer)
+	}
+
 	return &IRVariableDecl{
 		Symbol:      symbol,
 		Initializer: initializer,
@@ -454,7 +459,7 @@ func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
 
 		// Mark variable as counter if it's a declaration
 		if varDecl, ok := initializer.(*IRVariableDecl); ok {
-			sa.updateVariableUsage(varDecl.Symbol, VariableUsageCounter)
+			varDecl.Symbol.Usage.AddFlag(VarInitCounter)
 		}
 	}
 
@@ -462,14 +467,14 @@ func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
 	if cond := node.Condition(); cond != nil {
 		condition = sa.processExpression(cond)
 		// Variables in condition are likely counters
-		sa.trackVariableUsageInExpression(condition, VariableUsageCounter)
+		sa.trackVariableUsageInExpression(condition, VarUsedCounter)
 	}
 
 	var increment IRExpression
 	if inc := node.Increment(); inc != nil {
 		increment = sa.processExpression(inc)
 		// Variables in increment are counters
-		sa.trackVariableUsageInExpression(increment, VariableUsageCounter)
+		sa.trackVariableUsageInExpression(increment, VarUsedCounter)
 	}
 
 	var body *IRBlock
@@ -689,8 +694,8 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 
 	// Track variable usage for arithmetic operations
 	if sa.isArithmeticOperator(op) {
-		sa.trackVariableUsageInExpression(left, VariableUsageArithmetic)
-		sa.trackVariableUsageInExpression(right, VariableUsageArithmetic)
+		sa.trackVariableUsageInExpression(left, VarUsedArithmetic)
+		sa.trackVariableUsageInExpression(right, VarUsedArithmetic)
 	}
 
 	// Determine result type
@@ -752,7 +757,7 @@ func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAcce
 	}
 
 	// Track that the object is being used for pointer/member access
-	sa.trackVariableUsageInExpression(object, VariableUsagePointer)
+	sa.trackVariableUsageInExpression(object, VarUsedPointer)
 
 	// Get the member name
 	memberToken := node.Member()
@@ -943,10 +948,27 @@ func (sa *SemanticAnalyzer) updateVariableUsage(symbol *Symbol, usage VariableUs
 		return
 	}
 
-	// Only update if current usage is General (unspecified)
-	// Once a specific usage is set, keep it
-	if symbol.Usage == VariableUsageGeneral {
-		symbol.Usage = usage
+	// Add the usage flag
+	symbol.Usage.AddFlag(usage)
+}
+
+// trackInitializationPattern analyzes how a variable is initialized
+func (sa *SemanticAnalyzer) trackInitializationPattern(symbol *Symbol, initExpr IRExpression) {
+	if symbol == nil || initExpr == nil {
+		return
+	}
+
+	switch e := initExpr.(type) {
+	case *IRConstant:
+		symbol.Usage.AddFlag(VarInitConstant)
+	case *IRBinaryOp:
+		if sa.isArithmeticOperator(e.Op) {
+			symbol.Usage.AddFlag(VarInitArithmetic)
+		}
+	case *IRMemberAccess:
+		symbol.Usage.AddFlag(VarInitPointer)
+	case *IRTypeInitializer:
+		symbol.Usage.AddFlag(VarInitPointer)
 	}
 }
 
@@ -970,7 +992,7 @@ func (sa *SemanticAnalyzer) trackVariableUsageInExpression(expr IRExpression, us
 		}
 	case *IRMemberAccess:
 		if e.Object != nil {
-			sa.trackVariableUsageInExpression(*e.Object, VariableUsagePointer)
+			sa.trackVariableUsageInExpression(*e.Object, VarUsedPointer)
 		}
 	}
 }

@@ -37,18 +37,20 @@ func Test_VariableUsage_Arithmetic(t *testing.T) {
 	xDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "x", xDecl.Symbol.Name)
-	assert.Equal(t, VariableUsageArithmetic, xDecl.Symbol.Usage, "x should be marked as arithmetic")
+	assert.True(t, xDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "x should be marked as used in arithmetic")
 
 	yDecl, ok := funcDecl.Body.Statements[1].(*IRVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "y", yDecl.Symbol.Name)
-	assert.Equal(t, VariableUsageArithmetic, yDecl.Symbol.Usage, "y should be marked as arithmetic")
+	assert.True(t, yDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "y should be marked as used in arithmetic")
 
 	zDecl, ok := funcDecl.Body.Statements[2].(*IRVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "z", zDecl.Symbol.Name)
-	// z is defined but not used in arithmetic, should be general
-	assert.Equal(t, VariableUsageGeneral, zDecl.Symbol.Usage, "z should be general (not used)")
+	// z is defined but not used in arithmetic
+	assert.False(t, zDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "z should not be marked as used in arithmetic")
+	// z is initialized with arithmetic
+	assert.True(t, zDecl.Symbol.Usage.HasFlag(VarInitArithmetic), "z should be marked as initialized with arithmetic")
 }
 
 func Test_VariableUsage_Counter(t *testing.T) {
@@ -83,7 +85,8 @@ func Test_VariableUsage_Counter(t *testing.T) {
 	require.True(t, ok)
 
 	// Check that i is marked as counter
-	assert.Equal(t, VariableUsageCounter, varDecl.Symbol.Usage, "i should be marked as counter")
+	assert.True(t, varDecl.Symbol.Usage.HasFlag(VarInitCounter), "i should be marked as initialized as counter")
+	assert.True(t, varDecl.Symbol.Usage.HasFlag(VarUsedCounter), "i should be marked as used as counter")
 }
 
 func Test_VariableUsage_MemberAccessPointer(t *testing.T) {
@@ -122,7 +125,9 @@ func Test_VariableUsage_MemberAccessPointer(t *testing.T) {
 	require.Equal(t, "p", varDecl.Symbol.Name)
 
 	// Check that p is marked as pointer usage (used in member access)
-	assert.Equal(t, VariableUsagePointer, varDecl.Symbol.Usage, "p should be marked as pointer (member access)")
+	assert.True(t, varDecl.Symbol.Usage.HasFlag(VarUsedPointer), "p should be marked as used as pointer (member access)")
+	// p is initialized with struct initializer
+	assert.True(t, varDecl.Symbol.Usage.HasFlag(VarInitPointer), "p should be marked as initialized with struct")
 }
 
 func Test_VariableUsage_General(t *testing.T) {
@@ -150,7 +155,8 @@ func Test_VariableUsage_General(t *testing.T) {
 	xDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "x", xDecl.Symbol.Name)
-	assert.Equal(t, VariableUsageGeneral, xDecl.Symbol.Usage, "x should be general (declared but not used)")
+	assert.False(t, xDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "x should not be used in arithmetic")
+	assert.True(t, xDecl.Symbol.Usage.HasFlag(VarInitConstant), "x should be initialized with constant")
 }
 
 func Test_VariableUsage_MultipleArithmetic(t *testing.T) {
@@ -181,15 +187,15 @@ func Test_VariableUsage_MultipleArithmetic(t *testing.T) {
 	aDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "a", aDecl.Symbol.Name)
-	assert.Equal(t, VariableUsageArithmetic, aDecl.Symbol.Usage)
+	assert.True(t, aDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "a should be used in arithmetic")
 
 	bDecl, ok := funcDecl.Body.Statements[1].(*IRVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "b", bDecl.Symbol.Name)
-	assert.Equal(t, VariableUsageArithmetic, bDecl.Symbol.Usage)
+	assert.True(t, bDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "b should be used in arithmetic")
 
 	cDecl, ok := funcDecl.Body.Statements[2].(*IRVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "c", cDecl.Symbol.Name)
-	assert.Equal(t, VariableUsageArithmetic, cDecl.Symbol.Usage)
+	assert.True(t, cDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "c should be used in arithmetic")
 }
