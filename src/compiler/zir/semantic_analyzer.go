@@ -530,6 +530,9 @@ func (sa *SemanticAnalyzer) processReturn(node parser.StatementReturn) *IRReturn
 	if node.Value() != nil {
 		value = sa.processExpression(node.Value())
 	}
+
+	// TODO: Check that the return value type is compatible with the function's declared return type
+
 	return &IRReturn{
 		Value:   value,
 		astNode: node,

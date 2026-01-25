@@ -481,6 +481,3 @@ func isHexLetter(r rune) bool {
 func isPunctuation(r rune) bool {
 	return unicode.IsPunct(r) || r == '$' || r == '^' || r == '=' || r == '+' || r == '`' || r == '~' || r == '<' || r == '>' || r == '|' || r == '&'
 }
-func isWhitespace(r rune) bool {
-	return unicode.IsSpace(r) && r != '\n'
-}
