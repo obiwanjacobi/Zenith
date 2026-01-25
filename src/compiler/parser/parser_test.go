@@ -399,6 +399,51 @@ func Test_ParseStructDeclarationTopLevel(t *testing.T) {
 	assert.NotNil(t, structDecl.Fields())
 }
 
+func Test_ParseInitStructWithFields(t *testing.T) {
+	code := `
+	struct Point {
+		x: u8,
+		y: u8
+	}
+	main: () {
+		p: Point = Point{x = 5, y = 10}
+	}`
+	cu := parseCode(t, "Test_ParseInitStructWithFields", code)
+	require.Equal(t, 2, len(cu.Declarations()))
+
+	// First should be struct
+	structDecl, ok := cu.Declarations()[0].(TypeDeclaration)
+	assert.True(t, ok)
+	assert.Equal(t, "Point", structDecl.Name().Text())
+
+	// Second should be function
+	funcDecl, ok := cu.Declarations()[1].(FunctionDeclaration)
+	assert.True(t, ok)
+	assert.Equal(t, "main", funcDecl.Label().Name())
+}
+
+func Test_ParseStructUsageInFunction(t *testing.T) {
+	code := `
+	struct Point {
+		x: u8,
+		y: u8
+	}
+	main: () {
+		p: Point = Point{x= 5, y= 10}
+		val: u8 = p.x
+	}`
+	cu := parseCode(t, "Test_ParseStructUsageInFunction", code)
+	require.Equal(t, 2, len(cu.Declarations()))
+
+	funcDecl, ok := cu.Declarations()[1].(FunctionDeclaration)
+	assert.True(t, ok)
+
+	// Check that function body parses correctly
+	body := funcDecl.Body()
+	assert.NotNil(t, body)
+	assert.Greater(t, len(body.Statements()), 0)
+}
+
 func Test_ParseStructDeclarationMissingComma(t *testing.T) {
 	code := `struct Point {
 		x: u8

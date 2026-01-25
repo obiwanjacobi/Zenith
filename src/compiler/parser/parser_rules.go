@@ -487,14 +487,14 @@ func (ctx *parserContext) typeInitializerField() ParserNode {
 	}
 	ctx.next(skipEOL) // consume identifier
 
+	errors := make([]ParserError, 0)
+	children := []ParserNode{}
+
 	if !ctx.is(lexer.TokenEquals) {
-		ctx.gotoMark(mark)
-		return nil
+		ctx.appendError(&errors, "expected '=' in type initializer field")
 	}
 	ctx.next(skipEOL) // consume '='
 
-	errors := make([]ParserError, 0)
-	children := []ParserNode{}
 	expr := ctx.expression()
 	if expr == nil {
 		ctx.appendError(&errors, "expected expression after '=")

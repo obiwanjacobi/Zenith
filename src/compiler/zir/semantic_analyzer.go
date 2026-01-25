@@ -451,16 +451,25 @@ func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
 	if init := node.Initializer(); init != nil {
 		// Initializer can be a variable declaration or an expression
 		initializer = sa.processStatement(init)
+
+		// Mark variable as counter if it's a declaration
+		if varDecl, ok := initializer.(*IRVariableDecl); ok {
+			sa.updateVariableUsage(varDecl.Symbol, VariableUsageCounter)
+		}
 	}
 
 	var condition IRExpression
 	if cond := node.Condition(); cond != nil {
 		condition = sa.processExpression(cond)
+		// Variables in condition are likely counters
+		sa.trackVariableUsageInExpression(condition, VariableUsageCounter)
 	}
 
 	var increment IRExpression
 	if inc := node.Increment(); inc != nil {
 		increment = sa.processExpression(inc)
+		// Variables in increment are counters
+		sa.trackVariableUsageInExpression(increment, VariableUsageCounter)
 	}
 
 	var body *IRBlock
@@ -677,6 +686,12 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 
 	// Map token to operator
 	op := sa.mapBinaryOperator(opToken)
+
+	// Track variable usage for arithmetic operations
+	if sa.isArithmeticOperator(op) {
+		sa.trackVariableUsageInExpression(left, VariableUsageArithmetic)
+		sa.trackVariableUsageInExpression(right, VariableUsageArithmetic)
+	}
 
 	// Determine result type
 	// TODO: Implement proper type inference/coercion
@@ -915,6 +930,56 @@ func (sa *SemanticAnalyzer) pushScope(scope *SymbolTable) {
 func (sa *SemanticAnalyzer) popScope() {
 	if sa.currentScope.parent != nil {
 		sa.currentScope = sa.currentScope.parent
+	}
+}
+
+// updateVariableUsage updates the usage pattern for a variable symbol
+// Only updates if the current usage is more specific than the existing one
+func (sa *SemanticAnalyzer) updateVariableUsage(symbol *Symbol, usage VariableUsage) {
+	if symbol == nil || symbol.Kind != SymbolVariable {
+		return
+	}
+
+	// Only update if current usage is General (unspecified)
+	// Once a specific usage is set, keep it
+	if symbol.Usage == VariableUsageGeneral {
+		symbol.Usage = usage
+	}
+}
+
+// trackVariableUsageInExpression recursively tracks how variables are used in expressions
+func (sa *SemanticAnalyzer) trackVariableUsageInExpression(expr IRExpression, usage VariableUsage) {
+	if expr == nil {
+		return
+	}
+
+	switch e := expr.(type) {
+	case *IRSymbolRef:
+		sa.updateVariableUsage(e.Symbol, usage)
+	case *IRBinaryOp:
+		sa.trackVariableUsageInExpression(e.Left, usage)
+		sa.trackVariableUsageInExpression(e.Right, usage)
+	case *IRUnaryOp:
+		sa.trackVariableUsageInExpression(e.Operand, usage)
+	case *IRFunctionCall:
+		for _, arg := range e.Arguments {
+			sa.trackVariableUsageInExpression(arg, usage)
+		}
+	case *IRMemberAccess:
+		if e.Object != nil {
+			sa.trackVariableUsageInExpression(*e.Object, VariableUsagePointer)
+		}
+	}
+}
+
+// isArithmeticOperator checks if an operator is arithmetic
+func (sa *SemanticAnalyzer) isArithmeticOperator(op BinaryOperator) bool {
+	switch op {
+	case OpAdd, OpSubtract, OpMultiply, OpDivide,
+		OpBitwiseAnd, OpBitwiseOr, OpBitwiseXor:
+		return true
+	default:
+		return false
 	}
 }
 
