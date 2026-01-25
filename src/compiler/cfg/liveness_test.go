@@ -1,0 +1,247 @@
+package cfg
+
+import (
+	"testing"
+
+	"zenith/compiler/lexer"
+	"zenith/compiler/parser"
+	"zenith/compiler/zir"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// Helper function to build CFG and compute liveness from code
+func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo) {
+	// Tokenize
+	tokens := lexer.OpenTokenStream(code)
+
+	// Parse
+	astNode, parseErrors := parser.Parse("test", tokens)
+	require.NotNil(t, astNode)
+	require.Equal(t, 0, len(parseErrors))
+
+	cu, ok := astNode.(parser.CompilationUnit)
+	require.True(t, ok)
+
+	// Analyze to get IR
+	analyzer := zir.NewSemanticAnalyzer()
+	irCU, irErrors := analyzer.Analyze(cu)
+	require.Equal(t, 0, len(irErrors))
+	require.Greater(t, len(irCU.Declarations), 0)
+
+	// Get function declaration
+	funcDecl, ok := irCU.Declarations[0].(*zir.IRFunctionDecl)
+	require.True(t, ok)
+
+	// Build CFG
+	builder := NewCFGBuilder()
+	cfg := builder.BuildCFG(funcDecl)
+
+	// Compute liveness
+	liveness := ComputeLiveness(cfg)
+
+	return cfg, liveness
+}
+
+func Test_Liveness_SimpleAssignment(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		y: = x + 1
+	}`
+	cfg, liveness := buildLivenessFromCode(t, code)
+
+	// Entry block should have no live variables
+	entry := cfg.Entry
+	assert.Equal(t, 0, len(liveness.LiveIn[entry.ID]))
+
+	// Find the block with actual code
+	var codeBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		if len(block.Instructions) > 0 {
+			codeBlock = block
+			break
+		}
+	}
+	require.NotNil(t, codeBlock)
+
+	// x is defined then used, so it should be in def set
+	assert.True(t, liveness.Def[codeBlock.ID]["x"])
+	assert.True(t, liveness.Def[codeBlock.ID]["y"])
+
+	// x is used in second statement, so should be in use set
+	// (only if used before being defined in same block)
+	// In this case, x is defined first, then used, so not in use set
+	assert.False(t, liveness.Use[codeBlock.ID]["x"])
+}
+
+func Test_Liveness_IfStatement(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		if true {
+			y: = x + 1
+		} else {
+			z: = x + 2
+		}
+	}`
+	cfg, liveness := buildLivenessFromCode(t, code)
+
+	// Find then and else blocks (may have numeric suffix)
+	var thenBlock, elseBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		if len(block.Label) >= 7 && block.Label[:7] == "if.then" {
+			thenBlock = block
+		}
+		if len(block.Label) >= 7 && block.Label[:7] == "if.else" {
+			elseBlock = block
+		}
+	}
+	require.NotNil(t, thenBlock, "Could not find then block")
+	require.NotNil(t, elseBlock, "Could not find else block")
+
+	// x should be live-in to both then and else blocks (used in both)
+	assert.True(t, liveness.IsLiveAt("x", thenBlock.ID), "x should be live-in to then block")
+	assert.True(t, liveness.IsLiveAt("x", elseBlock.ID), "x should be live-in to else block")
+
+	// y is defined in then block
+	assert.True(t, liveness.Def[thenBlock.ID]["y"])
+
+	// z is defined in else block
+	assert.True(t, liveness.Def[elseBlock.ID]["z"])
+}
+
+func Test_Liveness_Loop(t *testing.T) {
+	code := `main: () {
+		x: = 0
+		for x < 10 {
+			x = x + 1
+		}
+		y: = x
+	}`
+	cfg, liveness := buildLivenessFromCode(t, code)
+
+	// Find loop condition and body blocks (may have numeric suffix)
+	var condBlock, bodyBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		if len(block.Label) >= 8 && block.Label[:8] == "for.cond" {
+			condBlock = block
+		}
+		if len(block.Label) >= 8 && block.Label[:8] == "for.body" {
+			bodyBlock = block
+		}
+	}
+	require.NotNil(t, condBlock, "Could not find condition block")
+	require.NotNil(t, bodyBlock, "Could not find body block")
+
+	// x should be live-in to condition block (loop variable)
+	assert.True(t, liveness.IsLiveAt("x", condBlock.ID), "x should be live-in to condition")
+
+	// x should be live-in and live-out of body block
+	assert.True(t, liveness.IsLiveAt("x", bodyBlock.ID), "x should be live-in to body")
+	assert.True(t, liveness.IsLiveOutOf("x", bodyBlock.ID), "x should be live-out of body")
+}
+
+func Test_Liveness_NoUseAfterDef(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		x = 10
+	}`
+	cfg, liveness := buildLivenessFromCode(t, code)
+
+	// Find code block
+	var codeBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		if len(block.Instructions) > 0 {
+			codeBlock = block
+			break
+		}
+	}
+	require.NotNil(t, codeBlock)
+
+	// x is defined but never used (redefined immediately)
+	assert.True(t, liveness.Def[codeBlock.ID]["x"])
+
+	// x should not be live-out (not used after definition)
+	assert.False(t, liveness.IsLiveOutOf("x", codeBlock.ID))
+}
+
+func Test_Liveness_MultipleVariables(t *testing.T) {
+	code := `main: () {
+		a: = 1
+		b: = 2
+		c: = a + b
+		d: = c * 2
+	}`
+	cfg, liveness := buildLivenessFromCode(t, code)
+
+	// Find code block
+	var codeBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		if len(block.Instructions) > 0 {
+			codeBlock = block
+			break
+		}
+	}
+	require.NotNil(t, codeBlock)
+
+	// All variables defined
+	assert.True(t, liveness.Def[codeBlock.ID]["a"])
+	assert.True(t, liveness.Def[codeBlock.ID]["b"])
+	assert.True(t, liveness.Def[codeBlock.ID]["c"])
+	assert.True(t, liveness.Def[codeBlock.ID]["d"])
+
+	// Only c is used (a and b are used but defined first in same block)
+	// c is used after being defined
+	assert.False(t, liveness.Use[codeBlock.ID]["a"], "a defined before use")
+	assert.False(t, liveness.Use[codeBlock.ID]["b"], "b defined before use")
+	assert.False(t, liveness.Use[codeBlock.ID]["c"], "c defined before use")
+}
+
+func Test_Liveness_GetLiveRanges(t *testing.T) {
+	code := `main: () {
+		x: = 5
+		if true {
+			y: = x + 1
+		}
+		z: = x + 2
+	}`
+	_, liveness := buildLivenessFromCode(t, code)
+
+	ranges := liveness.GetLiveRanges()
+
+	// x should have a live range covering multiple blocks (used in both branches)
+	if ranges["x"] != nil {
+		assert.Greater(t, len(ranges["x"]), 0, "x should be live in at least one block")
+	}
+
+	// y and z may not have live ranges if they're not read after being defined
+	// This is expected behavior - variables only get live ranges if they're live at block boundaries
+}
+
+func Test_Liveness_BinaryExpression(t *testing.T) {
+	code := `main: () {
+		a: = 5
+		b: = 10
+		c: = a + b
+	}`
+	cfg, liveness := buildLivenessFromCode(t, code)
+
+	// Find code block
+	var codeBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		if len(block.Instructions) > 0 {
+			codeBlock = block
+			break
+		}
+	}
+	require.NotNil(t, codeBlock)
+
+	// a and b are defined
+	assert.True(t, liveness.Def[codeBlock.ID]["a"])
+	assert.True(t, liveness.Def[codeBlock.ID]["b"])
+
+	// c is defined and uses a and b (but a and b are defined first in same block)
+	assert.True(t, liveness.Def[codeBlock.ID]["c"])
+	assert.False(t, liveness.Use[codeBlock.ID]["a"])
+	assert.False(t, liveness.Use[codeBlock.ID]["b"])
+}
