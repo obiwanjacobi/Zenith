@@ -201,18 +201,35 @@ func (ra *RegisterAllocator) AllocateWithPrecoloring(ig *InterferenceGraph, symb
 			}
 		}
 
-		// Assign first available color
-		colorAssigned := false
-		for i := 0; i < ra.numColors; i++ {
-			if !usedColors[i] {
-				result.Allocation[node] = ra.availableRegisters[i].Name
-				colorAssigned = true
-				break
+		// Select best register based on variable usage and size
+		// Use preference-based selection if usage info is available
+		var colorIdx int
+		if result.VariableUsages[node] != 0 && result.VariableSizes[node] != 0 {
+			// Use preference-based selection
+			colorIdx = selectBestRegister(
+				node,
+				result.VariableUsages[node],
+				result.VariableSizes[node],
+				ra.availableRegisters,
+				usedColors,
+				ra.capabilities,
+			)
+		} else {
+			// Fallback: pick first available
+			colorIdx = -1
+			for i := 0; i < ra.numColors; i++ {
+				if !usedColors[i] {
+					colorIdx = i
+					break
+				}
 			}
 		}
 
-		// If no color available, mark for spilling
-		if !colorAssigned {
+		// Assign the selected register
+		if colorIdx >= 0 {
+			result.Allocation[node] = ra.availableRegisters[colorIdx].Name
+		} else {
+			// No color available, mark for spilling
 			result.Spilled[node] = true
 		}
 	}
