@@ -13,6 +13,8 @@ const (
 	RegisterClassGeneral RegisterClass = iota
 	RegisterClassAccumulator
 	RegisterClassIndex
+	RegisterClassFlags
+	RegisterClassStackPointer
 )
 
 func (rc RegisterClass) String() string {
@@ -23,6 +25,8 @@ func (rc RegisterClass) String() string {
 		return "accumulator"
 	case RegisterClassIndex:
 		return "index"
+	case RegisterClassStackPointer:
+		return "stack pointer"
 	default:
 		return "unknown"
 	}
@@ -39,9 +43,11 @@ type SymbolInfo interface {
 
 // Register represents a physical register
 type Register struct {
-	Name  string
-	Size  int // 8 or 16 bits
-	Class RegisterClass
+	Name        string
+	Size        int // 8 or 16 bits
+	Class       RegisterClass
+	Composition []*Register // For multi-byte registers (typical Intel and Zilog)
+	RegisterId  int         // the register id for encoding
 }
 
 // AllocationResult contains the register allocation mapping

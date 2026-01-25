@@ -1,28 +1,30 @@
 package cfg
 
+var RegA = Register{Name: "A", Size: 8, Class: RegisterClassAccumulator, RegisterId: 7}
+var RegB = Register{Name: "B", Size: 8, Class: RegisterClassGeneral, RegisterId: 0}
+var RegC = Register{Name: "C", Size: 8, Class: RegisterClassGeneral, RegisterId: 1}
+var RegD = Register{Name: "D", Size: 8, Class: RegisterClassGeneral, RegisterId: 2}
+var RegE = Register{Name: "E", Size: 8, Class: RegisterClassGeneral, RegisterId: 3}
+var RegH = Register{Name: "H", Size: 8, Class: RegisterClassGeneral, RegisterId: 4}
+var RegL = Register{Name: "L", Size: 8, Class: RegisterClassGeneral, RegisterId: 5}
+var RegF = Register{Name: "F", Size: 8, Class: RegisterClassFlags, RegisterId: 6}
+
 // Z80Registers defines the available registers for Z80 architecture
 // Includes both single 8-bit registers and 16-bit register pairs
 var Z80Registers = []*Register{
 	// 8-bit single registers
-	{Name: "A", Size: 8, Class: RegisterClassAccumulator},
-	{Name: "B", Size: 8, Class: RegisterClassGeneral},
-	{Name: "C", Size: 8, Class: RegisterClassGeneral},
-	{Name: "D", Size: 8, Class: RegisterClassGeneral},
-	{Name: "E", Size: 8, Class: RegisterClassGeneral},
-	{Name: "H", Size: 8, Class: RegisterClassGeneral},
-	{Name: "L", Size: 8, Class: RegisterClassGeneral},
+	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL, &RegF,
 
 	// 16-bit register pairs
-	{Name: "BC", Size: 16, Class: RegisterClassGeneral},
-	{Name: "DE", Size: 16, Class: RegisterClassGeneral},
-	{Name: "HL", Size: 16, Class: RegisterClassIndex},
-}
-
-// isZ80RegisterPair returns true if the register is a Z80 register pair (BC, DE, HL)
-// This is Z80-specific knowledge - on Z80, these 16-bit registers are composed of
-// two 8-bit registers that can be used independently
-func isZ80RegisterPair(reg *Register) bool {
-	return reg.Size == 16 && (reg.Name == "BC" || reg.Name == "DE" || reg.Name == "HL")
+	{Name: "BC", Size: 16, Class: RegisterClassGeneral,
+		Composition: []*Register{&RegB, &RegC}, RegisterId: 0},
+	{Name: "DE", Size: 16, Class: RegisterClassGeneral,
+		Composition: []*Register{&RegD, &RegE}, RegisterId: 1},
+	{Name: "HL", Size: 16, Class: RegisterClassIndex,
+		Composition: []*Register{&RegH, &RegL}, RegisterId: 2},
+	{Name: "AF", Size: 16, Class: RegisterClassAccumulator,
+		Composition: []*Register{&RegA, &RegF}, RegisterId: 3},
+	{Name: "SP", Size: 16, Class: RegisterClassStackPointer, RegisterId: 3},
 }
 
 // Z80CallingConvention implements a standard calling convention for Z80
