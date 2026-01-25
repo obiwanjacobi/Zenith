@@ -61,21 +61,34 @@ type AllocationResult struct {
 
 // RegisterAllocator performs graph coloring register allocation
 type RegisterAllocator struct {
-	availableRegisters []Register
+	availableRegisters []*Register
 	numColors          int
+	callingConvention  CallingConvention
 }
 
 // NewRegisterAllocator creates a new register allocator
-func NewRegisterAllocator(registers []Register) *RegisterAllocator {
+func NewRegisterAllocator(registers []*Register) *RegisterAllocator {
 	return &RegisterAllocator{
 		availableRegisters: registers,
 		numColors:          len(registers),
+		callingConvention:  nil, // Optional, set via SetCallingConvention
 	}
+}
+
+// SetCallingConvention sets the calling convention for this allocator
+func (ra *RegisterAllocator) SetCallingConvention(cc CallingConvention) {
+	ra.callingConvention = cc
 }
 
 // Allocate performs graph coloring on the interference graph
 // symbolInfo provides type sizes and usage patterns for variables
 func (ra *RegisterAllocator) Allocate(ig *InterferenceGraph, symbolInfo SymbolInfo) *AllocationResult {
+	return ra.AllocateWithPrecoloring(ig, symbolInfo, nil)
+}
+
+// AllocateWithPrecoloring performs register allocation with pre-colored variables
+// precolored maps variable names to their required registers (e.g., function parameters)
+func (ra *RegisterAllocator) AllocateWithPrecoloring(ig *InterferenceGraph, symbolInfo SymbolInfo, precolored map[string]string) *AllocationResult {
 	result := &AllocationResult{
 		Allocation:     make(map[string]string),
 		Spilled:        make(map[string]bool),
@@ -102,10 +115,21 @@ func (ra *RegisterAllocator) Allocate(ig *InterferenceGraph, symbolInfo SymbolIn
 		}
 	}
 
+	// Apply pre-coloring (e.g., function parameters)
+	if precolored != nil {
+		for varName, regName := range precolored {
+			result.Allocation[varName] = regName
+		}
+	}
+
 	// Graph coloring algorithm with simplification
 	stack := []string{}
 	remaining := make(map[string]bool)
 	for _, node := range nodes {
+		// Skip pre-colored nodes - they're already allocated
+		if precolored != nil && precolored[node] != "" {
+			continue
+		}
 		remaining[node] = true
 	}
 
@@ -201,6 +225,32 @@ func (ra *RegisterAllocator) getDegreeInRemaining(ig *InterferenceGraph, node st
 		}
 	}
 	return degree
+}
+
+// BuildParameterPrecoloring creates a pre-coloring map for function parameters
+// based on the calling convention. Returns map of qualified param name -> register name
+func (ra *RegisterAllocator) BuildParameterPrecoloring(functionName string, paramNames []string, paramSizes []int) map[string]string {
+	if ra.callingConvention == nil {
+		return nil
+	}
+
+	precolored := make(map[string]string)
+	for i, paramName := range paramNames {
+		paramSize := 8 // default
+		if i < len(paramSizes) {
+			paramSize = paramSizes[i]
+		}
+
+		reg, _, useStack := ra.callingConvention.GetParameterLocation(i, paramSize)
+		if !useStack && reg != nil {
+			// Qualify the parameter name with function scope
+			qualifiedName := functionName + "." + paramName
+			precolored[qualifiedName] = reg.Name
+		}
+		// Stack parameters are not pre-colored (they're already in memory)
+	}
+
+	return precolored
 }
 
 // String returns a string representation of the allocation result

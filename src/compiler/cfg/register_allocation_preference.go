@@ -11,7 +11,7 @@ type RegisterPreference struct {
 // calculateRegisterPreference scores how well a register matches a variable's usage pattern
 // This is Z80-specific logic that leverages variable usage flags
 // variableSize is the bit width of the variable (8 or 16)
-func calculateRegisterPreference(reg Register, usage zir.VariableUsage, variableSize int) int {
+func calculateRegisterPreference(reg *Register, usage zir.VariableUsage, variableSize int) int {
 	score := 0
 
 	// Base score for any register
@@ -112,7 +112,7 @@ func selectBestRegister(
 	variable string,
 	usage zir.VariableUsage,
 	variableSize int,
-	availableRegisters []Register,
+	availableRegisters []*Register,
 	usedColors map[int]bool,
 ) int {
 	bestIdx := -1
@@ -140,7 +140,7 @@ func examplePreferenceBasedColoring(
 	variable string,
 	usage zir.VariableUsage,
 	variableSize int,
-	availableRegisters []Register,
+	availableRegisters []*Register,
 	usedColors map[int]bool,
 ) (registerName string, assigned bool) {
 	// Instead of just picking the first available register:
