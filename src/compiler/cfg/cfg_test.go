@@ -45,10 +45,10 @@ func buildCFGFromCode(t *testing.T, code string) *CFG {
 	return cfg
 }
 
-// Helper to find a block by label prefix
-func findBlockByLabel(cfg *CFG, labelPrefix string) *BasicBlock {
+// Helper to find a block by label
+func findBlockByLabel(cfg *CFG, label BlockLabel) *BasicBlock {
 	for _, block := range cfg.Blocks {
-		if len(block.Label) >= len(labelPrefix) && block.Label[:len(labelPrefix)] == labelPrefix {
+		if block.Label == label {
 			return block
 		}
 	}
@@ -67,8 +67,8 @@ func Test_CFG_EmptyFunction(t *testing.T) {
 	// Should have entry and exit blocks
 	assert.NotNil(t, cfg.Entry)
 	assert.NotNil(t, cfg.Exit)
-	assert.Equal(t, "entry", cfg.Entry.Label)
-	assert.Equal(t, "exit", cfg.Exit.Label)
+	assert.Equal(t, LabelEntry, cfg.Entry.Label)
+	assert.Equal(t, LabelExit, cfg.Exit.Label)
 
 	// Entry should connect to exit
 	assert.Equal(t, 1, len(cfg.Entry.Successors))
@@ -111,8 +111,8 @@ func Test_CFG_IfStatement(t *testing.T) {
 	assert.GreaterOrEqual(t, len(cfg.Blocks), 4)
 
 	// Find blocks
-	thenBlock := findBlockByLabel(cfg, "if.then")
-	mergeBlock := findBlockByLabel(cfg, "if.merge")
+	thenBlock := findBlockByLabel(cfg, LabelIfThen)
+	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
 
 	require.NotNil(t, thenBlock, "Should have if.then block")
 	require.NotNil(t, mergeBlock, "Should have if.merge block")
@@ -142,9 +142,9 @@ func Test_CFG_IfElseStatement(t *testing.T) {
 	assert.GreaterOrEqual(t, len(cfg.Blocks), 5)
 
 	// Find blocks
-	thenBlock := findBlockByLabel(cfg, "if.then")
-	elseBlock := findBlockByLabel(cfg, "if.else")
-	mergeBlock := findBlockByLabel(cfg, "if.merge")
+	thenBlock := findBlockByLabel(cfg, LabelIfThen)
+	elseBlock := findBlockByLabel(cfg, LabelIfElse)
+	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
 
 	require.NotNil(t, thenBlock)
 	require.NotNil(t, elseBlock)
@@ -175,11 +175,11 @@ func Test_CFG_IfElsifElseStatement(t *testing.T) {
 	assert.GreaterOrEqual(t, len(cfg.Blocks), 7)
 
 	// Find blocks
-	thenBlock := findBlockByLabel(cfg, "if.then")
-	elsifCondBlock := findBlockByLabel(cfg, "elsif.0.cond")
-	elsifThenBlock := findBlockByLabel(cfg, "elsif.0.then")
-	elseBlock := findBlockByLabel(cfg, "if.else")
-	mergeBlock := findBlockByLabel(cfg, "if.merge")
+	thenBlock := findBlockByLabel(cfg, LabelIfThen)
+	elsifCondBlock := findBlockByLabel(cfg, LabelElsifCond)
+	elsifThenBlock := findBlockByLabel(cfg, LabelElsifThen)
+	elseBlock := findBlockByLabel(cfg, LabelIfElse)
+	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
 
 	require.NotNil(t, thenBlock)
 	require.NotNil(t, elsifCondBlock)
@@ -209,10 +209,10 @@ func Test_CFG_ForLoop(t *testing.T) {
 	assert.GreaterOrEqual(t, len(cfg.Blocks), 6)
 
 	// Find blocks
-	condBlock := findBlockByLabel(cfg, "for.cond")
-	bodyBlock := findBlockByLabel(cfg, "for.body")
-	incBlock := findBlockByLabel(cfg, "for.inc")
-	exitBlock := findBlockByLabel(cfg, "for.exit")
+	condBlock := findBlockByLabel(cfg, LabelForCond)
+	bodyBlock := findBlockByLabel(cfg, LabelForBody)
+	incBlock := findBlockByLabel(cfg, LabelForInc)
+	exitBlock := findBlockByLabel(cfg, LabelForExit)
 
 	require.NotNil(t, condBlock)
 	require.NotNil(t, bodyBlock)
@@ -242,9 +242,9 @@ func Test_CFG_ForLoopOnlyCondition(t *testing.T) {
 	cfg := buildCFGFromCode(t, code)
 
 	// Should still have loop structure
-	condBlock := findBlockByLabel(cfg, "for.cond")
-	bodyBlock := findBlockByLabel(cfg, "for.body")
-	incBlock := findBlockByLabel(cfg, "for.inc")
+	condBlock := findBlockByLabel(cfg, LabelForCond)
+	bodyBlock := findBlockByLabel(cfg, LabelForBody)
+	incBlock := findBlockByLabel(cfg, LabelForInc)
 
 	require.NotNil(t, condBlock)
 	require.NotNil(t, bodyBlock)
@@ -279,10 +279,22 @@ func Test_CFG_SelectStatement(t *testing.T) {
 	assert.GreaterOrEqual(t, len(cfg.Blocks), 6)
 
 	// Find blocks
-	case0Block := findBlockByLabel(cfg, "select.case.0")
-	case1Block := findBlockByLabel(cfg, "select.case.1")
-	elseBlock := findBlockByLabel(cfg, "select.else")
-	mergeBlock := findBlockByLabel(cfg, "select.merge")
+	// Find blocks by label type (may have multiple case blocks)
+	var case0Block, case1Block *BasicBlock
+	var elseBlock *BasicBlock
+	for _, block := range cfg.Blocks {
+		switch block.Label {
+		case LabelSelectCase:
+			if case0Block == nil {
+				case0Block = block
+			} else if case1Block == nil {
+				case1Block = block
+			}
+		case LabelSelectElse:
+			elseBlock = block
+		}
+	}
+	mergeBlock := findBlockByLabel(cfg, LabelSelectMerge)
 
 	require.NotNil(t, case0Block)
 	require.NotNil(t, case1Block)
@@ -309,10 +321,18 @@ func Test_CFG_SelectStatementNoElse(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Find blocks
-	case0Block := findBlockByLabel(cfg, "select.case.0")
-	case1Block := findBlockByLabel(cfg, "select.case.1")
-	mergeBlock := findBlockByLabel(cfg, "select.merge")
+	// Find blocks by label type (may have multiple case blocks)
+	var case0Block, case1Block *BasicBlock
+	mergeBlock := findBlockByLabel(cfg, LabelSelectMerge)
+	for _, block := range cfg.Blocks {
+		if block.Label == LabelSelectCase {
+			if case0Block == nil {
+				case0Block = block
+			} else if case1Block == nil {
+				case1Block = block
+			}
+		}
+	}
 
 	require.NotNil(t, case0Block)
 	require.NotNil(t, case1Block)
@@ -341,7 +361,7 @@ func Test_CFG_NestedIfInFor(t *testing.T) {
 	cfg := buildCFGFromCode(t, code)
 
 	// Should have loop structure with if inside body
-	forBodyBlock := findBlockByLabel(cfg, "for.body")
+	forBodyBlock := findBlockByLabel(cfg, LabelForBody)
 	require.NotNil(t, forBodyBlock)
 
 	// Body should have the if statement
@@ -362,7 +382,7 @@ func Test_CFG_BlockLabelsUnique(t *testing.T) {
 	// Check that all block labels are unique
 	labelCount := make(map[string]int)
 	for _, block := range cfg.Blocks {
-		labelCount[block.Label]++
+		labelCount[block.GetFullLabel()]++
 	}
 
 	for label, count := range labelCount {

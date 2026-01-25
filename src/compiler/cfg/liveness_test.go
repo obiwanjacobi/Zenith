@@ -89,10 +89,10 @@ func Test_Liveness_IfStatement(t *testing.T) {
 	// Find then and else blocks (may have numeric suffix)
 	var thenBlock, elseBlock *BasicBlock
 	for _, block := range cfg.Blocks {
-		if len(block.Label) >= 7 && block.Label[:7] == "if.then" {
+		if block.Label == LabelIfThen {
 			thenBlock = block
 		}
-		if len(block.Label) >= 7 && block.Label[:7] == "if.else" {
+		if block.Label == LabelIfElse {
 			elseBlock = block
 		}
 	}
@@ -123,10 +123,10 @@ func Test_Liveness_Loop(t *testing.T) {
 	// Find loop condition and body blocks (may have numeric suffix)
 	var condBlock, bodyBlock *BasicBlock
 	for _, block := range cfg.Blocks {
-		if len(block.Label) >= 8 && block.Label[:8] == "for.cond" {
+		if block.Label == LabelForCond {
 			condBlock = block
 		}
-		if len(block.Label) >= 8 && block.Label[:8] == "for.body" {
+		if block.Label == LabelForBody {
 			bodyBlock = block
 		}
 	}

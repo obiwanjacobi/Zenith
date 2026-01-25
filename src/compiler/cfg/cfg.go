@@ -10,10 +10,68 @@ import (
 // Control Flow Graph (CFG) Model
 // ============================================================================
 
+// BlockLabel represents a CFG block label type
+type BlockLabel int
+
+// Block label constants
+const (
+	LabelEntry BlockLabel = iota
+	LabelExit
+	LabelIfThen
+	LabelIfElse
+	LabelIfMerge
+	LabelElsifCond
+	LabelElsifThen
+	LabelForCond
+	LabelForBody
+	LabelForInc
+	LabelForExit
+	LabelSelectCase
+	LabelSelectElse
+	LabelSelectMerge
+)
+
+// String returns the string representation of a BlockLabel
+func (l BlockLabel) String() string {
+	switch l {
+	case LabelEntry:
+		return "entry"
+	case LabelExit:
+		return "exit"
+	case LabelIfThen:
+		return "if.then"
+	case LabelIfElse:
+		return "if.else"
+	case LabelIfMerge:
+		return "if.merge"
+	case LabelElsifCond:
+		return "elsif.cond"
+	case LabelElsifThen:
+		return "elsif.then"
+	case LabelForCond:
+		return "for.cond"
+	case LabelForBody:
+		return "for.body"
+	case LabelForInc:
+		return "for.inc"
+	case LabelForExit:
+		return "for.exit"
+	case LabelSelectCase:
+		return "select.case"
+	case LabelSelectElse:
+		return "select.else"
+	case LabelSelectMerge:
+		return "select.merge"
+	default:
+		return "unknown"
+	}
+}
+
 // BasicBlock represents a sequence of instructions with one entry and one exit
 type BasicBlock struct {
 	ID           int               // Unique identifier
-	Label        string            // Optional label for this block
+	Label        BlockLabel        // Label for this block
+	LabelID      int               // Optional numeric suffix for label uniqueness
 	Instructions []zir.IRStatement // Statements in this block
 	Successors   []*BasicBlock     // Blocks that can follow this one
 	Predecessors []*BasicBlock     // Blocks that can jump to this one
@@ -48,11 +106,11 @@ func NewCFGBuilder() *CFGBuilder {
 // BuildCFG transforms a function's IR into a CFG
 func (b *CFGBuilder) BuildCFG(funcDecl *zir.IRFunctionDecl) *CFG {
 	// Create entry block
-	entry := b.newBlock("entry", -1)
+	entry := b.newBlock(LabelEntry, -1)
 	b.currentBlock = entry
 
 	// Create exit block (for returns)
-	exit := b.newBlock("exit", -1)
+	exit := b.newBlock(LabelExit, -1)
 
 	// Process function body
 	if funcDecl.Body != nil {
@@ -72,15 +130,12 @@ func (b *CFGBuilder) BuildCFG(funcDecl *zir.IRFunctionDecl) *CFG {
 }
 
 // newBlock creates a new basic block
-// If referenceID >= 0, appends it to the label (e.g., "if.then" + 5 = "if.then.5")
-func (b *CFGBuilder) newBlock(label string, referenceID int) *BasicBlock {
-	finalLabel := label
-	if referenceID >= 0 {
-		finalLabel = fmt.Sprintf("%s.%d", label, referenceID)
-	}
+// If referenceID >= 0, stores it as LabelID for uniqueness
+func (b *CFGBuilder) newBlock(label BlockLabel, referenceID int) *BasicBlock {
 	block := &BasicBlock{
 		ID:           b.nextBlockID,
-		Label:        finalLabel,
+		Label:        label,
+		LabelID:      referenceID,
 		Instructions: []zir.IRStatement{},
 		Successors:   []*BasicBlock{},
 		Predecessors: []*BasicBlock{},
@@ -88,6 +143,14 @@ func (b *CFGBuilder) newBlock(label string, referenceID int) *BasicBlock {
 	b.nextBlockID++
 	b.blocks = append(b.blocks, block)
 	return block
+}
+
+// GetFullLabel returns the full label string with ID suffix if present
+func (b *BasicBlock) GetFullLabel() string {
+	if b.LabelID >= 0 {
+		return fmt.Sprintf("%s.%d", b.Label.String(), b.LabelID)
+	}
+	return b.Label.String()
 }
 
 // addEdge adds a control flow edge between two blocks
@@ -140,24 +203,24 @@ func (b *CFGBuilder) processIf(ifStmt *zir.IRIf, exitBlock *BasicBlock) {
 	condBlock.Instructions = append(condBlock.Instructions, ifStmt)
 
 	// Create then block
-	thenBlock := b.newBlock("if.then", condBlock.ID)
+	thenBlock := b.newBlock(LabelIfThen, condBlock.ID)
 	b.addEdge(condBlock, thenBlock)
 	b.currentBlock = thenBlock
 	b.processBlock(ifStmt.ThenBlock, exitBlock)
 	thenExitBlock := b.currentBlock
 
 	// Create merge block (where all branches converge)
-	mergeBlock := b.newBlock("if.merge", condBlock.ID)
+	mergeBlock := b.newBlock(LabelIfMerge, condBlock.ID)
 
 	// Process elsif blocks
 	var elsifExitBlocks []*BasicBlock
 	prevCondBlock := condBlock
-	for i, elsif := range ifStmt.ElsifBlocks {
-		elsifCondBlock := b.newBlock(fmt.Sprintf("elsif.%d.cond", i), prevCondBlock.ID)
+	for _, elsif := range ifStmt.ElsifBlocks {
+		elsifCondBlock := b.newBlock(LabelElsifCond, prevCondBlock.ID)
 		b.addEdge(prevCondBlock, elsifCondBlock)
 		elsifCondBlock.Instructions = append(elsifCondBlock.Instructions, elsif)
 
-		elsifThenBlock := b.newBlock(fmt.Sprintf("elsif.%d.then", i), elsifCondBlock.ID)
+		elsifThenBlock := b.newBlock(LabelElsifThen, elsifCondBlock.ID)
 		b.addEdge(elsifCondBlock, elsifThenBlock)
 		b.currentBlock = elsifThenBlock
 		b.processBlock(elsif.ThenBlock, exitBlock)
@@ -169,7 +232,7 @@ func (b *CFGBuilder) processIf(ifStmt *zir.IRIf, exitBlock *BasicBlock) {
 	// Process else block if present
 	var elseExitBlock *BasicBlock
 	if ifStmt.ElseBlock != nil {
-		elseBlock := b.newBlock("if.else", prevCondBlock.ID)
+		elseBlock := b.newBlock(LabelIfElse, prevCondBlock.ID)
 		b.addEdge(prevCondBlock, elseBlock)
 		b.currentBlock = elseBlock
 		b.processBlock(ifStmt.ElseBlock, exitBlock)
@@ -201,12 +264,12 @@ func (b *CFGBuilder) processFor(forStmt *zir.IRFor, exitBlock *BasicBlock) {
 
 	// Create condition block
 	initBlock := b.currentBlock
-	condBlock := b.newBlock("for.cond", initBlock.ID)
+	condBlock := b.newBlock(LabelForCond, initBlock.ID)
 	b.addEdge(b.currentBlock, condBlock)
 	condBlock.Instructions = append(condBlock.Instructions, forStmt)
 
 	// Create body block
-	bodyBlock := b.newBlock("for.body", condBlock.ID)
+	bodyBlock := b.newBlock(LabelForBody, condBlock.ID)
 	b.addEdge(condBlock, bodyBlock)
 	b.currentBlock = bodyBlock
 	if forStmt.Body != nil {
@@ -214,7 +277,7 @@ func (b *CFGBuilder) processFor(forStmt *zir.IRFor, exitBlock *BasicBlock) {
 	}
 
 	// Create increment block
-	incBlock := b.newBlock("for.inc", condBlock.ID)
+	incBlock := b.newBlock(LabelForInc, condBlock.ID)
 	b.addEdge(b.currentBlock, incBlock)
 	if forStmt.Increment != nil {
 		// Store increment as an expression statement
@@ -227,7 +290,7 @@ func (b *CFGBuilder) processFor(forStmt *zir.IRFor, exitBlock *BasicBlock) {
 	b.addEdge(incBlock, condBlock)
 
 	// Create exit block (for loop exit)
-	loopExitBlock := b.newBlock("for.exit", condBlock.ID)
+	loopExitBlock := b.newBlock(LabelForExit, condBlock.ID)
 	b.addEdge(condBlock, loopExitBlock)
 
 	// Continue from loop exit
@@ -241,11 +304,11 @@ func (b *CFGBuilder) processSelect(selectStmt *zir.IRSelect, exitBlock *BasicBlo
 	exprBlock.Instructions = append(exprBlock.Instructions, selectStmt)
 
 	// Create merge block (where all cases converge)
-	mergeBlock := b.newBlock("select.merge", exprBlock.ID)
+	mergeBlock := b.newBlock(LabelSelectMerge, exprBlock.ID)
 
 	// Process each case
-	for i, caseStmt := range selectStmt.Cases {
-		caseBlock := b.newBlock(fmt.Sprintf("select.case.%d", i), exprBlock.ID)
+	for _, caseStmt := range selectStmt.Cases {
+		caseBlock := b.newBlock(LabelSelectCase, exprBlock.ID)
 		b.addEdge(exprBlock, caseBlock)
 		b.currentBlock = caseBlock
 		b.processBlock(caseStmt.Body, exitBlock)
@@ -254,7 +317,7 @@ func (b *CFGBuilder) processSelect(selectStmt *zir.IRSelect, exitBlock *BasicBlo
 
 	// Process else block if present
 	if selectStmt.Else != nil {
-		elseBlock := b.newBlock("select.else", exprBlock.ID)
+		elseBlock := b.newBlock(LabelSelectElse, exprBlock.ID)
 		b.addEdge(exprBlock, elseBlock)
 		b.currentBlock = elseBlock
 		b.processBlock(selectStmt.Else, exitBlock)
@@ -276,7 +339,7 @@ func (b *CFGBuilder) processSelect(selectStmt *zir.IRSelect, exitBlock *BasicBlo
 func (cfg *CFG) String() string {
 	result := "CFG:\n"
 	for _, block := range cfg.Blocks {
-		result += fmt.Sprintf("  Block %d (%s):\n", block.ID, block.Label)
+		result += fmt.Sprintf("  Block %d (%s):\n", block.ID, block.GetFullLabel())
 		result += fmt.Sprintf("    Instructions: %d\n", len(block.Instructions))
 		result += fmt.Sprintf("    Successors: ")
 		for _, succ := range block.Successors {
