@@ -141,6 +141,23 @@ const (
 	AccessReadWrite AccessType = AccessRead | AccessWrite
 )
 
+// InstrCategory categorizes instructions for scheduling and optimization
+type InstrCategory uint8
+
+const (
+	CatLoad       InstrCategory = iota // LD instructions (register/immediate loads)
+	CatStore                           // LD to memory
+	CatArithmetic                      // ADD, SUB, INC, DEC, ADC, SBC
+	CatLogical                         // AND, OR, XOR, CP
+	CatShift                           // RLC, RRC, RL, RR, SLA, SRA, SRL
+	CatBit                             // BIT, SET, RES
+	CatStack                           // PUSH, POP
+	CatBranch                          // JP, JR, DJNZ
+	CatCall                            // CALL, RST
+	CatReturn                          // RET, RETI, RETN
+	CatSpecial                         // NOP, HALT, DI, EI
+)
+
 // OperandType specifies the kind of operand
 type OperandType int
 
@@ -172,16 +189,16 @@ const (
 )
 
 // GetFlagsForCondition returns which flags a condition code depends on
-func GetFlagsForCondition(cc ConditionCode) AffectedFlags {
+func GetFlagsForCondition(cc ConditionCode) InstrFlags {
 	switch cc {
 	case Cond_NZ, Cond_Z:
-		return InstrAffectsZ
+		return InstrFlagZ
 	case Cond_NC, Cond_C:
-		return InstrAffectsC
+		return InstrFlagC
 	case Cond_PO, Cond_PE:
-		return InstrAffectsPV
+		return InstrFlagPV
 	case Cond_P, Cond_M:
-		return InstrAffectsS
+		return InstrFlagS
 	default:
 		return 0
 	}
@@ -202,19 +219,20 @@ const (
 	InstrIsReturn  InstrProperties = 1 << 4 // Function return
 )
 
-type AffectedFlags uint16
+type InstrFlags uint16
 
 const (
+	InstrFlagNone InstrFlags = 0
 	// Flag effects (specific Z80 flags, 8-bits)
-	InstrAffectsC  AffectedFlags = 1 << 0 // Modifies Carry flag
-	InstrAffectsN  AffectedFlags = 1 << 1 // Modifies Add/Subtract flag
-	InstrAffectsPV AffectedFlags = 1 << 2 // Modifies Parity/Overflow flag
-	InstrAffectsH  AffectedFlags = 1 << 4 // Modifies Half-carry flag
-	InstrAffectsZ  AffectedFlags = 1 << 6 // Modifies Zero flag
-	InstrAffectsS  AffectedFlags = 1 << 7 // Modifies Sign flag
+	InstrFlagC  InstrFlags = 1 << 0 // Modifies Carry flag
+	InstrFlagN  InstrFlags = 1 << 1 // Modifies Add/Subtract flag
+	InstrFlagPV InstrFlags = 1 << 2 // Modifies Parity/Overflow flag
+	InstrFlagH  InstrFlags = 1 << 4 // Modifies Half-carry flag
+	InstrFlagZ  InstrFlags = 1 << 6 // Modifies Zero flag
+	InstrFlagS  InstrFlags = 1 << 7 // Modifies Sign flag
 
 	// Special flag dependency indicator (> 8-bits)
-	InstrFlagsDynamic AffectedFlags = 1 << 8 // Flag dependency determined by condition code operand at runtime
+	InstrFlagDynamic InstrFlags = 1 << 8 // Flag dependency determined by condition code operand at runtime
 )
 
 type InstrDependency struct {
@@ -230,10 +248,11 @@ type InstrDependency struct {
 // InstrDescriptor describes properties of a Z80 instruction
 type InstrDescriptor struct {
 	Opcode         Z80Opcode
+	Category       InstrCategory
 	Dependencies   []InstrDependency // Operands and implicit register/flag dependencies
 	Properties     InstrProperties
-	AffectedFlags  AffectedFlags // Flags this instruction modifies
-	DependentFlags AffectedFlags // Flags this instruction reads/depends on
+	AffectedFlags  InstrFlags // Flags this instruction modifies
+	DependentFlags InstrFlags // Flags this instruction reads/depends on
 
 	// Timing (in T-states/cycles) (includes prefixes)
 	Cycles      uint8 // Mandatory cycle count (for non-branching or branch-not-taken)
