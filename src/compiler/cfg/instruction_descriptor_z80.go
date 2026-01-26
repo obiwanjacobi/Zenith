@@ -161,6 +161,22 @@ const (
 	Cond_M                       // Minus
 )
 
+// GetFlagsForCondition returns which flags a condition code depends on
+func GetFlagsForCondition(cc ConditionCode) AffectedFlags {
+	switch cc {
+	case Cond_NZ, Cond_Z:
+		return InstrAffectsZ
+	case Cond_NC, Cond_C:
+		return InstrAffectsC
+	case Cond_PO, Cond_PE:
+		return InstrAffectsPV
+	case Cond_P, Cond_M:
+		return InstrAffectsS
+	default:
+		return 0
+	}
+}
+
 // ============================================================================
 // Instruction Property Flags
 // ============================================================================
@@ -182,16 +198,19 @@ const (
 	InstrIsReturn  InstrProperties = 1 << 8 // Function return
 )
 
-type AffectedFlags uint8
+type AffectedFlags uint16
 
 const (
-	// Flag effects (specific Z80 flags)
+	// Flag effects (specific Z80 flags, 8-bits)
 	InstrAffectsC  AffectedFlags = 1 << 0 // Modifies Carry flag
 	InstrAffectsN  AffectedFlags = 1 << 1 // Modifies Add/Subtract flag
 	InstrAffectsPV AffectedFlags = 1 << 2 // Modifies Parity/Overflow flag
 	InstrAffectsH  AffectedFlags = 1 << 4 // Modifies Half-carry flag
 	InstrAffectsZ  AffectedFlags = 1 << 6 // Modifies Zero flag
 	InstrAffectsS  AffectedFlags = 1 << 7 // Modifies Sign flag
+
+	// Special flag dependency indicator (> 8-bits)
+	InstrFlagsDynamic AffectedFlags = 1 << 8 // Flag dependency determined by condition code operand at runtime
 )
 
 type InstrOperand struct {
@@ -205,10 +224,11 @@ type InstrOperand struct {
 
 // InstrDescriptor describes properties of a Z80 instruction
 type InstrDescriptor struct {
-	Opcode        Z80Opcode
-	Operands      []InstrOperand // Expected operands
-	Properties    InstrProperties
-	AffectedFlags AffectedFlags
+	Opcode         Z80Opcode
+	Operands       []InstrOperand // Expected operands
+	Properties     InstrProperties
+	AffectedFlags  AffectedFlags // Flags this instruction modifies
+	DependentFlags AffectedFlags // Flags this instruction reads/depends on
 
 	// Timing (in T-states/cycles) (includes prefixes)
 	Cycles      uint8 // Mandatory cycle count (for non-branching or branch-not-taken)
