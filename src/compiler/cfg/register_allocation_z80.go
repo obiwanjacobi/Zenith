@@ -1,5 +1,6 @@
 package cfg
 
+// 8-bit single registers
 var RegA = Register{Name: "A", Size: 8, Class: RegisterClassAccumulator, RegisterId: 7}
 var RegB = Register{Name: "B", Size: 8, Class: RegisterClassGeneral, RegisterId: 0}
 var RegC = Register{Name: "C", Size: 8, Class: RegisterClassGeneral, RegisterId: 1}
@@ -9,22 +10,22 @@ var RegH = Register{Name: "H", Size: 8, Class: RegisterClassGeneral, RegisterId:
 var RegL = Register{Name: "L", Size: 8, Class: RegisterClassGeneral, RegisterId: 5}
 var RegF = Register{Name: "F", Size: 8, Class: RegisterClassFlags, RegisterId: 6}
 
+// 16-bit register pairs
+var RegBC = Register{Name: "BC", Size: 16, Class: RegisterClassGeneral,
+	Composition: []*Register{&RegB, &RegC}, RegisterId: 0}
+var RegDE = Register{Name: "DE", Size: 16, Class: RegisterClassGeneral,
+	Composition: []*Register{&RegD, &RegE}, RegisterId: 1}
+var RegHL = Register{Name: "HL", Size: 16, Class: RegisterClassIndex,
+	Composition: []*Register{&RegH, &RegL}, RegisterId: 2}
+var RegAF = Register{Name: "AF", Size: 16, Class: RegisterClassAccumulator,
+	Composition: []*Register{&RegA, &RegF}, RegisterId: 3}
+var RegSP = Register{Name: "SP", Size: 16, Class: RegisterClassStackPointer, RegisterId: 3}
+
 // Z80Registers defines the available registers for Z80 architecture
 // Includes both single 8-bit registers and 16-bit register pairs
 var Z80Registers = []*Register{
-	// 8-bit single registers
 	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL, &RegF,
-
-	// 16-bit register pairs
-	{Name: "BC", Size: 16, Class: RegisterClassGeneral,
-		Composition: []*Register{&RegB, &RegC}, RegisterId: 0},
-	{Name: "DE", Size: 16, Class: RegisterClassGeneral,
-		Composition: []*Register{&RegD, &RegE}, RegisterId: 1},
-	{Name: "HL", Size: 16, Class: RegisterClassIndex,
-		Composition: []*Register{&RegH, &RegL}, RegisterId: 2},
-	{Name: "AF", Size: 16, Class: RegisterClassAccumulator,
-		Composition: []*Register{&RegA, &RegF}, RegisterId: 3},
-	{Name: "SP", Size: 16, Class: RegisterClassStackPointer, RegisterId: 3},
+	&RegBC, &RegDE, &RegHL, &RegAF, &RegSP,
 }
 
 // Z80CallingConvention implements a standard calling convention for Z80
