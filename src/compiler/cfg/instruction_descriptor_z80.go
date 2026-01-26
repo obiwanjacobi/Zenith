@@ -131,11 +131,21 @@ const (
 	// OUTI, OUTD, OTIR, OTDR (block output instructions) - ED prefix
 )
 
+// AccessType specifies how a dependency is accessed
+type AccessType uint8
+
+const (
+	AccessNone      AccessType = 0
+	AccessRead      AccessType = 1 << 0
+	AccessWrite     AccessType = 1 << 1
+	AccessReadWrite AccessType = AccessRead | AccessWrite
+)
+
 // OperandType specifies the kind of operand
 type OperandType int
 
 const (
-	OpNone           OperandType = iota // No operand
+	OpNone           OperandType = iota // No operand (used for implicit dependencies)
 	OpRegister                          // r: Physical register (A, B, C, D, E, H, L)
 	OpRegisterPairRR                    // rr: Register pair (BC, DE, HL, SP)
 	OpRegisterPairQQ                    // qq: Register pair (BC, DE, HL, AF)
@@ -184,18 +194,12 @@ func GetFlagsForCondition(cc ConditionCode) AffectedFlags {
 type InstrProperties uint32
 
 const (
-	// Operand access patterns
-	InstrReadsOp0  InstrProperties = 1 << 0 // Reads first operand
-	InstrReadsOp1  InstrProperties = 1 << 1 // Reads second operand
-	InstrWritesOp0 InstrProperties = 1 << 2 // Writes first operand
-	InstrWritesOp1 InstrProperties = 1 << 3 // Writes second operand
-
 	// Special properties
-	InstrImmediate InstrProperties = 1 << 4 // literal/immediate operand
-	InstrIndirect  InstrProperties = 1 << 5 // Accesses memory
-	InstrIsBranch  InstrProperties = 1 << 6 // Control flow instruction
-	InstrIsCall    InstrProperties = 1 << 7 // Function call
-	InstrIsReturn  InstrProperties = 1 << 8 // Function return
+	InstrImmediate InstrProperties = 1 << 0 // literal/immediate operand
+	InstrIndirect  InstrProperties = 1 << 1 // Accesses memory
+	InstrIsBranch  InstrProperties = 1 << 2 // Control flow instruction
+	InstrIsCall    InstrProperties = 1 << 3 // Function call
+	InstrIsReturn  InstrProperties = 1 << 4 // Function return
 )
 
 type AffectedFlags uint16
@@ -213,9 +217,10 @@ const (
 	InstrFlagsDynamic AffectedFlags = 1 << 8 // Flag dependency determined by condition code operand at runtime
 )
 
-type InstrOperand struct {
+type InstrDependency struct {
 	Type      OperandType
-	Registers []*Register // allowed registers for this operand (if applicable)
+	Access    AccessType
+	Registers []*Register // allowed/affected registers (if applicable)
 }
 
 // ============================================================================
@@ -225,7 +230,7 @@ type InstrOperand struct {
 // InstrDescriptor describes properties of a Z80 instruction
 type InstrDescriptor struct {
 	Opcode         Z80Opcode
-	Operands       []InstrOperand // Expected operands
+	Dependencies   []InstrDependency // Operands and implicit register/flag dependencies
 	Properties     InstrProperties
 	AffectedFlags  AffectedFlags // Flags this instruction modifies
 	DependentFlags AffectedFlags // Flags this instruction reads/depends on
