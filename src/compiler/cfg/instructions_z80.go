@@ -668,7 +668,7 @@ var InstrDesc_DEC_RR = InstrDescriptor{
 
 var InstrDesc_AND_R = InstrDescriptor{
 	Opcode:   Z80_AND_R,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -685,7 +685,7 @@ var InstrDesc_AND_R = InstrDescriptor{
 
 var InstrDesc_AND_N = InstrDescriptor{
 	Opcode:   Z80_AND_N,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
 	},
@@ -702,7 +702,7 @@ var InstrDesc_AND_N = InstrDescriptor{
 
 var InstrDesc_AND_HL = InstrDescriptor{
 	Opcode:   Z80_AND_HL,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
 	},
@@ -719,7 +719,7 @@ var InstrDesc_AND_HL = InstrDescriptor{
 
 var InstrDesc_OR_R = InstrDescriptor{
 	Opcode:   Z80_OR_R,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -736,7 +736,7 @@ var InstrDesc_OR_R = InstrDescriptor{
 
 var InstrDesc_OR_N = InstrDescriptor{
 	Opcode:   Z80_OR_N,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
 	},
@@ -753,7 +753,7 @@ var InstrDesc_OR_N = InstrDescriptor{
 
 var InstrDesc_OR_HL = InstrDescriptor{
 	Opcode:   Z80_OR_HL,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
 	},
@@ -770,7 +770,7 @@ var InstrDesc_OR_HL = InstrDescriptor{
 
 var InstrDesc_XOR_R = InstrDescriptor{
 	Opcode:   Z80_XOR_R,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -787,7 +787,7 @@ var InstrDesc_XOR_R = InstrDescriptor{
 
 var InstrDesc_XOR_N = InstrDescriptor{
 	Opcode:   Z80_XOR_N,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
 	},
@@ -804,7 +804,7 @@ var InstrDesc_XOR_N = InstrDescriptor{
 
 var InstrDesc_XOR_HL = InstrDescriptor{
 	Opcode:   Z80_XOR_HL,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
 	},
@@ -821,7 +821,7 @@ var InstrDesc_XOR_HL = InstrDescriptor{
 
 var InstrDesc_CP_R = InstrDescriptor{
 	Opcode:   Z80_CP_R,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -838,7 +838,7 @@ var InstrDesc_CP_R = InstrDescriptor{
 
 var InstrDesc_CP_N = InstrDescriptor{
 	Opcode:   Z80_CP_N,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
 	},
@@ -855,7 +855,7 @@ var InstrDesc_CP_N = InstrDescriptor{
 
 var InstrDesc_CP_HL = InstrDescriptor{
 	Opcode:   Z80_CP_HL,
-	Category: CatLogical,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
 	},
@@ -876,7 +876,7 @@ var InstrDesc_CP_HL = InstrDescriptor{
 
 var InstrDesc_BIT_B_R = InstrDescriptor{
 	Opcode:   Z80_BIT_B_R,
-	Category: CatBit,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpBitIndex, Access: AccessRead},
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
@@ -894,7 +894,7 @@ var InstrDesc_BIT_B_R = InstrDescriptor{
 
 var InstrDesc_SET_B_R = InstrDescriptor{
 	Opcode:   Z80_SET_B_R,
-	Category: CatBit,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpBitIndex, Access: AccessRead},
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
@@ -912,7 +912,7 @@ var InstrDesc_SET_B_R = InstrDescriptor{
 
 var InstrDesc_RES_B_R = InstrDescriptor{
 	Opcode:   Z80_RES_B_R,
-	Category: CatBit,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpBitIndex, Access: AccessRead},
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
@@ -934,7 +934,7 @@ var InstrDesc_RES_B_R = InstrDescriptor{
 
 var InstrDesc_RLC_R = InstrDescriptor{
 	Opcode:   Z80_RLC_R,
-	Category: CatShift,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -951,7 +951,7 @@ var InstrDesc_RLC_R = InstrDescriptor{
 
 var InstrDesc_RRC_R = InstrDescriptor{
 	Opcode:   Z80_RRC_R,
-	Category: CatShift,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -968,7 +968,7 @@ var InstrDesc_RRC_R = InstrDescriptor{
 
 var InstrDesc_RL_R = InstrDescriptor{
 	Opcode:   Z80_RL_R,
-	Category: CatShift,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -985,7 +985,7 @@ var InstrDesc_RL_R = InstrDescriptor{
 
 var InstrDesc_RR_R = InstrDescriptor{
 	Opcode:   Z80_RR_R,
-	Category: CatShift,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -1002,7 +1002,7 @@ var InstrDesc_RR_R = InstrDescriptor{
 
 var InstrDesc_SLA_R = InstrDescriptor{
 	Opcode:   Z80_SLA_R,
-	Category: CatShift,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -1019,7 +1019,7 @@ var InstrDesc_SLA_R = InstrDescriptor{
 
 var InstrDesc_SRA_R = InstrDescriptor{
 	Opcode:   Z80_SRA_R,
-	Category: CatShift,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -1036,7 +1036,7 @@ var InstrDesc_SRA_R = InstrDescriptor{
 
 var InstrDesc_SRL_R = InstrDescriptor{
 	Opcode:   Z80_SRL_R,
-	Category: CatShift,
+	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
 	},
@@ -1099,7 +1099,7 @@ var InstrDesc_JP_NN = InstrDescriptor{
 	Dependencies: []InstrDependency{
 		{Type: OpConstant16, Access: AccessRead},
 	},
-	Properties:     InstrImmediate | InstrIsBranch,
+	Properties:     InstrImmediate,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         10,
@@ -1116,7 +1116,7 @@ var InstrDesc_JP_HL = InstrDescriptor{
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
 	},
-	Properties:     InstrIsBranch,
+	Properties:     0,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         4,
@@ -1134,7 +1134,7 @@ var InstrDesc_JP_CC_NN = InstrDescriptor{
 		{Type: OpConditionCode, Access: AccessRead},
 		{Type: OpConstant16, Access: AccessRead},
 	},
-	Properties:     InstrImmediate | InstrIsBranch,
+	Properties:     InstrImmediate,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagDynamic, // Depends on condition code operand
 	Cycles:         10,
@@ -1151,7 +1151,7 @@ var InstrDesc_JR_E = InstrDescriptor{
 	Dependencies: []InstrDependency{
 		{Type: OpRelExpression, Access: AccessRead},
 	},
-	Properties:     InstrIsBranch,
+	Properties:     0,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         12,
@@ -1169,7 +1169,7 @@ var InstrDesc_JR_CC_E = InstrDescriptor{
 		{Type: OpConditionCode, Access: AccessRead},
 		{Type: OpRelExpression, Access: AccessRead},
 	},
-	Properties:     InstrIsBranch,
+	Properties:     0,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagDynamic, // Depends on condition code operand
 	Cycles:         7,
@@ -1186,7 +1186,7 @@ var InstrDesc_DJNZ_E = InstrDescriptor{
 	Dependencies: []InstrDependency{
 		{Type: OpRelExpression, Access: AccessRead},
 	},
-	Properties:     InstrIsBranch,
+	Properties:     0,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         8,
@@ -1203,11 +1203,11 @@ var InstrDesc_DJNZ_E = InstrDescriptor{
 
 var InstrDesc_CALL_NN = InstrDescriptor{
 	Opcode:   Z80_CALL_NN,
-	Category: CatCall,
+	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant16, Access: AccessRead},
 	},
-	Properties:     InstrImmediate | InstrIndirect | InstrIsCall,
+	Properties:     InstrImmediate | InstrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         17,
@@ -1220,12 +1220,12 @@ var InstrDesc_CALL_NN = InstrDescriptor{
 
 var InstrDesc_CALL_CC_NN = InstrDescriptor{
 	Opcode:   Z80_CALL_CC_NN,
-	Category: CatCall,
+	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
 		{Type: OpConditionCode, Access: AccessRead},
 		{Type: OpConstant16, Access: AccessRead},
 	},
-	Properties:     InstrImmediate | InstrIndirect | InstrIsCall,
+	Properties:     InstrImmediate | InstrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagDynamic, // Depends on condition code operand
 	Cycles:         10,
@@ -1238,9 +1238,9 @@ var InstrDesc_CALL_CC_NN = InstrDescriptor{
 
 var InstrDesc_RET = InstrDescriptor{
 	Opcode:         Z80_RET,
-	Category:       CatReturn,
+	Category:       CatSubroutine,
 	Dependencies:   []InstrDependency{},
-	Properties:     InstrIndirect | InstrIsReturn,
+	Properties:     InstrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         10,
@@ -1253,11 +1253,11 @@ var InstrDesc_RET = InstrDescriptor{
 
 var InstrDesc_RET_CC = InstrDescriptor{
 	Opcode:   Z80_RET_CC,
-	Category: CatReturn,
+	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
 		{Type: OpConditionCode, Access: AccessRead},
 	},
-	Properties:     InstrIndirect | InstrIsReturn,
+	Properties:     InstrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagDynamic, // Depends on condition code operand
 	Cycles:         5,
@@ -1270,9 +1270,9 @@ var InstrDesc_RET_CC = InstrDescriptor{
 
 var InstrDesc_RETN = InstrDescriptor{
 	Opcode:         Z80_RETN,
-	Category:       CatReturn,
+	Category:       CatSubroutine,
 	Dependencies:   []InstrDependency{},
-	Properties:     InstrIndirect | InstrIsReturn,
+	Properties:     InstrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         14,
@@ -1285,11 +1285,11 @@ var InstrDesc_RETN = InstrDescriptor{
 
 var InstrDesc_RST_P = InstrDescriptor{
 	Opcode:   Z80_RST_P,
-	Category: CatCall,
+	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
 	},
-	Properties:     InstrIndirect | InstrIsCall,
+	Properties:     InstrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         11,
@@ -1306,9 +1306,9 @@ var InstrDesc_RST_P = InstrDescriptor{
 
 var InstrDesc_RETI = InstrDescriptor{
 	Opcode:         Z80_RETI,
-	Category:       CatReturn,
+	Category:       CatInterrupt,
 	Dependencies:   []InstrDependency{},
-	Properties:     InstrIndirect | InstrIsReturn,
+	Properties:     InstrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
 	Cycles:         14,
@@ -1321,7 +1321,7 @@ var InstrDesc_RETI = InstrDescriptor{
 
 var InstrDesc_DI = InstrDescriptor{
 	Opcode:         Z80_DI,
-	Category:       CatSpecial,
+	Category:       CatInterrupt,
 	Dependencies:   []InstrDependency{},
 	Properties:     0,
 	AffectedFlags:  InstrFlagNone,
@@ -1336,7 +1336,7 @@ var InstrDesc_DI = InstrDescriptor{
 
 var InstrDesc_EI = InstrDescriptor{
 	Opcode:         Z80_EI,
-	Category:       CatSpecial,
+	Category:       CatInterrupt,
 	Dependencies:   []InstrDependency{},
 	Properties:     0,
 	AffectedFlags:  InstrFlagNone,
@@ -1355,7 +1355,7 @@ var InstrDesc_EI = InstrDescriptor{
 
 var InstrDesc_NOP = InstrDescriptor{
 	Opcode:         Z80_NOP,
-	Category:       CatSpecial,
+	Category:       CatOther,
 	Dependencies:   []InstrDependency{},
 	Properties:     0,
 	AffectedFlags:  InstrFlagNone,
@@ -1370,7 +1370,7 @@ var InstrDesc_NOP = InstrDescriptor{
 
 var InstrDesc_HALT = InstrDescriptor{
 	Opcode:         Z80_HALT,
-	Category:       CatSpecial,
+	Category:       CatOther,
 	Dependencies:   []InstrDependency{},
 	Properties:     0,
 	AffectedFlags:  InstrFlagNone,

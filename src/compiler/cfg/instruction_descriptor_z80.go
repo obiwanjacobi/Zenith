@@ -141,23 +141,6 @@ const (
 	AccessReadWrite AccessType = AccessRead | AccessWrite
 )
 
-// InstrCategory categorizes instructions for scheduling and optimization
-type InstrCategory uint8
-
-const (
-	CatLoad       InstrCategory = iota // LD instructions (register/immediate loads)
-	CatStore                           // LD to memory
-	CatArithmetic                      // ADD, SUB, INC, DEC, ADC, SBC
-	CatLogical                         // AND, OR, XOR, CP
-	CatShift                           // RLC, RRC, RL, RR, SLA, SRA, SRL
-	CatBit                             // BIT, SET, RES
-	CatStack                           // PUSH, POP
-	CatBranch                          // JP, JR, DJNZ
-	CatCall                            // CALL, RST
-	CatReturn                          // RET, RETI, RETN
-	CatSpecial                         // NOP, HALT, DI, EI
-)
-
 // OperandType specifies the kind of operand
 type OperandType int
 
@@ -203,21 +186,6 @@ func GetFlagsForCondition(cc ConditionCode) InstrFlags {
 		return 0
 	}
 }
-
-// ============================================================================
-// Instruction Property Flags
-// ============================================================================
-
-type InstrProperties uint32
-
-const (
-	// Special properties
-	InstrImmediate InstrProperties = 1 << 0 // literal/immediate operand
-	InstrIndirect  InstrProperties = 1 << 1 // Accesses memory
-	InstrIsBranch  InstrProperties = 1 << 2 // Control flow instruction
-	InstrIsCall    InstrProperties = 1 << 3 // Function call
-	InstrIsReturn  InstrProperties = 1 << 4 // Function return
-)
 
 type InstrFlags uint16
 
