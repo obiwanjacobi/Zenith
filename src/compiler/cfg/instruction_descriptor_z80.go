@@ -124,7 +124,7 @@ const (
 	// others...
 	// EX AF, AF' (exchange AF and AF')
 	// EX DE, HL (exchange DE and HL)
-	// EX SP_HL Z80Opcode = 0xE3 // EX (SP), HL (exchange HL with value at SP)
+	// EX (SP), HL (exchange HL with value at SP)
 	// LDD, LDI, LDDR, LDIR (block transfer instructions) - ED prefix
 	// CPI, CPD, CPIR, CPDR (block compare instructions) - ED prefix
 	// INI, IND, INIR, INDR (block input instructions) - ED prefix
@@ -218,7 +218,7 @@ type InstrDescriptor struct {
 	Opcode         Z80Opcode
 	Category       InstrCategory
 	Dependencies   []InstrDependency // Operands and implicit register/flag dependencies
-	Properties     InstrProperties
+	AddressingMode AddressingMode
 	AffectedFlags  InstrFlags // Flags this instruction modifies
 	DependentFlags InstrFlags // Flags this instruction reads/depends on
 

@@ -24,19 +24,18 @@ const (
 )
 
 // ============================================================================
-// Instruction Property Flags
+// Addressing Modes
 // ============================================================================
 
-type InstrProperties uint8
+type AddressingMode uint8
 
 const (
-	// Addressing modes
-	InstrImmediate InstrProperties = 1 << 0 // Immediate/literal operand
-	InstrDirect    InstrProperties = 1 << 1 // Direct memory address
-	InstrIndirect  InstrProperties = 1 << 2 // Register indirect (memory through register)
-	InstrIndexed   InstrProperties = 1 << 3 // Indexed addressing (base register + offset)
-	InstrRelative  InstrProperties = 1 << 4 // PC-relative addressing
-	InstrImplicit  InstrProperties = 1 << 5 // No explicit operands
+	AddrImmediate AddressingMode = 1 << 0 // Immediate/literal operand
+	AddrDirect    AddressingMode = 1 << 1 // Direct memory address
+	AddrIndirect  AddressingMode = 1 << 2 // Register indirect (memory through register)
+	AddrIndexed   AddressingMode = 1 << 3 // Indexed addressing (base register + offset)
+	AddrRelative  AddressingMode = 1 << 4 // PC-relative addressing
+	AddrImplicit  AddressingMode = 1 << 5 // No explicit operands
 )
 
 // InstructionSelector converts IR to target-specific machine instructions
@@ -147,14 +146,14 @@ type InstructionSelector interface {
 
 	// SelectBranch generates a conditional branch
 	// condition is the virtual register containing the condition (flags or boolean)
-	// trueLabel is jumped to if condition is true, falseLabel if false
-	SelectBranch(condition *VirtualRegister, trueLabel, falseLabel string) error
+	// trueBlock is jumped to if condition is true, falseBlock if false
+	SelectBranch(condition *VirtualRegister, trueBlock, falseBlock *BasicBlock) error
 
-	// SelectJump generates an unconditional jump to a label
-	SelectJump(label string) error
+	// SelectJump generates an unconditional jump to a basic block
+	SelectJump(target *BasicBlock) error
 
-	// SelectLabel emits a label (jump target)
-	SelectLabel(label string) error
+	// SelectBlockLabel emits a label for a basic block (jump target)
+	SelectBlockLabel(block *BasicBlock) error
 
 	// SelectCall generates a function call
 	// Returns the virtual register containing the return value (if any)
@@ -179,7 +178,10 @@ type InstructionSelector interface {
 	// ============================================================================
 
 	// AllocateVirtual creates a new virtual register
-	AllocateVirtual(size int, constraints *RegisterConstraints) *VirtualRegister
+	AllocateVirtual(size int) *VirtualRegister
+
+	// AllocateVirtualConstrained creates a virtual register with specific constraints
+	AllocateVirtualConstrained(size int, allowedSet []*Register, requiredClass RegisterClass) *VirtualRegister
 
 	// EmitInstruction adds an instruction to the current sequence
 	EmitInstruction(instr MachineInstruction)
@@ -218,14 +220,19 @@ type MachineInstruction interface {
 	// GetCategory returns the instruction category (load, arithmetic, branch, etc.)
 	GetCategory() InstrCategory
 
-	// GetProperties returns instruction properties (immediate, indirect, control flow, etc.)
-	GetProperties() InstrProperties
+	// GetAddressingMode returns instruction addressing mode flags
+	GetAddressingMode() AddressingMode
 
-	// IsLabel returns true if this is a label (jump target, not an actual instruction)
-	IsLabel() bool
+	// IsBlockLabel returns true if this is a basic block label (jump target, not an actual instruction)
+	IsBlockLabel() bool
 
-	// GetLabel returns the label name (if this is a label or branch/jump target)
-	GetLabel() string
+	// GetTargetBlock returns the basic block target (for branches/jumps)
+	// Returns nil if this instruction doesn't have a block target
+	GetTargetBlock() *BasicBlock
+
+	// GetBranchTargets returns both branch targets (true and false blocks)
+	// Returns nil if this instruction is not a conditional branch
+	GetBranchTargets() (trueBlock, falseBlock *BasicBlock)
 
 	// GetComment returns a human-readable comment (for debugging/disassembly)
 	GetComment() string
@@ -239,32 +246,22 @@ type VirtualRegister struct {
 	// ID uniquely identifies this virtual register
 	ID int
 
-	// Size in bits (8 or 16 for Z80)
+	// Size in bits (8, 16, 32, 64, etc.) - determines which physical registers are compatible
 	Size int
 
-	// Constraints limit which physical registers can be assigned
-	Constraints *RegisterConstraints
+	// AllowedSet restricts allocation to specific registers (e.g., [A] for Z80 ADD result)
+	// If nil or empty, any register of the correct size and class can be used
+	AllowedSet []*Register
+
+	// RequiredClass restricts allocation by register class (general, accumulator, index, etc.)
+	// If 0, no class restriction
+	RequiredClass RegisterClass
 
 	// PhysicalReg is set after register allocation
 	PhysicalReg *Register
 
 	// Name for debugging (optional, e.g., variable name)
 	Name string
-}
-
-// RegisterConstraints specifies limitations on register assignment
-type RegisterConstraints struct {
-	// MustBe forces allocation to a specific register (e.g., A for ADD)
-	MustBe *Register
-
-	// AllowedSet restricts to a subset of registers
-	AllowedSet []*Register
-
-	// RequiredClass restricts by register class
-	RequiredClass RegisterClass
-
-	// IsRegisterPair indicates this needs a 16-bit register pair
-	IsRegisterPair bool
 }
 
 // VirtualRegisterAllocator manages virtual register creation
@@ -281,12 +278,24 @@ func NewVirtualRegisterAllocator() *VirtualRegisterAllocator {
 	}
 }
 
-// Allocate creates a new virtual register with optional constraints
-func (vra *VirtualRegisterAllocator) Allocate(size int, constraints *RegisterConstraints) *VirtualRegister {
+// Allocate creates a new virtual register
+func (vra *VirtualRegisterAllocator) Allocate(size int) *VirtualRegister {
 	vr := &VirtualRegister{
-		ID:          vra.nextID,
-		Size:        size,
-		Constraints: constraints,
+		ID:   vra.nextID,
+		Size: size,
+	}
+	vra.virtRegs[vra.nextID] = vr
+	vra.nextID++
+	return vr
+}
+
+// AllocateConstrained creates a virtual register with specific constraints
+func (vra *VirtualRegisterAllocator) AllocateConstrained(size int, allowedSet []*Register, requiredClass RegisterClass) *VirtualRegister {
+	vr := &VirtualRegister{
+		ID:            vra.nextID,
+		Size:          size,
+		AllowedSet:    allowedSet,
+		RequiredClass: requiredClass,
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++
@@ -294,8 +303,8 @@ func (vra *VirtualRegisterAllocator) Allocate(size int, constraints *RegisterCon
 }
 
 // AllocateNamed creates a named virtual register (for debugging)
-func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size int, constraints *RegisterConstraints) *VirtualRegister {
-	vr := vra.Allocate(size, constraints)
+func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size int) *VirtualRegister {
+	vr := vra.Allocate(size)
 	vr.Name = name
 	return vr
 }
