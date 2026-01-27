@@ -156,6 +156,7 @@ const (
 	OpDisplacement                      // d: IX/IY displacement (-128 to +127)
 	OpConditionCode                     // cc: Condition code (Z, NZ, C, NC)
 	OpBitIndex                          // b: Bit index (0-7)
+	OpRestartVector                     // p: Restart vector (0H, 8H, 10H, 18H, 20H, 28H, 30H, 38H)
 )
 
 type ConditionCode uint8

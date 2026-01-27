@@ -402,6 +402,7 @@ var InstrDesc_SUB_R = InstrDescriptor{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -419,6 +420,7 @@ var InstrDesc_SUB_N = InstrDescriptor{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImmediate,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -436,6 +438,7 @@ var InstrDesc_SUB_HL = InstrDescriptor{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -671,6 +674,7 @@ var InstrDesc_AND_R = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -688,6 +692,7 @@ var InstrDesc_AND_N = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImmediate,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -705,6 +710,7 @@ var InstrDesc_AND_HL = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -722,6 +728,7 @@ var InstrDesc_OR_R = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -739,6 +746,7 @@ var InstrDesc_OR_N = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImmediate,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -756,6 +764,7 @@ var InstrDesc_OR_HL = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -773,6 +782,7 @@ var InstrDesc_XOR_R = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -790,6 +800,7 @@ var InstrDesc_XOR_N = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrImmediate,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -807,6 +818,7 @@ var InstrDesc_XOR_HL = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -824,6 +836,7 @@ var InstrDesc_CP_R = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpNone, Access: AccessRead, Registers: []*Register{&RegA}}, // Implicit A compare source
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -841,6 +854,7 @@ var InstrDesc_CP_N = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant8, Access: AccessRead},
+		{Type: OpNone, Access: AccessRead, Registers: []*Register{&RegA}}, // Implicit A compare source
 	},
 	AddressingMode: AddrImmediate,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -858,6 +872,7 @@ var InstrDesc_CP_HL = InstrDescriptor{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
+		{Type: OpNone, Access: AccessRead, Registers: []*Register{&RegA}}, // Implicit A compare source
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -1060,6 +1075,7 @@ var InstrDesc_PUSH_QQ = InstrDescriptor{
 	Category: CatStack,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairQQ, Access: AccessRead, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegAF}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP decrement
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -1077,6 +1093,7 @@ var InstrDesc_POP_QQ = InstrDescriptor{
 	Category: CatStack,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairQQ, Access: AccessWrite, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegAF}},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP increment
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -1185,6 +1202,7 @@ var InstrDesc_DJNZ_E = InstrDescriptor{
 	Category: CatBranch,
 	Dependencies: []InstrDependency{
 		{Type: OpRelExpression, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegB}}, // Implicit B decrement
 	},
 	AddressingMode: AddrRelative,
 	AffectedFlags:  InstrFlagNone,
@@ -1206,6 +1224,7 @@ var InstrDesc_CALL_NN = InstrDescriptor{
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant16, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
 	},
 	AddressingMode: AddrImmediate | AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -1224,6 +1243,7 @@ var InstrDesc_CALL_CC_NN = InstrDescriptor{
 	Dependencies: []InstrDependency{
 		{Type: OpConditionCode, Access: AccessRead},
 		{Type: OpConstant16, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
 	},
 	AddressingMode: AddrImmediate | AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -1237,9 +1257,11 @@ var InstrDesc_CALL_CC_NN = InstrDescriptor{
 }
 
 var InstrDesc_RET = InstrDescriptor{
-	Opcode:         Z80_RET,
-	Category:       CatSubroutine,
-	Dependencies:   []InstrDependency{},
+	Opcode:   Z80_RET,
+	Category: CatSubroutine,
+	Dependencies: []InstrDependency{
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
+	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
@@ -1256,6 +1278,7 @@ var InstrDesc_RET_CC = InstrDescriptor{
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
 		{Type: OpConditionCode, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -1269,9 +1292,11 @@ var InstrDesc_RET_CC = InstrDescriptor{
 }
 
 var InstrDesc_RETN = InstrDescriptor{
-	Opcode:         Z80_RETN,
-	Category:       CatSubroutine,
-	Dependencies:   []InstrDependency{},
+	Opcode:   Z80_RETN,
+	Category: CatSubroutine,
+	Dependencies: []InstrDependency{
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
+	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
@@ -1287,7 +1312,8 @@ var InstrDesc_RST_P = InstrDescriptor{
 	Opcode:   Z80_RST_P,
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
-		{Type: OpConstant8, Access: AccessRead},
+		{Type: OpRestartVector, Access: AccessRead},
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -1305,9 +1331,11 @@ var InstrDesc_RST_P = InstrDescriptor{
 // ============================================================================
 
 var InstrDesc_RETI = InstrDescriptor{
-	Opcode:         Z80_RETI,
-	Category:       CatInterrupt,
-	Dependencies:   []InstrDependency{},
+	Opcode:   Z80_RETI,
+	Category: CatInterrupt,
+	Dependencies: []InstrDependency{
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
+	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
 	DependentFlags: InstrFlagNone,
