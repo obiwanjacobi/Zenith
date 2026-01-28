@@ -221,9 +221,9 @@ func Test_Analyze_TypeDeclaration(t *testing.T) {
 
 	typeDecl, ok := irCU.Declarations[0].(*IRTypeDecl)
 	require.True(t, ok, "Declaration should be IRTypeDecl")
-	assert.Equal(t, "Point", typeDecl.Type.Name())
+	assert.Equal(t, "Point", typeDecl.TypeInfo.Name())
 
-	fields := typeDecl.Type.Fields()
+	fields := typeDecl.TypeInfo.Fields()
 	require.Equal(t, 2, len(fields))
 	assert.Equal(t, "x", fields[0].Name)
 	assert.Equal(t, U8Type, fields[0].Type)

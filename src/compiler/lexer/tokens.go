@@ -147,10 +147,10 @@ type tokenStreamImpl struct {
 }
 
 func (ts *tokenStreamImpl) Peek() Token {
-	if ts.buffer_pos < len(ts.buffer) {
-		return ts.buffer[ts.buffer_pos]
+	if ts.buffer_pos < 0 || ts.buffer_pos >= len(ts.buffer) {
+		return nil
 	}
-	return nil
+	return ts.buffer[ts.buffer_pos]
 }
 
 func (ts *tokenStreamImpl) Read() (Token, error) {

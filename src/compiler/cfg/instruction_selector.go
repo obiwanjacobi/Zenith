@@ -82,6 +82,17 @@ type InstructionSelector interface {
 	// SelectShiftRight generates instructions for right shift (a >> b)
 	SelectShiftRight(value, amount *VirtualRegister, size int) (*VirtualRegister, error)
 
+	// SelectLogicalAnd generates instructions for logical AND (a && b)
+	// Includes short-circuit evaluation
+	SelectLogicalAnd(left, right *VirtualRegister) (*VirtualRegister, error)
+
+	// SelectLogicalOr generates instructions for logical OR (a || b)
+	// Includes short-circuit evaluation
+	SelectLogicalOr(left, right *VirtualRegister) (*VirtualRegister, error)
+
+	// SelectLogicalNot generates instructions for logical NOT (!a)
+	SelectLogicalNot(operand *VirtualRegister) (*VirtualRegister, error)
+
 	// ============================================================================
 	// Comparison Operations
 	// ============================================================================
@@ -106,21 +117,6 @@ type InstructionSelector interface {
 	SelectGreaterEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error)
 
 	// ============================================================================
-	// Logical Operations
-	// ============================================================================
-
-	// SelectLogicalAnd generates instructions for logical AND (a && b)
-	// Includes short-circuit evaluation
-	SelectLogicalAnd(left, right *VirtualRegister) (*VirtualRegister, error)
-
-	// SelectLogicalOr generates instructions for logical OR (a || b)
-	// Includes short-circuit evaluation
-	SelectLogicalOr(left, right *VirtualRegister) (*VirtualRegister, error)
-
-	// SelectLogicalNot generates instructions for logical NOT (!a)
-	SelectLogicalNot(operand *VirtualRegister) (*VirtualRegister, error)
-
-	// ============================================================================
 	// Memory Operations
 	// ============================================================================
 
@@ -140,6 +136,9 @@ type InstructionSelector interface {
 	// SelectStoreVariable generates instructions to store to a variable
 	SelectStoreVariable(symbol *zir.Symbol, value *VirtualRegister) error
 
+	// Move register value -of size- from source to target
+	SelectMove(target *VirtualRegister, source *VirtualRegister, size int) error
+
 	// ============================================================================
 	// Control Flow
 	// ============================================================================
@@ -152,12 +151,10 @@ type InstructionSelector interface {
 	// SelectJump generates an unconditional jump to a basic block
 	SelectJump(target *BasicBlock) error
 
-	// SelectBlockLabel emits a label for a basic block (jump target)
-	SelectBlockLabel(block *BasicBlock) error
-
 	// SelectCall generates a function call
-	// Returns the virtual register containing the return value (if any)
-	SelectCall(function *zir.Symbol, args []*VirtualRegister) (*VirtualRegister, error)
+	// returnSize is the size of the return value in bits (0 for void functions)
+	// Returns the virtual register containing the return value (nil if void)
+	SelectCall(functionName string, args []*VirtualRegister, returnSize int) (*VirtualRegister, error)
 
 	// SelectReturn generates a return statement
 	// value is nil for void functions
@@ -192,9 +189,6 @@ type InstructionSelector interface {
 	// ClearInstructions resets the instruction buffer
 	ClearInstructions()
 
-	// NewLabel generates a unique label name
-	NewLabel(prefix string) string
-
 	// GetCallingConvention returns the calling convention used by this selector
 	GetCallingConvention() CallingConvention
 
@@ -222,9 +216,6 @@ type MachineInstruction interface {
 
 	// GetAddressingMode returns instruction addressing mode flags
 	GetAddressingMode() AddressingMode
-
-	// IsBlockLabel returns true if this is a basic block label (jump target, not an actual instruction)
-	IsBlockLabel() bool
 
 	// GetTargetBlock returns the basic block target (for branches/jumps)
 	// Returns nil if this instruction doesn't have a block target
@@ -262,6 +253,14 @@ type VirtualRegister struct {
 
 	// Name for debugging (optional, e.g., variable name)
 	Name string
+
+	// StackOffset is the offset from stack pointer for stack-based parameters/locals
+	// -1 if this VirtualRegister is not backed by a stack location
+	StackOffset int
+
+	// HasStackHome indicates this VirtualRegister has a permanent home on the stack
+	// If true, the register allocator can spill to StackOffset instead of allocating a new slot
+	HasStackHome bool
 }
 
 // VirtualRegisterAllocator manages virtual register creation
@@ -306,6 +305,21 @@ func (vra *VirtualRegisterAllocator) AllocateConstrained(size int, allowedSet []
 func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size int) *VirtualRegister {
 	vr := vra.Allocate(size)
 	vr.Name = name
+	return vr
+}
+
+// AllocateWithStackHome creates a virtual register backed by a stack location
+// This is used for parameters and locals that have a permanent stack home
+func (vra *VirtualRegisterAllocator) AllocateWithStackHome(name string, size int, stackOffset int) *VirtualRegister {
+	vr := &VirtualRegister{
+		ID:           vra.nextID,
+		Size:         size,
+		Name:         name,
+		StackOffset:  stackOffset,
+		HasStackHome: true,
+	}
+	vra.virtRegs[vra.nextID] = vr
+	vra.nextID++
 	return vr
 }
 

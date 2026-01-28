@@ -340,8 +340,8 @@ func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *IRType
 	}
 
 	return &IRTypeDecl{
-		Type:    structType,
-		astNode: node,
+		TypeInfo: structType,
+		astNode:  node,
 	}
 }
 
@@ -611,9 +611,9 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *IRCon
 	}
 
 	return &IRConstant{
-		Value:   value,
-		typ:     typ,
-		astNode: node,
+		Value:    value,
+		TypeInfo: typ,
+		astNode:  node,
 	}
 }
 
@@ -659,9 +659,9 @@ func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorU
 					typ = I16Type
 				}
 				return &IRConstant{
-					Value:   negatedVal,
-					typ:     typ,
-					astNode: node,
+					Value:    negatedVal,
+					TypeInfo: typ,
+					astNode:  node,
 				}
 			}
 		}
@@ -694,11 +694,11 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 	resultType := left.Type()
 
 	return &IRBinaryOp{
-		Op:      op,
-		Left:    left,
-		Right:   right,
-		typ:     resultType,
-		astNode: node,
+		Op:       op,
+		Left:     left,
+		Right:    right,
+		TypeInfo: resultType,
+		astNode:  node,
 	}
 }
 
@@ -735,7 +735,7 @@ func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionIn
 	return &IRFunctionCall{
 		Function:  symbol,
 		Arguments: args,
-		typ:       returnType,
+		TypeInfo:  returnType,
 		astNode:   node,
 	}
 }
@@ -780,10 +780,10 @@ func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAcce
 	}
 
 	return &IRMemberAccess{
-		Object:  &object,
-		Field:   field,
-		typ:     field.Type,
-		astNode: node,
+		Object:   &object,
+		Field:    field,
+		TypeInfo: field.Type,
+		astNode:  node,
 	}
 }
 
@@ -848,7 +848,7 @@ func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeIni
 	return &IRTypeInitializer{
 		StructType: structType,
 		Fields:     fieldInits,
-		typ:        structType,
+		TypeInfo:   structType,
 		astNode:    node,
 	}
 }

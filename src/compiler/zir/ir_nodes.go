@@ -45,7 +45,7 @@ func (n *IRCompilationUnit) AST() parser.CompilationUnit { return n.astNode }
 type IRVariableDecl struct {
 	Symbol      *Symbol
 	Initializer IRExpression // nil if no initializer
-	Type        Type         // Resolved type
+	TypeInfo    Type         // Resolved type
 	astNode     parser.VariableDeclaration
 }
 
@@ -67,8 +67,8 @@ func (n *IRFunctionDecl) AST() parser.FunctionDeclaration { return n.astNode }
 
 // IRTypeDecl represents a struct type declaration
 type IRTypeDecl struct {
-	Type    *StructType
-	astNode parser.TypeDeclaration
+	TypeInfo *StructType
+	astNode  parser.TypeDeclaration
 }
 
 func (n *IRTypeDecl) ASTNode() parser.ParserNode  { return n.astNode }
@@ -176,14 +176,14 @@ func (n *IRReturn) AST() parser.StatementReturn { return n.astNode }
 
 // IRConstant represents a constant literal value
 type IRConstant struct {
-	Value   interface{} // int, string, bool
-	typ     Type
-	astNode parser.Expression
+	Value    interface{} // int, string, bool
+	TypeInfo Type
+	astNode  parser.Expression
 }
 
 func (n *IRConstant) ASTNode() parser.ParserNode { return n.astNode }
 func (n *IRConstant) AST() parser.Expression     { return n.astNode }
-func (n *IRConstant) Type() Type                 { return n.typ }
+func (n *IRConstant) Type() Type                 { return n.TypeInfo }
 
 // IRSymbolRef represents a reference to a symbol (variable, parameter)
 type IRSymbolRef struct {
@@ -197,16 +197,16 @@ func (n *IRSymbolRef) Type() Type                 { return n.Symbol.Type }
 
 // IRBinaryOp represents binary operations (arithmetic, comparison, logical, bitwise)
 type IRBinaryOp struct {
-	Op      BinaryOperator
-	Left    IRExpression
-	Right   IRExpression
-	typ     Type
-	astNode parser.ExpressionOperatorBinary
+	Op       BinaryOperator
+	Left     IRExpression
+	Right    IRExpression
+	TypeInfo Type
+	astNode  parser.ExpressionOperatorBinary
 }
 
 func (n *IRBinaryOp) ASTNode() parser.ParserNode           { return n.astNode }
 func (n *IRBinaryOp) AST() parser.ExpressionOperatorBinary { return n.astNode }
-func (n *IRBinaryOp) Type() Type                           { return n.typ }
+func (n *IRBinaryOp) Type() Type                           { return n.TypeInfo }
 
 type BinaryOperator int
 
@@ -234,15 +234,15 @@ const (
 
 // IRUnaryOp represents unary operations
 type IRUnaryOp struct {
-	Op      UnaryOperator
-	Operand IRExpression
-	typ     Type
-	astNode parser.ExpressionOperatorUnaryPrefix
+	Op       UnaryOperator
+	Operand  IRExpression
+	TypeInfo Type
+	astNode  parser.ExpressionOperatorUnaryPrefix
 }
 
 func (n *IRUnaryOp) ASTNode() parser.ParserNode                { return n.astNode }
 func (n *IRUnaryOp) AST() parser.ExpressionOperatorUnaryPrefix { return n.astNode }
-func (n *IRUnaryOp) Type() Type                                { return n.typ }
+func (n *IRUnaryOp) Type() Type                                { return n.TypeInfo }
 
 type UnaryOperator int
 
@@ -256,37 +256,37 @@ const (
 type IRFunctionCall struct {
 	Function  *Symbol
 	Arguments []IRExpression
-	typ       Type
+	TypeInfo  Type
 	astNode   parser.ExpressionFunctionInvocation
 }
 
 func (n *IRFunctionCall) ASTNode() parser.ParserNode               { return n.astNode }
 func (n *IRFunctionCall) AST() parser.ExpressionFunctionInvocation { return n.astNode }
-func (n *IRFunctionCall) Type() Type                               { return n.typ }
+func (n *IRFunctionCall) Type() Type                               { return n.TypeInfo }
 
 // IRMemberAccess represents accessing a struct field
 type IRMemberAccess struct {
-	Object  *IRExpression
-	Field   *StructField
-	typ     Type
-	astNode parser.ExpressionMemberAccess
+	Object   *IRExpression
+	Field    *StructField
+	TypeInfo Type
+	astNode  parser.ExpressionMemberAccess
 }
 
 func (n *IRMemberAccess) ASTNode() parser.ParserNode         { return n.astNode }
 func (n *IRMemberAccess) AST() parser.ExpressionMemberAccess { return n.astNode }
-func (n *IRMemberAccess) Type() Type                         { return n.typ }
+func (n *IRMemberAccess) Type() Type                         { return n.TypeInfo }
 
 // IRTypeInitializer represents struct initialization
 type IRTypeInitializer struct {
 	StructType *StructType
 	Fields     []*IRFieldInit
-	typ        Type
+	TypeInfo   Type
 	astNode    parser.ExpressionTypeInitializer
 }
 
 func (n *IRTypeInitializer) ASTNode() parser.ParserNode            { return n.astNode }
 func (n *IRTypeInitializer) AST() parser.ExpressionTypeInitializer { return n.astNode }
-func (n *IRTypeInitializer) Type() Type                            { return n.typ }
+func (n *IRTypeInitializer) Type() Type                            { return n.TypeInfo }
 
 // IRFieldInit represents a field initialization in a struct literal
 type IRFieldInit struct {

@@ -3,7 +3,7 @@ package zir
 // Type represents a resolved type in the IR
 type Type interface {
 	Name() string
-	Size() int // Size in bytes for Z80
+	Size() int // Size in bytes
 }
 
 // PrimitiveType represents built-in types like u8, i8, d8, bool

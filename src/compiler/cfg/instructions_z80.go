@@ -666,7 +666,7 @@ var InstrDesc_DEC_RR = InstrDescriptor{
 }
 
 // ============================================================================
-// Logical Instructions
+// Bitwise Instructions
 // ============================================================================
 
 var InstrDesc_AND_R = InstrDescriptor{
@@ -1291,23 +1291,6 @@ var InstrDesc_RET_CC = InstrDescriptor{
 	Prefix2:        0,
 }
 
-var InstrDesc_RETN = InstrDescriptor{
-	Opcode:   Z80_RETN,
-	Category: CatSubroutine,
-	Dependencies: []InstrDependency{
-		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
-	},
-	AddressingMode: AddrIndirect,
-	AffectedFlags:  InstrFlagNone,
-	DependentFlags: InstrFlagNone,
-	Cycles:         14,
-	CyclesTaken:    0,
-	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
-	Prefix1:        0xED,
-	Prefix2:        0,
-}
-
 var InstrDesc_RST_P = InstrDescriptor{
 	Opcode:   Z80_RST_P,
 	Category: CatSubroutine,
@@ -1333,6 +1316,23 @@ var InstrDesc_RST_P = InstrDescriptor{
 var InstrDesc_RETI = InstrDescriptor{
 	Opcode:   Z80_RETI,
 	Category: CatInterrupt,
+	Dependencies: []InstrDependency{
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
+	},
+	AddressingMode: AddrIndirect,
+	AffectedFlags:  InstrFlagNone,
+	DependentFlags: InstrFlagNone,
+	Cycles:         14,
+	CyclesTaken:    0,
+	EncodingReg1SL: 0,
+	EncodingReg2SL: 0,
+	Prefix1:        0xED,
+	Prefix2:        0,
+}
+
+var InstrDesc_RETN = InstrDescriptor{
+	Opcode:   Z80_RETN,
+	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
 		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP for return address
 	},

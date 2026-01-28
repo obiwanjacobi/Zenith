@@ -41,6 +41,14 @@ func newTestReader(code string) CodeReader {
 	}
 }
 
+// NewCodeReaderFromString creates a CodeReader from a string
+// This is exported for use in the compiler pipeline
+func NewCodeReaderFromString(code string) CodeReader {
+	return &testReaderImpl{
+		reader: strings.NewReader(code),
+	}
+}
+
 // ----------------------------------------------------------------------------
 
 func Test_TestReader(t *testing.T) {
