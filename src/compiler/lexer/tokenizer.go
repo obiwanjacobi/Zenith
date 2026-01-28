@@ -9,12 +9,8 @@ import (
 	"unicode"
 )
 
-type CodeReader interface {
-	io.RuneScanner
-}
-
 type Tokenizer struct {
-	reader     CodeReader
+	reader     io.RuneScanner
 	done       bool
 	index      int
 	line       int
@@ -23,9 +19,12 @@ type Tokenizer struct {
 }
 
 func TokenizerFromFile(file *os.File) *Tokenizer {
-	return TokenizerFromReader(newCodeReader(file))
+	return TokenizerFromReader(bufio.NewReader(file))
 }
-func TokenizerFromReader(reader CodeReader) *Tokenizer {
+func TokenizerFromString(code string) *Tokenizer {
+	return TokenizerFromReader(strings.NewReader(code))
+}
+func TokenizerFromReader(reader io.RuneScanner) *Tokenizer {
 	return &Tokenizer{
 		reader: reader,
 		done:   false,
@@ -455,25 +454,6 @@ func (t *Tokenizer) makeLocation() Location {
 }
 
 // -----------------------------------------------------------------------------
-
-type codeReaderImpl struct {
-	CodeReader
-	file   *os.File
-	reader *bufio.Reader
-}
-
-func (cr *codeReaderImpl) ReadRune() (r rune, size int, err error) {
-	return cr.reader.ReadRune()
-}
-func (cr *codeReaderImpl) UnreadRune() error {
-	return cr.reader.UnreadRune()
-}
-func newCodeReader(file *os.File) CodeReader {
-	return &codeReaderImpl{
-		file:   file,
-		reader: bufio.NewReader(file),
-	}
-}
 
 func isHexLetter(r rune) bool {
 	return r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F'

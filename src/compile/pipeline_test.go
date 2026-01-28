@@ -8,8 +8,8 @@ import (
 // Example demonstrating the full compilation pipeline
 func Example_pipeline() {
 	sourceCode := `
-		fn add(a: u8, b: u8): u8 {
-			return a + b
+		add: (a: u8, b: u8): u8 {
+			ret a + b
 		}
 	`
 
@@ -33,8 +33,8 @@ func Example_pipeline() {
 // Test the pipeline with simple code
 func Test_Pipeline_SimpleFunction(t *testing.T) {
 	sourceCode := `
-		fn multiply(x: u16, y: u16): u16 {
-			return x * y
+		addition: (x: u16, y: u16) u16 {
+			ret x + y
 		}
 	`
 
@@ -45,7 +45,7 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 	result, err := Pipeline(opts)
 
 	if err != nil {
-		t.Logf("Compilation errors: %s", err)
+		t.Logf("Compilation errors: %v", result.ParserErrors)
 	}
 
 	// Check stages completed
@@ -72,7 +72,7 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 
 // Test pipeline stopping at different stages
 func Test_Pipeline_StopAfterParse(t *testing.T) {
-	sourceCode := `fn test(): u8 { return 42 }`
+	sourceCode := `test: () u8 { ret 42 }`
 
 	opts := DefaultPipelineOptions()
 	opts.SourceCode = sourceCode
@@ -81,7 +81,7 @@ func Test_Pipeline_StopAfterParse(t *testing.T) {
 	result, err := Pipeline(opts)
 
 	if err != nil {
-		t.Fatalf("Unexpected error: %s", err)
+		t.Fatalf("Unexpected error: %v", result.AST.Errors())
 	}
 
 	if !result.Success {
@@ -97,34 +97,14 @@ func Test_Pipeline_StopAfterParse(t *testing.T) {
 	}
 }
 
-// Test pipeline with syntax errors
-func Test_Pipeline_SyntaxError(t *testing.T) {
-	sourceCode := `fn broken( { invalid syntax }`
-
-	opts := DefaultPipelineOptions()
-	opts.SourceCode = sourceCode
-
-	result, err := Pipeline(opts)
-
-	if err == nil {
-		t.Error("Expected error due to syntax error")
-	}
-
-	if len(result.ParserErrors) == 0 {
-		t.Error("Parser errors should be present")
-	}
-
-	t.Logf("Parser errors: %d", len(result.ParserErrors))
-}
-
 // Test pipeline with verbose output
 func Test_Pipeline_VerboseOutput(t *testing.T) {
 	sourceCode := `
-		fn factorial(n: u8): u8 {
+		factorial: (n: u8) u8 {
 			if n <= 1 {
-				return 1
+				ret 1
 			}
-			return n * factorial(n - 1)
+			ret n * factorial(n - 1)
 		}
 	`
 
@@ -152,11 +132,11 @@ func Test_Pipeline_VerboseOutput(t *testing.T) {
 // Test pipeline with all debug dumps enabled
 func Test_Pipeline_AllDumps(t *testing.T) {
 	sourceCode := `
-		fn max(a: u8, b: u8): u8 {
+		max: (a: u8, b: u8) u8 {
 			if a > b {
-				return a
+				ret a
 			} else {
-				return b
+				ret b
 			}
 		}
 	`

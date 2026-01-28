@@ -3,6 +3,7 @@ package compile
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"zenith/compiler/cfg"
 	"zenith/compiler/lexer"
@@ -102,9 +103,10 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	var tokenizer *lexer.Tokenizer
+	// TODO: sourceCode vs sourceFile handling
 	if opts.SourceCode != "" {
 		// Compile from string
-		tokenizer = lexer.TokenizerFromReader(lexer.NewCodeReaderFromString(opts.SourceCode))
+		tokenizer = lexer.TokenizerFromReader(strings.NewReader(opts.SourceCode))
 	} else if opts.SourceFile != "" {
 		// Compile from file
 		file, err := os.Open(opts.SourceFile)
