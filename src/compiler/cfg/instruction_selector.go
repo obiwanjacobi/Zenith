@@ -1,6 +1,6 @@
 package cfg
 
-import "zenith/compiler/zir"
+import "zenith/compiler/zsm"
 
 // ============================================================================
 // Instruction Categories
@@ -131,10 +131,10 @@ type InstructionSelector interface {
 	SelectLoadConstant(value interface{}, size int) (*VirtualRegister, error)
 
 	// SelectLoadVariable generates instructions to load a variable's value
-	SelectLoadVariable(symbol *zir.Symbol) (*VirtualRegister, error)
+	SelectLoadVariable(symbol *zsm.Symbol) (*VirtualRegister, error)
 
 	// SelectStoreVariable generates instructions to store to a variable
-	SelectStoreVariable(symbol *zir.Symbol, value *VirtualRegister) error
+	SelectStoreVariable(symbol *zsm.Symbol, value *VirtualRegister) error
 
 	// Move register value -of size- from source to target
 	SelectMove(target *VirtualRegister, source *VirtualRegister, size int) error
@@ -165,10 +165,10 @@ type InstructionSelector interface {
 	// ============================================================================
 
 	// SelectFunctionPrologue generates function entry code (stack frame setup)
-	SelectFunctionPrologue(fn *zir.SemFunctionDecl) error
+	SelectFunctionPrologue(fn *zsm.SemFunctionDecl) error
 
 	// SelectFunctionEpilogue generates function exit code (stack frame teardown)
-	SelectFunctionEpilogue(fn *zir.SemFunctionDecl) error
+	SelectFunctionEpilogue(fn *zsm.SemFunctionDecl) error
 
 	// ============================================================================
 	// Utility
@@ -331,4 +331,3 @@ func (vra *VirtualRegisterAllocator) GetAll() []*VirtualRegister {
 	}
 	return result
 }
-

@@ -2,7 +2,7 @@ package cfg
 
 import (
 	"fmt"
-	"zenith/compiler/zir"
+	"zenith/compiler/zsm"
 )
 
 // InstructionSelectionContext manages the state during instruction selection
@@ -12,13 +12,13 @@ type InstructionSelectionContext struct {
 	callingConvention CallingConvention
 
 	// Maps ZIR symbols to their VirtualRegisters
-	symbolToVReg map[*zir.Symbol]*VirtualRegister
+	symbolToVReg map[*zsm.Symbol]*VirtualRegister
 
 	// Maps expression nodes to their result VirtualRegisters (for reuse)
-	exprToVReg map[zir.SemExpression]*VirtualRegister
+	exprToVReg map[zsm.SemExpression]*VirtualRegister
 
 	// Current function being processed
-	currentFunction *zir.SemFunctionDecl
+	currentFunction *zsm.SemFunctionDecl
 
 	// Current CFG being processed
 	currentCFG *CFG
@@ -30,19 +30,19 @@ func NewInstructionSelectionContext(selector InstructionSelector, cc CallingConv
 		selector:          selector,
 		vrAlloc:           NewVirtualRegisterAllocator(),
 		callingConvention: cc,
-		symbolToVReg:      make(map[*zir.Symbol]*VirtualRegister),
-		exprToVReg:        make(map[zir.SemExpression]*VirtualRegister),
+		symbolToVReg:      make(map[*zsm.Symbol]*VirtualRegister),
+		exprToVReg:        make(map[zsm.SemExpression]*VirtualRegister),
 	}
 }
 
 // SelectInstructions walks the IR and generates machine instructions
 // It first builds a CFG for each function, then generates instructions for each block
-func SelectInstructions(compilationUnit *zir.SemCompilationUnit, selector InstructionSelector, cc CallingConvention) error {
+func SelectInstructions(compilationUnit *zsm.SemCompilationUnit, selector InstructionSelector, cc CallingConvention) error {
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	// Process each function
 	for _, decl := range compilationUnit.Declarations {
-		if funcDecl, ok := decl.(*zir.SemFunctionDecl); ok {
+		if funcDecl, ok := decl.(*zsm.SemFunctionDecl); ok {
 			if err := ctx.selectFunction(funcDecl); err != nil {
 				return fmt.Errorf("selecting instructions for function %s: %w", funcDecl.Name, err)
 			}
@@ -53,7 +53,7 @@ func SelectInstructions(compilationUnit *zir.SemCompilationUnit, selector Instru
 }
 
 // selectFunction processes a single function
-func (ctx *InstructionSelectionContext) selectFunction(fn *zir.SemFunctionDecl) error {
+func (ctx *InstructionSelectionContext) selectFunction(fn *zsm.SemFunctionDecl) error {
 	ctx.currentFunction = fn
 
 	// Build CFG for this function
@@ -124,7 +124,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 		lastStmt := block.Instructions[len(block.Instructions)-1]
 
 		switch stmt := lastStmt.(type) {
-		case *zir.SemIf:
+		case *zsm.SemIf:
 			// The SemIf is stored in the condition block
 			// Evaluate condition and branch to successors
 			condVR, err := ctx.selectExpression(stmt.Condition)
@@ -138,7 +138,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 				return err
 			}
 
-		case *zir.SemElsif:
+		case *zsm.SemElsif:
 			// Similar to SemIf
 			condVR, err := ctx.selectExpression(stmt.Condition)
 			if err != nil {
@@ -150,7 +150,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 				return err
 			}
 
-		case *zir.SemFor:
+		case *zsm.SemFor:
 			// For loop condition
 			if stmt.Condition != nil {
 				condVR, err := ctx.selectExpression(stmt.Condition)
@@ -171,7 +171,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 				}
 			}
 
-		case *zir.SemSelect:
+		case *zsm.SemSelect:
 			// Select statement - generate comparison and branches for each case
 			exprVR, err := ctx.selectExpression(stmt.Expression)
 			if err != nil {
@@ -199,7 +199,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 				}
 			}
 
-		case *zir.SemReturn:
+		case *zsm.SemReturn:
 			// Return already handled in selectReturn
 			return nil
 		}
@@ -215,23 +215,23 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 }
 
 // selectStatement processes a single statement
-func (ctx *InstructionSelectionContext) selectStatement(stmt zir.SemStatement) error {
+func (ctx *InstructionSelectionContext) selectStatement(stmt zsm.SemStatement) error {
 	switch s := stmt.(type) {
-	case *zir.SemVariableDecl:
+	case *zsm.SemVariableDecl:
 		return ctx.selectVariableDecl(s)
 
-	case *zir.SemAssignment:
+	case *zsm.SemAssignment:
 		return ctx.selectAssignment(s)
 
-	case *zir.SemExpressionStmt:
+	case *zsm.SemExpressionStmt:
 		// Evaluate expression for side effects
 		_, err := ctx.selectExpression(s.Expression)
 		return err
 
-	case *zir.SemReturn:
+	case *zsm.SemReturn:
 		return ctx.selectReturn(s)
 
-	case *zir.SemIf, *zir.SemElsif, *zir.SemFor, *zir.SemSelect:
+	case *zsm.SemIf, *zsm.SemElsif, *zsm.SemFor, *zsm.SemSelect:
 		// Control flow statements are handled by generateBlockTransition
 		// Don't process them here as they're only for branching
 		return nil
@@ -242,7 +242,7 @@ func (ctx *InstructionSelectionContext) selectStatement(stmt zir.SemStatement) e
 }
 
 // selectVariableDecl processes a variable declaration
-func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zir.SemVariableDecl) error {
+func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariableDecl) error {
 	// Allocate a VirtualRegister for this variable
 	size := decl.TypeInfo.Size() * 8 // Convert bytes to bits
 	vr := ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, size)
@@ -266,7 +266,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zir.SemVariable
 }
 
 // selectAssignment processes an assignment statement
-func (ctx *InstructionSelectionContext) selectAssignment(assign *zir.SemAssignment) error {
+func (ctx *InstructionSelectionContext) selectAssignment(assign *zsm.SemAssignment) error {
 	// Get the target variable's VirtualRegister
 	targetVR, ok := ctx.symbolToVReg[assign.Target]
 	if !ok {
@@ -286,7 +286,7 @@ func (ctx *InstructionSelectionContext) selectAssignment(assign *zir.SemAssignme
 }
 
 // selectReturn processes a return statement
-func (ctx *InstructionSelectionContext) selectReturn(ret *zir.SemReturn) error {
+func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 	if ret.Value != nil {
 		// Evaluate return value
 		valueVR, err := ctx.selectExpression(ret.Value)
@@ -314,7 +314,7 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zir.SemReturn) error {
 }
 
 // selectExpression processes an expression and returns its result VirtualRegister
-func (ctx *InstructionSelectionContext) selectExpression(expr zir.SemExpression) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectExpression(expr zsm.SemExpression) (*VirtualRegister, error) {
 	// Check if we've already processed this expression
 	if vr, ok := ctx.exprToVReg[expr]; ok {
 		return vr, nil
@@ -324,25 +324,25 @@ func (ctx *InstructionSelectionContext) selectExpression(expr zir.SemExpression)
 	var err error
 
 	switch e := expr.(type) {
-	case *zir.SemConstant:
+	case *zsm.SemConstant:
 		resultVR, err = ctx.selectConstant(e)
 
-	case *zir.SemSymbolRef:
+	case *zsm.SemSymbolRef:
 		resultVR, err = ctx.selectSymbolRef(e)
 
-	case *zir.SemBinaryOp:
+	case *zsm.SemBinaryOp:
 		resultVR, err = ctx.selectBinaryOp(e)
 
-	case *zir.SemUnaryOp:
+	case *zsm.SemUnaryOp:
 		resultVR, err = ctx.selectUnaryOp(e)
 
-	case *zir.SemFunctionCall:
+	case *zsm.SemFunctionCall:
 		resultVR, err = ctx.selectFunctionCall(e)
 
-	case *zir.SemMemberAccess:
+	case *zsm.SemMemberAccess:
 		resultVR, err = ctx.selectMemberAccess(e)
 
-	case *zir.SemTypeInitializer:
+	case *zsm.SemTypeInitializer:
 		resultVR, err = ctx.selectTypeInitializer(e)
 
 	default:
@@ -359,13 +359,13 @@ func (ctx *InstructionSelectionContext) selectExpression(expr zir.SemExpression)
 }
 
 // selectConstant loads a constant value
-func (ctx *InstructionSelectionContext) selectConstant(constant *zir.SemConstant) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectConstant(constant *zsm.SemConstant) (*VirtualRegister, error) {
 	size := constant.Type().Size() * 8
 	return ctx.selector.SelectLoadConstant(constant.Value, size)
 }
 
 // selectSymbolRef loads a variable value
-func (ctx *InstructionSelectionContext) selectSymbolRef(ref *zir.SemSymbolRef) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectSymbolRef(ref *zsm.SemSymbolRef) (*VirtualRegister, error) {
 	// Look up the VirtualRegister for this symbol
 	vr, ok := ctx.symbolToVReg[ref.Symbol]
 	if !ok {
@@ -375,7 +375,7 @@ func (ctx *InstructionSelectionContext) selectSymbolRef(ref *zir.SemSymbolRef) (
 }
 
 // selectBinaryOp processes binary operations
-func (ctx *InstructionSelectionContext) selectBinaryOp(op *zir.SemBinaryOp) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp) (*VirtualRegister, error) {
 	// Evaluate operands
 	leftVR, err := ctx.selectExpression(op.Left)
 	if err != nil {
@@ -391,49 +391,49 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(op *zir.SemBinaryOp) (*Vi
 
 	// Dispatch to appropriate selector method
 	switch op.Op {
-	case zir.OpAdd:
+	case zsm.OpAdd:
 		return ctx.selector.SelectAdd(leftVR, rightVR, size)
 
-	case zir.OpSubtract:
+	case zsm.OpSubtract:
 		return ctx.selector.SelectSubtract(leftVR, rightVR, size)
 
-	case zir.OpMultiply:
+	case zsm.OpMultiply:
 		return ctx.selector.SelectMultiply(leftVR, rightVR, size)
 
-	case zir.OpDivide:
+	case zsm.OpDivide:
 		return ctx.selector.SelectDivide(leftVR, rightVR, size)
 
-	case zir.OpBitwiseAnd:
+	case zsm.OpBitwiseAnd:
 		return ctx.selector.SelectBitwiseAnd(leftVR, rightVR, size)
 
-	case zir.OpBitwiseOr:
+	case zsm.OpBitwiseOr:
 		return ctx.selector.SelectBitwiseOr(leftVR, rightVR, size)
 
-	case zir.OpBitwiseXor:
+	case zsm.OpBitwiseXor:
 		return ctx.selector.SelectBitwiseXor(leftVR, rightVR, size)
 
-	case zir.OpEqual:
+	case zsm.OpEqual:
 		return ctx.selector.SelectEqual(leftVR, rightVR, size)
 
-	case zir.OpNotEqual:
+	case zsm.OpNotEqual:
 		return ctx.selector.SelectNotEqual(leftVR, rightVR, size)
 
-	case zir.OpLessThan:
+	case zsm.OpLessThan:
 		return ctx.selector.SelectLessThan(leftVR, rightVR, size)
 
-	case zir.OpLessEqual:
+	case zsm.OpLessEqual:
 		return ctx.selector.SelectLessEqual(leftVR, rightVR, size)
 
-	case zir.OpGreaterThan:
+	case zsm.OpGreaterThan:
 		return ctx.selector.SelectGreaterThan(leftVR, rightVR, size)
 
-	case zir.OpGreaterEqual:
+	case zsm.OpGreaterEqual:
 		return ctx.selector.SelectGreaterEqual(leftVR, rightVR, size)
 
-	case zir.OpLogicalAnd:
+	case zsm.OpLogicalAnd:
 		return ctx.selector.SelectLogicalAnd(leftVR, rightVR)
 
-	case zir.OpLogicalOr:
+	case zsm.OpLogicalOr:
 		return ctx.selector.SelectLogicalOr(leftVR, rightVR)
 
 	default:
@@ -442,7 +442,7 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(op *zir.SemBinaryOp) (*Vi
 }
 
 // selectUnaryOp processes unary operations
-func (ctx *InstructionSelectionContext) selectUnaryOp(op *zir.SemUnaryOp) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectUnaryOp(op *zsm.SemUnaryOp) (*VirtualRegister, error) {
 	// Evaluate operand
 	operandVR, err := ctx.selectExpression(op.Operand)
 	if err != nil {
@@ -453,13 +453,13 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(op *zir.SemUnaryOp) (*Virt
 
 	// Dispatch to appropriate selector method
 	switch op.Op {
-	case zir.OpNegate:
+	case zsm.OpNegate:
 		return ctx.selector.SelectNegate(operandVR, size)
 
-	case zir.OpNot:
+	case zsm.OpNot:
 		return ctx.selector.SelectLogicalNot(operandVR)
 
-	case zir.OpBitwiseNot:
+	case zsm.OpBitwiseNot:
 		return ctx.selector.SelectBitwiseNot(operandVR, size)
 
 	default:
@@ -468,7 +468,7 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(op *zir.SemUnaryOp) (*Virt
 }
 
 // selectFunctionCall processes function calls
-func (ctx *InstructionSelectionContext) selectFunctionCall(call *zir.SemFunctionCall) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectFunctionCall(call *zsm.SemFunctionCall) (*VirtualRegister, error) {
 	// Evaluate arguments
 	argVRs := make([]*VirtualRegister, len(call.Arguments))
 	for i, arg := range call.Arguments {
@@ -490,7 +490,7 @@ func (ctx *InstructionSelectionContext) selectFunctionCall(call *zir.SemFunction
 }
 
 // selectMemberAccess processes struct member access
-func (ctx *InstructionSelectionContext) selectMemberAccess(access *zir.SemMemberAccess) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMemberAccess) (*VirtualRegister, error) {
 	// Get the object
 	objectVR, err := ctx.selectExpression(*access.Object)
 	if err != nil {
@@ -504,7 +504,7 @@ func (ctx *InstructionSelectionContext) selectMemberAccess(access *zir.SemMember
 }
 
 // selectTypeInitializer processes struct initialization
-func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zir.SemTypeInitializer) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zsm.SemTypeInitializer) (*VirtualRegister, error) {
 	// Allocate space for the struct
 	size := init.Type().Size() * 8
 	structVR := ctx.vrAlloc.Allocate(size)
@@ -525,6 +525,3 @@ func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zir.SemTypeI
 
 	return structVR, nil
 }
-
-
-
