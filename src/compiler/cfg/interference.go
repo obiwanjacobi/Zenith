@@ -156,25 +156,25 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 }
 
 // Helper functions to get used/defined variables in a statement
-func getUsedInStatement(stmt zir.IRStatement, scopeName string) map[string]bool {
+func getUsedInStatement(stmt zir.SemStatement, scopeName string) map[string]bool {
 	used := make(map[string]bool)
 	switch s := stmt.(type) {
-	case *zir.IRVariableDecl:
+	case *zir.SemVariableDecl:
 		if s.Initializer != nil {
 			for _, v := range getUsedInExpression(s.Initializer, scopeName) {
 				used[v] = true
 			}
 		}
-	case *zir.IRAssignment:
+	case *zir.SemAssignment:
 		// Right-hand side uses variables
 		for _, v := range getUsedInExpression(s.Value, scopeName) {
 			used[v] = true
 		}
-	case *zir.IRExpressionStmt:
+	case *zir.SemExpressionStmt:
 		for _, v := range getUsedInExpression(s.Expression, scopeName) {
 			used[v] = true
 		}
-	case *zir.IRReturn:
+	case *zir.SemReturn:
 		if s.Value != nil {
 			for _, v := range getUsedInExpression(s.Value, scopeName) {
 				used[v] = true
@@ -184,14 +184,15 @@ func getUsedInStatement(stmt zir.IRStatement, scopeName string) map[string]bool 
 	return used
 }
 
-func getDefinedInStatement(stmt zir.IRStatement, scopeName string) map[string]bool {
+func getDefinedInStatement(stmt zir.SemStatement, scopeName string) map[string]bool {
 	defined := make(map[string]bool)
 	switch s := stmt.(type) {
-	case *zir.IRVariableDecl:
+	case *zir.SemVariableDecl:
 		defined[s.Symbol.QualifiedName] = true
-	case *zir.IRAssignment:
+	case *zir.SemAssignment:
 		// Left-hand side defines a variable
 		defined[s.Target.QualifiedName] = true
 	}
 	return defined
 }
+

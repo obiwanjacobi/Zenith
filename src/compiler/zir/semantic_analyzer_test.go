@@ -12,7 +12,7 @@ import (
 )
 
 // Helper function to parse code and run semantic analysis
-func analyzeCode(t *testing.T, testName string, code string) (*IRCompilationUnit, []*IRError) {
+func analyzeCode(t *testing.T, testName string, code string) (*SemCompilationUnit, []*SemError) {
 	// Tokenize
 	tokens := lexer.OpenTokenStream(code)
 
@@ -26,13 +26,13 @@ func analyzeCode(t *testing.T, testName string, code string) (*IRCompilationUnit
 
 	// Analyze
 	analyzer := NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
+	semCU, semErrors := analyzer.Analyze(cu)
 
-	return irCU, irErrors
+	return semCU, semErrors
 }
 
 // Helper function to require no errors
-func requireNoErrors(t *testing.T, errors []*IRError) {
+func requireNoErrors(t *testing.T, errors []*SemError) {
 	if len(errors) > 0 {
 		for _, err := range errors {
 			t.Log(err.Error())
@@ -47,13 +47,13 @@ func requireNoErrors(t *testing.T, errors []*IRError) {
 
 func Test_Analyze_VarDeclWithType(t *testing.T) {
 	code := "count: u8"
-	irCU, errors := analyzeCode(t, "Test_Analyze_VarDeclWithType", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_VarDeclWithType", code)
 	requireNoErrors(t, errors)
 
-	require.Equal(t, 1, len(irCU.Declarations))
+	require.Equal(t, 1, len(semCU.Declarations))
 
-	varDecl, ok := irCU.Declarations[0].(*IRVariableDecl)
-	require.True(t, ok, "Declaration should be IRVariableDecl")
+	varDecl, ok := semCU.Declarations[0].(*SemVariableDecl)
+	require.True(t, ok, "Declaration should be SemVariableDecl")
 	assert.Equal(t, "count", varDecl.Symbol.Name)
 	assert.Equal(t, U8Type, varDecl.Symbol.Type)
 	assert.Nil(t, varDecl.Initializer)
@@ -61,31 +61,31 @@ func Test_Analyze_VarDeclWithType(t *testing.T) {
 
 func Test_Analyze_VarDeclWithTypeAndInit(t *testing.T) {
 	code := "count: u16 = 42"
-	irCU, errors := analyzeCode(t, "Test_Analyze_VarDeclWithTypeAndInit", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_VarDeclWithTypeAndInit", code)
 	requireNoErrors(t, errors)
 
-	require.Equal(t, 1, len(irCU.Declarations))
+	require.Equal(t, 1, len(semCU.Declarations))
 
-	varDecl, ok := irCU.Declarations[0].(*IRVariableDecl)
+	varDecl, ok := semCU.Declarations[0].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "count", varDecl.Symbol.Name)
 	assert.Equal(t, U16Type, varDecl.Symbol.Type)
 	assert.NotNil(t, varDecl.Initializer)
 
 	// Check initializer is a constant
-	constant, ok := varDecl.Initializer.(*IRConstant)
-	assert.True(t, ok, "Initializer should be IRConstant")
+	constant, ok := varDecl.Initializer.(*SemConstant)
+	assert.True(t, ok, "Initializer should be SemConstant")
 	assert.Equal(t, U8Type, constant.Type()) // TODO: Should parse as correct type
 }
 
 func Test_Analyze_VarDeclInferred(t *testing.T) {
 	code := "value: = 100"
-	irCU, errors := analyzeCode(t, "Test_Analyze_VarDeclInferred", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_VarDeclInferred", code)
 	requireNoErrors(t, errors)
 
-	require.Equal(t, 1, len(irCU.Declarations))
+	require.Equal(t, 1, len(semCU.Declarations))
 
-	varDecl, ok := irCU.Declarations[0].(*IRVariableDecl)
+	varDecl, ok := semCU.Declarations[0].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "value", varDecl.Symbol.Name)
 	assert.NotNil(t, varDecl.Initializer)
@@ -127,13 +127,13 @@ func Test_Analyze_VarDeclUndefinedType_Error(t *testing.T) {
 func Test_Analyze_FunctionDeclaration(t *testing.T) {
 	code := `main: () {
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_FunctionDeclaration", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_FunctionDeclaration", code)
 	requireNoErrors(t, errors)
 
-	require.Equal(t, 1, len(irCU.Declarations))
+	require.Equal(t, 1, len(semCU.Declarations))
 
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
-	require.True(t, ok, "Declaration should be IRFunctionDecl")
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
+	require.True(t, ok, "Declaration should be SemFunctionDecl")
 	assert.Equal(t, "main", funcDecl.Name)
 	assert.Equal(t, 0, len(funcDecl.Parameters))
 	assert.Nil(t, funcDecl.ReturnType)
@@ -144,10 +144,10 @@ func Test_Analyze_FunctionDeclaration(t *testing.T) {
 func Test_Analyze_FunctionWithParameters(t *testing.T) {
 	code := `add: (a: u8, b: u8) {
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_FunctionWithParameters", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_FunctionWithParameters", code)
 	requireNoErrors(t, errors)
 
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
 	require.True(t, ok)
 	assert.Equal(t, "add", funcDecl.Name)
 	assert.Equal(t, 2, len(funcDecl.Parameters))
@@ -162,10 +162,10 @@ func Test_Analyze_FunctionWithParameters(t *testing.T) {
 func Test_Analyze_FunctionWithReturnType(t *testing.T) {
 	code := `getValue: () u16 {
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_FunctionWithReturnType", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_FunctionWithReturnType", code)
 	requireNoErrors(t, errors)
 
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
 	require.True(t, ok)
 	assert.Equal(t, "getValue", funcDecl.Name)
 	assert.Equal(t, U16Type, funcDecl.ReturnType)
@@ -177,14 +177,14 @@ func Test_Analyze_FunctionWithLocalVar(t *testing.T) {
 	code := `main: () {
 		local: = 5
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_FunctionWithLocalVar", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_FunctionWithLocalVar", code)
 	requireNoErrors(t, errors)
 
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
 	require.True(t, ok)
 	require.Equal(t, 1, len(funcDecl.Body.Statements))
 
-	varDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
+	varDecl, ok := funcDecl.Body.Statements[0].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "local", varDecl.Symbol.Name)
 	assert.Equal(t, U8Type, varDecl.Symbol.Type)
@@ -207,20 +207,20 @@ func Test_Analyze_TypeDeclaration(t *testing.T) {
 		x: u8,
 		y: u8
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_TypeDeclaration", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_TypeDeclaration", code)
 
 	// Debug: print errors
 	for _, err := range errors {
 		t.Logf("Error: %s", err.Error())
 	}
-	t.Logf("Number of declarations: %d", len(irCU.Declarations))
+	t.Logf("Number of declarations: %d", len(semCU.Declarations))
 
 	requireNoErrors(t, errors)
 
-	require.Equal(t, 1, len(irCU.Declarations))
+	require.Equal(t, 1, len(semCU.Declarations))
 
-	typeDecl, ok := irCU.Declarations[0].(*IRTypeDecl)
-	require.True(t, ok, "Declaration should be IRTypeDecl")
+	typeDecl, ok := semCU.Declarations[0].(*SemTypeDecl)
+	require.True(t, ok, "Declaration should be SemTypeDecl")
 	assert.Equal(t, "Point", typeDecl.TypeInfo.Name())
 
 	fields := typeDecl.TypeInfo.Fields()
@@ -237,12 +237,12 @@ func Test_Analyze_TypeDeclarationUsage(t *testing.T) {
 		y: u8
 	}
 	origin: Point`
-	irCU, errors := analyzeCode(t, "Test_Analyze_TypeDeclarationUsage", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_TypeDeclarationUsage", code)
 	requireNoErrors(t, errors)
 
-	require.Equal(t, 2, len(irCU.Declarations))
+	require.Equal(t, 2, len(semCU.Declarations))
 
-	varDecl, ok := irCU.Declarations[1].(*IRVariableDecl)
+	varDecl, ok := semCU.Declarations[1].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "origin", varDecl.Symbol.Name)
 
@@ -260,14 +260,14 @@ func Test_Analyze_Assignment(t *testing.T) {
 		x: = 10
 		x = 20
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_Assignment", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_Assignment", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 2, len(funcDecl.Body.Statements))
 
-	assignment, ok := funcDecl.Body.Statements[1].(*IRAssignment)
-	require.True(t, ok, "Second statement should be IRAssignment")
+	assignment, ok := funcDecl.Body.Statements[1].(*SemAssignment)
+	require.True(t, ok, "Second statement should be SemAssignment")
 	assert.Equal(t, "x", assignment.Target.Name)
 	assert.NotNil(t, assignment.Value)
 }
@@ -292,14 +292,14 @@ func Test_Analyze_IfStatement(t *testing.T) {
 			x: = 1
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_IfStatement", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_IfStatement", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 1, len(funcDecl.Body.Statements))
 
-	ifStmt, ok := funcDecl.Body.Statements[0].(*IRIf)
-	require.True(t, ok, "Statement should be IRIf")
+	ifStmt, ok := funcDecl.Body.Statements[0].(*SemIf)
+	require.True(t, ok, "Statement should be SemIf")
 	assert.NotNil(t, ifStmt.Condition)
 	assert.NotNil(t, ifStmt.ThenBlock)
 	assert.Equal(t, 1, len(ifStmt.ThenBlock.Statements))
@@ -313,11 +313,11 @@ func Test_Analyze_IfElseStatement(t *testing.T) {
 			y: = 2
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_IfElseStatement", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_IfElseStatement", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	ifStmt := funcDecl.Body.Statements[0].(*IRIf)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	ifStmt := funcDecl.Body.Statements[0].(*SemIf)
 
 	assert.NotNil(t, ifStmt.ThenBlock)
 	assert.NotNil(t, ifStmt.ElseBlock)
@@ -333,11 +333,11 @@ func Test_Analyze_IfElsifStatement(t *testing.T) {
 			y: = 2
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_IfElsifStatement", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_IfElsifStatement", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	ifStmt := funcDecl.Body.Statements[0].(*IRIf)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	ifStmt := funcDecl.Body.Statements[0].(*SemIf)
 
 	assert.NotNil(t, ifStmt.ThenBlock)
 	assert.Equal(t, 1, len(ifStmt.ThenBlock.Statements))
@@ -362,11 +362,11 @@ func Test_Analyze_IfElsifElseStatement(t *testing.T) {
 			w: = 4
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_IfElsifElseStatement", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_IfElsifElseStatement", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	ifStmt := funcDecl.Body.Statements[0].(*IRIf)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	ifStmt := funcDecl.Body.Statements[0].(*SemIf)
 
 	assert.NotNil(t, ifStmt.ThenBlock)
 	assert.Equal(t, 1, len(ifStmt.ThenBlock.Statements))
@@ -397,14 +397,14 @@ func Test_Analyze_ForLoop_Full(t *testing.T) {
 			x: = i
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_Full", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_Full", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 1, len(funcDecl.Body.Statements))
 
-	forStmt, ok := funcDecl.Body.Statements[0].(*IRFor)
-	require.True(t, ok, "Statement should be IRFor")
+	forStmt, ok := funcDecl.Body.Statements[0].(*SemFor)
+	require.True(t, ok, "Statement should be SemFor")
 	assert.NotNil(t, forStmt.Initializer)
 	assert.NotNil(t, forStmt.Condition)
 	assert.NotNil(t, forStmt.Increment)
@@ -418,11 +418,11 @@ func Test_Analyze_ForLoop_OnlyCondition(t *testing.T) {
 			x: = 1
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_OnlyCondition", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_OnlyCondition", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	forStmt := funcDecl.Body.Statements[0].(*IRFor)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	forStmt := funcDecl.Body.Statements[0].(*SemFor)
 
 	assert.Nil(t, forStmt.Initializer)
 	assert.NotNil(t, forStmt.Condition)
@@ -436,19 +436,19 @@ func Test_Analyze_ForLoop_Scope(t *testing.T) {
 			j: = i
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_Scope", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ForLoop_Scope", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	forStmt := funcDecl.Body.Statements[0].(*IRFor)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	forStmt := funcDecl.Body.Statements[0].(*SemFor)
 
 	// Initializer should be a variable declaration
-	varDecl, ok := forStmt.Initializer.(*IRVariableDecl)
-	require.True(t, ok, "Initializer should be IRVariableDecl")
+	varDecl, ok := forStmt.Initializer.(*SemVariableDecl)
+	require.True(t, ok, "Initializer should be SemVariableDecl")
 	assert.Equal(t, "i", varDecl.Symbol.Name)
 
 	// Body should be able to reference i
-	bodyVarDecl := forStmt.Body.Statements[0].(*IRVariableDecl)
+	bodyVarDecl := forStmt.Body.Statements[0].(*SemVariableDecl)
 	assert.NotNil(t, bodyVarDecl.Initializer, "Loop variable should be accessible in body")
 }
 
@@ -465,14 +465,14 @@ func Test_Analyze_SelectStatement_Simple(t *testing.T) {
 			}
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatement_Simple", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_SelectStatement_Simple", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 2, len(funcDecl.Body.Statements))
 
-	selectStmt, ok := funcDecl.Body.Statements[1].(*IRSelect)
-	require.True(t, ok, "Statement should be IRSelect")
+	selectStmt, ok := funcDecl.Body.Statements[1].(*SemSelect)
+	require.True(t, ok, "Statement should be SemSelect")
 	assert.Equal(t, 1, len(selectStmt.Cases))
 }
 
@@ -488,14 +488,14 @@ func Test_Analyze_SelectStatement(t *testing.T) {
 			}
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatement", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_SelectStatement", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 2, len(funcDecl.Body.Statements))
 
-	selectStmt, ok := funcDecl.Body.Statements[1].(*IRSelect)
-	require.True(t, ok, "Statement should be IRSelect")
+	selectStmt, ok := funcDecl.Body.Statements[1].(*SemSelect)
+	require.True(t, ok, "Statement should be SemSelect")
 	assert.NotNil(t, selectStmt.Expression)
 	assert.Equal(t, 2, len(selectStmt.Cases))
 	assert.Nil(t, selectStmt.Else)
@@ -523,11 +523,11 @@ func Test_Analyze_SelectStatementWithElse(t *testing.T) {
 			}
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatementWithElse", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_SelectStatementWithElse", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	selectStmt := funcDecl.Body.Statements[1].(*IRSelect)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	selectStmt := funcDecl.Body.Statements[1].(*SemSelect)
 
 	assert.Equal(t, 1, len(selectStmt.Cases))
 	assert.NotNil(t, selectStmt.Else)
@@ -552,11 +552,11 @@ func Test_Analyze_SelectStatementMultipleCases(t *testing.T) {
 			}
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_SelectStatementMultipleCases", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_SelectStatementMultipleCases", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	selectStmt := funcDecl.Body.Statements[1].(*IRSelect)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	selectStmt := funcDecl.Body.Statements[1].(*SemSelect)
 
 	assert.Equal(t, 3, len(selectStmt.Cases))
 	assert.NotNil(t, selectStmt.Else)
@@ -577,14 +577,14 @@ func Test_Analyze_ReturnStatement(t *testing.T) {
 	code := `main: () {
 		ret
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatement", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatement", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 1, len(funcDecl.Body.Statements))
 
-	retStmt, ok := funcDecl.Body.Statements[0].(*IRReturn)
-	require.True(t, ok, "Statement should be IRReturn")
+	retStmt, ok := funcDecl.Body.Statements[0].(*SemReturn)
+	require.True(t, ok, "Statement should be SemReturn")
 	assert.Nil(t, retStmt.Value, "Return without value should have nil Value")
 }
 
@@ -592,19 +592,19 @@ func Test_Analyze_ReturnStatementWithValue(t *testing.T) {
 	code := `main: () {
 		ret 42
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatementWithValue", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatementWithValue", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 1, len(funcDecl.Body.Statements))
 
-	retStmt, ok := funcDecl.Body.Statements[0].(*IRReturn)
-	require.True(t, ok, "Statement should be IRReturn")
+	retStmt, ok := funcDecl.Body.Statements[0].(*SemReturn)
+	require.True(t, ok, "Statement should be SemReturn")
 	require.NotNil(t, retStmt.Value, "Return with value should have non-nil Value")
 
 	// Verify the value is a constant
-	constant, ok := retStmt.Value.(*IRConstant)
-	require.True(t, ok, "Return value should be IRConstant")
+	constant, ok := retStmt.Value.(*SemConstant)
+	require.True(t, ok, "Return value should be SemConstant")
 	assert.Equal(t, 42, constant.Value)
 }
 
@@ -613,19 +613,19 @@ func Test_Analyze_ReturnStatementWithExpression(t *testing.T) {
 		x: = 10
 		ret x + 5
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatementWithExpression", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ReturnStatementWithExpression", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
 	require.Equal(t, 2, len(funcDecl.Body.Statements))
 
-	retStmt, ok := funcDecl.Body.Statements[1].(*IRReturn)
-	require.True(t, ok, "Statement should be IRReturn")
+	retStmt, ok := funcDecl.Body.Statements[1].(*SemReturn)
+	require.True(t, ok, "Statement should be SemReturn")
 	require.NotNil(t, retStmt.Value, "Return with expression should have non-nil Value")
 
 	// Verify the value is a binary operation
-	binOp, ok := retStmt.Value.(*IRBinaryOp)
-	require.True(t, ok, "Return value should be IRBinaryOp")
+	binOp, ok := retStmt.Value.(*SemBinaryOp)
+	require.True(t, ok, "Return value should be SemBinaryOp")
 	assert.NotNil(t, binOp.Left)
 	assert.NotNil(t, binOp.Right)
 }
@@ -638,14 +638,14 @@ func Test_Analyze_BinaryOperation(t *testing.T) {
 	code := `main: () {
 		result: = 5 + 3
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_BinaryOperation", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_BinaryOperation", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	varDecl := funcDecl.Body.Statements[0].(*IRVariableDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	varDecl := funcDecl.Body.Statements[0].(*SemVariableDecl)
 
-	binOp, ok := varDecl.Initializer.(*IRBinaryOp)
-	require.True(t, ok, "Initializer should be IRBinaryOp")
+	binOp, ok := varDecl.Initializer.(*SemBinaryOp)
+	require.True(t, ok, "Initializer should be SemBinaryOp")
 	assert.Equal(t, OpAdd, binOp.Op)
 	assert.NotNil(t, binOp.Left)
 	assert.NotNil(t, binOp.Right)
@@ -653,11 +653,11 @@ func Test_Analyze_BinaryOperation(t *testing.T) {
 
 func Test_Analyze_BooleanLiteral(t *testing.T) {
 	code := `flag: = true`
-	irCU, errors := analyzeCode(t, "Test_Analyze_BooleanLiteral", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_BooleanLiteral", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, true, constant.Value)
 	assert.Equal(t, BoolType, constant.Type())
@@ -665,11 +665,11 @@ func Test_Analyze_BooleanLiteral(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_U8(t *testing.T) {
 	code := `num: = 42`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_U8", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_U8", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, 42, constant.Value)
 	assert.Equal(t, U8Type, constant.Type())
@@ -677,11 +677,11 @@ func Test_Analyze_NumberLiteral_U8(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_U16(t *testing.T) {
 	code := `num: = 300`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_U16", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_U16", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, 300, constant.Value)
 	assert.Equal(t, U16Type, constant.Type())
@@ -689,11 +689,11 @@ func Test_Analyze_NumberLiteral_U16(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_I8(t *testing.T) {
 	code := `num: = -50`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_I8", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_I8", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, -50, constant.Value)
 	assert.Equal(t, I8Type, constant.Type())
@@ -701,11 +701,11 @@ func Test_Analyze_NumberLiteral_I8(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_I16(t *testing.T) {
 	code := `num: = -1000`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_I16", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_I16", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, -1000, constant.Value)
 	assert.Equal(t, I16Type, constant.Type())
@@ -713,11 +713,11 @@ func Test_Analyze_NumberLiteral_I16(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_Hex(t *testing.T) {
 	code := `num: = 0xFF`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_Hex", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_Hex", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, 255, constant.Value)
 	assert.Equal(t, U8Type, constant.Type())
@@ -725,11 +725,11 @@ func Test_Analyze_NumberLiteral_Hex(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_HexLarge(t *testing.T) {
 	code := `num: = 0xAB00`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_HexLarge", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_HexLarge", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, 0xAB00, constant.Value)
 	assert.Equal(t, U16Type, constant.Type())
@@ -737,11 +737,11 @@ func Test_Analyze_NumberLiteral_HexLarge(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_Binary(t *testing.T) {
 	code := `num: = 0b00101010`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_Binary", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_Binary", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, 0b00101010, constant.Value)
 	assert.Equal(t, U8Type, constant.Type())
@@ -749,11 +749,11 @@ func Test_Analyze_NumberLiteral_Binary(t *testing.T) {
 
 func Test_Analyze_NumberLiteral_BinaryLarge(t *testing.T) {
 	code := `num: = 0b100000000`
-	irCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_BinaryLarge", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_NumberLiteral_BinaryLarge", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, 0b100000000, constant.Value)
 	assert.Equal(t, U16Type, constant.Type())
@@ -761,11 +761,11 @@ func Test_Analyze_NumberLiteral_BinaryLarge(t *testing.T) {
 
 func Test_Analyze_StringLiteral(t *testing.T) {
 	code := `msg: = "hello"`
-	irCU, errors := analyzeCode(t, "Test_Analyze_StringLiteral", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_StringLiteral", code)
 	requireNoErrors(t, errors)
 
-	varDecl := irCU.Declarations[0].(*IRVariableDecl)
-	constant, ok := varDecl.Initializer.(*IRConstant)
+	varDecl := semCU.Declarations[0].(*SemVariableDecl)
+	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, "\"hello\"", constant.Value)
 
@@ -781,14 +781,14 @@ func Test_Analyze_FunctionCall(t *testing.T) {
 	main: () {
 		doSomething()
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_FunctionCall", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_FunctionCall", code)
 	requireNoErrors(t, errors)
 
-	mainFunc := irCU.Declarations[1].(*IRFunctionDecl)
-	exprStmt := mainFunc.Body.Statements[0].(*IRExpressionStmt)
+	mainFunc := semCU.Declarations[1].(*SemFunctionDecl)
+	exprStmt := mainFunc.Body.Statements[0].(*SemExpressionStmt)
 
-	funcCall, ok := exprStmt.Expression.(*IRFunctionCall)
-	require.True(t, ok, "Expression should be IRFunctionCall")
+	funcCall, ok := exprStmt.Expression.(*SemFunctionCall)
+	require.True(t, ok, "Expression should be SemFunctionCall")
 	assert.Equal(t, "doSomething", funcCall.Function.Name)
 	assert.Equal(t, 0, len(funcCall.Arguments))
 }
@@ -799,13 +799,13 @@ func Test_Analyze_FunctionCallWithArgs(t *testing.T) {
 	main: () {
 		add(5, 10)
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_FunctionCallWithArgs", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_FunctionCallWithArgs", code)
 	requireNoErrors(t, errors)
 
-	mainFunc := irCU.Declarations[1].(*IRFunctionDecl)
-	exprStmt := mainFunc.Body.Statements[0].(*IRExpressionStmt)
+	mainFunc := semCU.Declarations[1].(*SemFunctionDecl)
+	exprStmt := mainFunc.Body.Statements[0].(*SemExpressionStmt)
 
-	funcCall := exprStmt.Expression.(*IRFunctionCall)
+	funcCall := exprStmt.Expression.(*SemFunctionCall)
 	assert.Equal(t, "add", funcCall.Function.Name)
 	assert.Equal(t, 2, len(funcCall.Arguments))
 }
@@ -828,11 +828,11 @@ func Test_Analyze_ScopeParameterAccess(t *testing.T) {
 	code := `myFunc: (param: u8) {
 		x: = param
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ScopeParameterAccess", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ScopeParameterAccess", code)
 	requireNoErrors(t, errors)
 
-	funcDecl := irCU.Declarations[0].(*IRFunctionDecl)
-	varDecl := funcDecl.Body.Statements[0].(*IRVariableDecl)
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	varDecl := funcDecl.Body.Statements[0].(*SemVariableDecl)
 
 	// The initializer should reference the parameter
 	assert.NotNil(t, varDecl.Initializer)
@@ -843,11 +843,11 @@ func Test_Analyze_ScopeGlobalAccess(t *testing.T) {
 	myFunc: () {
 		local: = global
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_ScopeGlobalAccess", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_ScopeGlobalAccess", code)
 	requireNoErrors(t, errors)
 
-	require.Equal(t, 2, len(irCU.Declarations))
-	funcDecl := irCU.Declarations[1].(*IRFunctionDecl)
+	require.Equal(t, 2, len(semCU.Declarations))
+	funcDecl := semCU.Declarations[1].(*SemFunctionDecl)
 	assert.Equal(t, 1, len(funcDecl.Body.Statements))
 }
 
@@ -861,10 +861,10 @@ func Test_Analyze_BuiltinTypes(t *testing.T) {
 	for _, typeName := range builtinTypes {
 		t.Run(typeName, func(t *testing.T) {
 			code := fmt.Sprintf("var: %s", typeName)
-			irCU, errors := analyzeCode(t, "Test_Analyze_BuiltinType_"+typeName, code)
+			semCU, errors := analyzeCode(t, "Test_Analyze_BuiltinType_"+typeName, code)
 			requireNoErrors(t, errors)
 
-			varDecl := irCU.Declarations[0].(*IRVariableDecl)
+			varDecl := semCU.Declarations[0].(*SemVariableDecl)
 			assert.NotNil(t, varDecl.Symbol.Type)
 		})
 	}
@@ -880,23 +880,23 @@ func Test_Analyze_CallGraph_Simple(t *testing.T) {
 	main: () {
 		helper()
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_Simple", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_Simple", code)
 	requireNoErrors(t, errors)
 
 	// Check call graph
-	assert.NotNil(t, irCU.CallGraph)
+	assert.NotNil(t, semCU.CallGraph)
 
 	// main should call helper
-	mainCallees := irCU.CallGraph.GetCallees("main")
+	mainCallees := semCU.CallGraph.GetCallees("main")
 	assert.Equal(t, 1, len(mainCallees))
 	assert.Equal(t, "helper", mainCallees[0])
 
 	// helper should have no callees
-	helperCallees := irCU.CallGraph.GetCallees("helper")
+	helperCallees := semCU.CallGraph.GetCallees("helper")
 	assert.Equal(t, 0, len(helperCallees))
 
 	// Both functions should be registered
-	allFuncs := irCU.CallGraph.GetAllFunctions()
+	allFuncs := semCU.CallGraph.GetAllFunctions()
 	assert.Equal(t, 2, len(allFuncs))
 }
 
@@ -909,21 +909,21 @@ func Test_Analyze_CallGraph_Chain(t *testing.T) {
 	main: () {
 		helper()
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_Chain", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_Chain", code)
 	requireNoErrors(t, errors)
 
 	// main -> helper
-	mainCallees := irCU.CallGraph.GetCallees("main")
+	mainCallees := semCU.CallGraph.GetCallees("main")
 	assert.Equal(t, 1, len(mainCallees))
 	assert.Equal(t, "helper", mainCallees[0])
 
 	// helper -> worker
-	helperCallees := irCU.CallGraph.GetCallees("helper")
+	helperCallees := semCU.CallGraph.GetCallees("helper")
 	assert.Equal(t, 1, len(helperCallees))
 	assert.Equal(t, "worker", helperCallees[0])
 
 	// worker has no callees
-	workerCallees := irCU.CallGraph.GetCallees("worker")
+	workerCallees := semCU.CallGraph.GetCallees("worker")
 	assert.Equal(t, 0, len(workerCallees))
 }
 
@@ -937,11 +937,11 @@ func Test_Analyze_CallGraph_MultipleCalls(t *testing.T) {
 		bar()
 		foo()
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_MultipleCalls", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_MultipleCalls", code)
 	requireNoErrors(t, errors)
 
 	// main should call both foo and bar (foo should only appear once despite 2 calls)
-	mainCallees := irCU.CallGraph.GetCallees("main")
+	mainCallees := semCU.CallGraph.GetCallees("main")
 	assert.Equal(t, 2, len(mainCallees))
 	assert.Contains(t, mainCallees, "foo")
 	assert.Contains(t, mainCallees, "bar")
@@ -955,11 +955,11 @@ func Test_Analyze_CallGraph_NestedInIf(t *testing.T) {
 			helper()
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInIf", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInIf", code)
 	requireNoErrors(t, errors)
 
 	// Call inside if block should still be recorded
-	mainCallees := irCU.CallGraph.GetCallees("main")
+	mainCallees := semCU.CallGraph.GetCallees("main")
 	assert.Equal(t, 1, len(mainCallees))
 	assert.Equal(t, "helper", mainCallees[0])
 }
@@ -976,11 +976,11 @@ func Test_Analyze_CallGraph_NestedInIfElse(t *testing.T) {
 			bar()
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInIfElse", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInIfElse", code)
 	requireNoErrors(t, errors)
 
 	// Both calls should be recorded
-	mainCallees := irCU.CallGraph.GetCallees("main")
+	mainCallees := semCU.CallGraph.GetCallees("main")
 	assert.Equal(t, 2, len(mainCallees))
 	assert.Contains(t, mainCallees, "foo")
 	assert.Contains(t, mainCallees, "bar")
@@ -995,11 +995,11 @@ func Test_Analyze_CallGraph_NestedInSelect(t *testing.T) {
 			case 5 { helper() }
 		}
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInSelect", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedInSelect", code)
 	requireNoErrors(t, errors)
 
 	// Call inside select block should be recorded
-	mainCallees := irCU.CallGraph.GetCallees("main")
+	mainCallees := semCU.CallGraph.GetCallees("main")
 	assert.Equal(t, 1, len(mainCallees))
 	assert.Equal(t, "helper", mainCallees[0])
 }
@@ -1013,24 +1013,26 @@ func Test_Analyze_CallGraph_NestedFunctionCalls(t *testing.T) {
 	main: () {
 		foo()
 	}`
-	irCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedFunctionCalls", code)
+	semCU, errors := analyzeCode(t, "Test_Analyze_CallGraph_NestedFunctionCalls", code)
 	requireNoErrors(t, errors)
 
 	// main -> foo
-	mainCallees := irCU.CallGraph.GetCallees("main")
+	mainCallees := semCU.CallGraph.GetCallees("main")
 	assert.Equal(t, 1, len(mainCallees))
 	assert.Equal(t, "foo", mainCallees[0])
 
 	// foo -> bar
-	fooCallees := irCU.CallGraph.GetCallees("foo")
+	fooCallees := semCU.CallGraph.GetCallees("foo")
 	assert.Equal(t, 1, len(fooCallees))
 	assert.Equal(t, "bar", fooCallees[0])
 
 	// bar has no callees
-	barCallees := irCU.CallGraph.GetCallees("bar")
+	barCallees := semCU.CallGraph.GetCallees("bar")
 	assert.Equal(t, 0, len(barCallees))
 
 	// All three functions should be in the graph
-	allFuncs := irCU.CallGraph.GetAllFunctions()
+	allFuncs := semCU.CallGraph.GetAllFunctions()
 	assert.Equal(t, 3, len(allFuncs))
 }
+
+

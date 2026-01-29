@@ -5,27 +5,27 @@ import (
 	"zenith/compiler/parser"
 )
 
-type IRError struct {
+type SemError struct {
 	message string
 	node    parser.ParserNode
 }
 
-func (err *IRError) Error() string {
+func (err *SemError) Error() string {
 	if err.node != nil {
 		// Get location from the first token of the parser node
 		tokens := err.node.Tokens()
 		if len(tokens) > 0 {
 			loc := tokens[0].Location()
-			return fmt.Sprintf("IR Error (line %d, col %d): %s",
+			return fmt.Sprintf("Semantic Error (line %d, col %d): %s",
 				loc.Line, loc.Column, err.message)
 		}
-		return fmt.Sprintf("IR Error: %s", err.message)
+		return fmt.Sprintf("Semantic Error: %s", err.message)
 	}
-	return fmt.Sprintf("IR Error: %s", err.message)
+	return fmt.Sprintf("Semantic Error: %s", err.message)
 }
 
-func NewIRError(message string, node parser.ParserNode) *IRError {
-	return &IRError{
+func NewSemError(message string, node parser.ParserNode) *SemError {
+	return &SemError{
 		message: message,
 		node:    node,
 	}

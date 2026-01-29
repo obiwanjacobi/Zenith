@@ -567,7 +567,7 @@ func (z *Z80InstructionSelector) SelectReturn(value *VirtualRegister) error {
 // ============================================================================
 
 // SelectFunctionPrologue generates function entry code
-func (z *Z80InstructionSelector) SelectFunctionPrologue(fn *zir.IRFunctionDecl) error {
+func (z *Z80InstructionSelector) SelectFunctionPrologue(fn *zir.SemFunctionDecl) error {
 	// Z80 function prologue typically:
 	// - Save registers that need preserving
 	// - Allocate stack frame if needed
@@ -575,7 +575,7 @@ func (z *Z80InstructionSelector) SelectFunctionPrologue(fn *zir.IRFunctionDecl) 
 }
 
 // SelectFunctionEpilogue generates function exit code
-func (z *Z80InstructionSelector) SelectFunctionEpilogue(fn *zir.IRFunctionDecl) error {
+func (z *Z80InstructionSelector) SelectFunctionEpilogue(fn *zir.SemFunctionDecl) error {
 	// Restore registers, deallocate stack frame
 	return nil
 }
@@ -757,3 +757,4 @@ func (z *Z80MachineInstruction) String() string {
 
 	return fmt.Sprintf("%d", z.opcode)
 }
+

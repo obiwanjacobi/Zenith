@@ -165,10 +165,10 @@ type InstructionSelector interface {
 	// ============================================================================
 
 	// SelectFunctionPrologue generates function entry code (stack frame setup)
-	SelectFunctionPrologue(fn *zir.IRFunctionDecl) error
+	SelectFunctionPrologue(fn *zir.SemFunctionDecl) error
 
 	// SelectFunctionEpilogue generates function exit code (stack frame teardown)
-	SelectFunctionEpilogue(fn *zir.IRFunctionDecl) error
+	SelectFunctionEpilogue(fn *zir.SemFunctionDecl) error
 
 	// ============================================================================
 	// Utility
@@ -331,3 +331,4 @@ func (vra *VirtualRegisterAllocator) GetAll() []*VirtualRegister {
 	}
 	return result
 }
+

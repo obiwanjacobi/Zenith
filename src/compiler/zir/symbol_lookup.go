@@ -7,7 +7,7 @@ type SymbolLookup struct {
 }
 
 // NewSymbolLookup creates a new symbol lookup from a compilation unit
-func NewSymbolLookup(cu *IRCompilationUnit) *SymbolLookup {
+func NewSymbolLookup(cu *SemCompilationUnit) *SymbolLookup {
 	lookup := &SymbolLookup{
 		symbols: make(map[string]*Symbol),
 	}
@@ -17,7 +17,7 @@ func NewSymbolLookup(cu *IRCompilationUnit) *SymbolLookup {
 
 	// Collect symbols from function scopes
 	for _, decl := range cu.Declarations {
-		if funcDecl, ok := decl.(*IRFunctionDecl); ok {
+		if funcDecl, ok := decl.(*SemFunctionDecl); ok {
 			lookup.collectSymbols(funcDecl.Scope)
 		}
 	}

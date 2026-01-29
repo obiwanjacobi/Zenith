@@ -240,12 +240,12 @@ func (m *mockInstructionSelector) SelectReturn(value *VirtualRegister) error {
 	return nil
 }
 
-func (m *mockInstructionSelector) SelectFunctionPrologue(fn *zir.IRFunctionDecl) error {
+func (m *mockInstructionSelector) SelectFunctionPrologue(fn *zir.SemFunctionDecl) error {
 	m.recordOp("prologue")
 	return nil
 }
 
-func (m *mockInstructionSelector) SelectFunctionEpilogue(fn *zir.IRFunctionDecl) error {
+func (m *mockInstructionSelector) SelectFunctionEpilogue(fn *zir.SemFunctionDecl) error {
 	m.recordOp("epilogue")
 	return nil
 }
@@ -328,15 +328,15 @@ func u16Type() zir.Type {
 }
 
 // Test helpers to create IR nodes with proper types
-func newIRConstant(value interface{}, typ zir.Type) *zir.IRConstant {
-	return &zir.IRConstant{
+func newSemConstant(value interface{}, typ zir.Type) *zir.SemConstant {
+	return &zir.SemConstant{
 		Value:    value,
 		TypeInfo: typ,
 	}
 }
 
-func newIRBinaryOp(op zir.BinaryOperator, left, right zir.IRExpression, typ zir.Type) *zir.IRBinaryOp {
-	return &zir.IRBinaryOp{
+func newSemBinaryOp(op zir.BinaryOperator, left, right zir.SemExpression, typ zir.Type) *zir.SemBinaryOp {
+	return &zir.SemBinaryOp{
 		Op:       op,
 		Left:     left,
 		Right:    right,
@@ -344,8 +344,8 @@ func newIRBinaryOp(op zir.BinaryOperator, left, right zir.IRExpression, typ zir.
 	}
 }
 
-func newIRUnaryOp(op zir.UnaryOperator, operand zir.IRExpression, typ zir.Type) *zir.IRUnaryOp {
-	return &zir.IRUnaryOp{
+func newSemUnaryOp(op zir.UnaryOperator, operand zir.SemExpression, typ zir.Type) *zir.SemUnaryOp {
+	return &zir.SemUnaryOp{
 		Op:       op,
 		Operand:  operand,
 		TypeInfo: typ,
@@ -358,7 +358,7 @@ func Test_InstructionSelection_Constant(t *testing.T) {
 	selector := newMockInstructionSelector(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
-	constant := &zir.IRConstant{
+	constant := &zir.SemConstant{
 		Value:    42,
 		TypeInfo: u8Type(),
 	}
@@ -376,10 +376,10 @@ func Test_InstructionSelection_BinaryOp_Add(t *testing.T) {
 	selector := newMockInstructionSelector(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
-	left := &zir.IRConstant{Value: 10, TypeInfo: u8Type()}
-	right := &zir.IRConstant{Value: 20, TypeInfo: u8Type()}
+	left := &zir.SemConstant{Value: 10, TypeInfo: u8Type()}
+	right := &zir.SemConstant{Value: 20, TypeInfo: u8Type()}
 
-	binaryOp := &zir.IRBinaryOp{
+	binaryOp := &zir.SemBinaryOp{
 		Op:       zir.OpAdd,
 		Left:     left,
 		Right:    right,
@@ -424,9 +424,9 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 			selector := newMockInstructionSelector(cc)
 			ctx := NewInstructionSelectionContext(selector, cc)
 
-			left := newIRConstant(10, u8Type())
-			right := newIRConstant(20, u8Type())
-			binaryOp := newIRBinaryOp(tt.op, left, right, u8Type())
+			left := newSemConstant(10, u8Type())
+			right := newSemConstant(20, u8Type())
+			binaryOp := newSemBinaryOp(tt.op, left, right, u8Type())
 
 			vr, err := ctx.selectBinaryOp(binaryOp)
 
@@ -455,8 +455,8 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 			selector := newMockInstructionSelector(cc)
 			ctx := NewInstructionSelectionContext(selector, cc)
 
-			operand := newIRConstant(42, u8Type())
-			unaryOp := newIRUnaryOp(tt.op, operand, u8Type())
+			operand := newSemConstant(42, u8Type())
+			unaryOp := newSemUnaryOp(tt.op, operand, u8Type())
 
 			vr, err := ctx.selectUnaryOp(unaryOp)
 
@@ -478,9 +478,9 @@ func Test_InstructionSelection_VariableDecl(t *testing.T) {
 		Type: u8Type(),
 	}
 
-	decl := &zir.IRVariableDecl{
+	decl := &zir.SemVariableDecl{
 		Symbol:      symbol,
-		Initializer: &zir.IRConstant{Value: 10, TypeInfo: u8Type()},
+		Initializer: &zir.SemConstant{Value: 10, TypeInfo: u8Type()},
 		TypeInfo:    u8Type(),
 	}
 
@@ -510,9 +510,9 @@ func Test_InstructionSelection_Assignment(t *testing.T) {
 	}
 	ctx.symbolToVReg[symbol] = ctx.vrAlloc.AllocateNamed("x", 8)
 
-	assignment := &zir.IRAssignment{
+	assignment := &zir.SemAssignment{
 		Target: symbol,
-		Value:  &zir.IRConstant{Value: 42, TypeInfo: u8Type()},
+		Value:  &zir.SemConstant{Value: 42, TypeInfo: u8Type()},
 	}
 
 	err := ctx.selectAssignment(assignment)
@@ -528,8 +528,8 @@ func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
 	selector := newMockInstructionSelector(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
-	returnStmt := &zir.IRReturn{
-		Value: &zir.IRConstant{Value: 42, TypeInfo: u8Type()},
+	returnStmt := &zir.SemReturn{
+		Value: &zir.SemConstant{Value: 42, TypeInfo: u8Type()},
 	}
 
 	err := ctx.selectReturn(returnStmt)
@@ -546,7 +546,7 @@ func Test_InstructionSelection_ReturnVoid(t *testing.T) {
 	selector := newMockInstructionSelector(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
-	returnStmt := &zir.IRReturn{
+	returnStmt := &zir.SemReturn{
 		Value: nil,
 	}
 
@@ -569,11 +569,11 @@ func Test_InstructionSelection_FunctionCall(t *testing.T) {
 		Type: zir.NewFunctionType([]zir.Type{u8Type(), u8Type()}, u8Type()),
 	}
 
-	call := &zir.IRFunctionCall{
+	call := &zir.SemFunctionCall{
 		Function: funcSymbol,
-		Arguments: []zir.IRExpression{
-			&zir.IRConstant{Value: 10, TypeInfo: u8Type()},
-			&zir.IRConstant{Value: 20, TypeInfo: u8Type()},
+		Arguments: []zir.SemExpression{
+			&zir.SemConstant{Value: 10, TypeInfo: u8Type()},
+			&zir.SemConstant{Value: 20, TypeInfo: u8Type()},
 		},
 		TypeInfo: u8Type(),
 	}
@@ -592,7 +592,7 @@ func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
 	selector := newMockInstructionSelector(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
-	constant := &zir.IRConstant{Value: 42, TypeInfo: u8Type()}
+	constant := &zir.SemConstant{Value: 42, TypeInfo: u8Type()}
 
 	// First call - should generate instruction
 	vr1, err := ctx.selectExpression(constant)
@@ -625,7 +625,7 @@ func Test_InstructionSelection_SymbolRef(t *testing.T) {
 	expectedVR := ctx.vrAlloc.AllocateNamed("x", 8)
 	ctx.symbolToVReg[symbol] = expectedVR
 
-	symbolRef := &zir.IRSymbolRef{
+	symbolRef := &zir.SemSymbolRef{
 		Symbol: symbol,
 	}
 
@@ -646,7 +646,7 @@ func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
 		Type: u8Type(),
 	}
 
-	symbolRef := &zir.IRSymbolRef{
+	symbolRef := &zir.SemSymbolRef{
 		Symbol: symbol,
 	}
 
@@ -665,17 +665,17 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 	param1 := &zir.Symbol{Name: "a", Type: u8Type()}
 	param2 := &zir.Symbol{Name: "b", Type: u8Type()}
 
-	fn := &zir.IRFunctionDecl{
+	fn := &zir.SemFunctionDecl{
 		Name:       "add",
 		Parameters: []*zir.Symbol{param1, param2},
 		ReturnType: u8Type(),
-		Body: &zir.IRBlock{
-			Statements: []zir.IRStatement{
-				&zir.IRReturn{
-					Value: &zir.IRBinaryOp{
+		Body: &zir.SemBlock{
+			Statements: []zir.SemStatement{
+				&zir.SemReturn{
+					Value: &zir.SemBinaryOp{
 						Op:       zir.OpAdd,
-						Left:     &zir.IRSymbolRef{Symbol: param1},
-						Right:    &zir.IRSymbolRef{Symbol: param2},
+						Left:     &zir.SemSymbolRef{Symbol: param1},
+						Right:    &zir.SemSymbolRef{Symbol: param2},
 						TypeInfo: u8Type(),
 					},
 				},
@@ -708,21 +708,21 @@ func Test_SelectInstructions_Simple(t *testing.T) {
 	cc := &mockCallingConvention{}
 	selector := newMockInstructionSelector(cc)
 
-	fn := &zir.IRFunctionDecl{
+	fn := &zir.SemFunctionDecl{
 		Name:       "test",
 		Parameters: []*zir.Symbol{},
 		ReturnType: u8Type(),
-		Body: &zir.IRBlock{
-			Statements: []zir.IRStatement{
-				&zir.IRReturn{
-					Value: &zir.IRConstant{Value: 42, TypeInfo: u8Type()},
+		Body: &zir.SemBlock{
+			Statements: []zir.SemStatement{
+				&zir.SemReturn{
+					Value: &zir.SemConstant{Value: 42, TypeInfo: u8Type()},
 				},
 			},
 		},
 	}
 
-	compilationUnit := &zir.IRCompilationUnit{
-		Declarations: []zir.IRDeclaration{fn},
+	compilationUnit := &zir.SemCompilationUnit{
+		Declarations: []zir.SemDeclaration{fn},
 	}
 
 	err := SelectInstructions(compilationUnit, selector, cc)
@@ -739,15 +739,15 @@ func Test_InstructionSelection_ComplexExpression(t *testing.T) {
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	// (10 + 20) * 30
-	expr := &zir.IRBinaryOp{
+	expr := &zir.SemBinaryOp{
 		Op: zir.OpMultiply,
-		Left: &zir.IRBinaryOp{
+		Left: &zir.SemBinaryOp{
 			Op:       zir.OpAdd,
-			Left:     &zir.IRConstant{Value: 10, TypeInfo: u8Type()},
-			Right:    &zir.IRConstant{Value: 20, TypeInfo: u8Type()},
+			Left:     &zir.SemConstant{Value: 10, TypeInfo: u8Type()},
+			Right:    &zir.SemConstant{Value: 20, TypeInfo: u8Type()},
 			TypeInfo: u8Type(),
 		},
-		Right:    &zir.IRConstant{Value: 30, TypeInfo: u8Type()},
+		Right:    &zir.SemConstant{Value: 30, TypeInfo: u8Type()},
 		TypeInfo: u8Type(),
 	}
 
@@ -769,15 +769,15 @@ func Test_InstructionSelection_MultipleVariables(t *testing.T) {
 	symbol1 := &zir.Symbol{Name: "x", Type: u8Type()}
 	symbol2 := &zir.Symbol{Name: "y", Type: u8Type()}
 
-	decl1 := &zir.IRVariableDecl{
+	decl1 := &zir.SemVariableDecl{
 		Symbol:      symbol1,
-		Initializer: &zir.IRConstant{Value: 10, TypeInfo: u8Type()},
+		Initializer: &zir.SemConstant{Value: 10, TypeInfo: u8Type()},
 		TypeInfo:    u8Type(),
 	}
 
-	decl2 := &zir.IRVariableDecl{
+	decl2 := &zir.SemVariableDecl{
 		Symbol:      symbol2,
-		Initializer: &zir.IRConstant{Value: 20, TypeInfo: u8Type()},
+		Initializer: &zir.SemConstant{Value: 20, TypeInfo: u8Type()},
 		TypeInfo:    u8Type(),
 	}
 
@@ -801,7 +801,7 @@ func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
 
 	symbol := &zir.Symbol{Name: "x", Type: u8Type()}
 
-	decl := &zir.IRVariableDecl{
+	decl := &zir.SemVariableDecl{
 		Symbol:      symbol,
 		Initializer: nil,
 		TypeInfo:    u8Type(),
@@ -825,10 +825,10 @@ func Test_InstructionSelection_16BitOperations(t *testing.T) {
 	selector := newMockInstructionSelector(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
-	binaryOp := &zir.IRBinaryOp{
+	binaryOp := &zir.SemBinaryOp{
 		Op:       zir.OpAdd,
-		Left:     &zir.IRConstant{Value: 1000, TypeInfo: u16Type()},
-		Right:    &zir.IRConstant{Value: 2000, TypeInfo: u16Type()},
+		Left:     &zir.SemConstant{Value: 1000, TypeInfo: u16Type()},
+		Right:    &zir.SemConstant{Value: 2000, TypeInfo: u16Type()},
 		TypeInfo: u16Type(),
 	}
 
@@ -839,3 +839,5 @@ func Test_InstructionSelection_16BitOperations(t *testing.T) {
 	assert.Equal(t, 16, vr.Size)
 	assert.Contains(t, selector.instructions, "add")
 }
+
+

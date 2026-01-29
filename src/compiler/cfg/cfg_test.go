@@ -26,15 +26,15 @@ func buildCFGFromCode(t *testing.T, code string) *CFG {
 
 	// Analyze to get IR
 	analyzer := zir.NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
-	if len(irErrors) > 0 {
-		t.Logf("IR errors: %v", irErrors)
+	semCU, semErrors := analyzer.Analyze(cu)
+	if len(semErrors) > 0 {
+		t.Logf("IR errors: %v", semErrors)
 	}
-	require.Equal(t, 0, len(irErrors))
-	require.Greater(t, len(irCU.Declarations), 0)
+	require.Equal(t, 0, len(semErrors))
+	require.Greater(t, len(semCU.Declarations), 0)
 
 	// Get function declaration
-	funcDecl, ok := irCU.Declarations[0].(*zir.IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*zir.SemFunctionDecl)
 	require.True(t, ok)
 
 	// Build CFG
@@ -364,8 +364,8 @@ func Test_CFG_ReturnStatement(t *testing.T) {
 	assert.Contains(t, cfg.Entry.Successors, cfg.Exit)
 
 	// Verify the return instruction is present
-	retStmt, ok := cfg.Entry.Instructions[1].(*zir.IRReturn)
-	require.True(t, ok, "Second instruction should be IRReturn")
+	retStmt, ok := cfg.Entry.Instructions[1].(*zir.SemReturn)
+	require.True(t, ok, "Second instruction should be SemReturn")
 	assert.Nil(t, retStmt.Value, "Return without value should have nil Value")
 }
 
@@ -383,8 +383,8 @@ func Test_CFG_ReturnStatementWithValue(t *testing.T) {
 	assert.Contains(t, cfg.Entry.Successors, cfg.Exit)
 
 	// Verify the return instruction has a value
-	retStmt, ok := cfg.Entry.Instructions[1].(*zir.IRReturn)
-	require.True(t, ok, "Second instruction should be IRReturn")
+	retStmt, ok := cfg.Entry.Instructions[1].(*zir.SemReturn)
+	require.True(t, ok, "Second instruction should be SemReturn")
 	assert.NotNil(t, retStmt.Value, "Return with value should have non-nil Value")
 }
 
@@ -403,8 +403,8 @@ func Test_CFG_ReturnInBranch(t *testing.T) {
 
 	// Then block should have return statement
 	require.Equal(t, 1, len(thenBlock.Instructions))
-	retStmt, ok := thenBlock.Instructions[0].(*zir.IRReturn)
-	require.True(t, ok, "Then block should contain IRReturn")
+	retStmt, ok := thenBlock.Instructions[0].(*zir.SemReturn)
+	require.True(t, ok, "Then block should contain SemReturn")
 	assert.NotNil(t, retStmt.Value)
 
 	// Then block should connect to exit
@@ -514,3 +514,4 @@ func Test_CFG_PredecessorsSuccessorsConsistent(t *testing.T) {
 		}
 	}
 }
+

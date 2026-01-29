@@ -6,26 +6,26 @@ import (
 	"zenith/compiler/parser"
 )
 
-// SemanticAnalyzer performs semantic analysis on the AST and builds the IR
+// SemanticAnalyzer performs semantic analysis on the AST and builds the semantic model
 type SemanticAnalyzer struct {
 	globalScope     *SymbolTable
 	currentScope    *SymbolTable
 	currentFunction string // Track which function we're analyzing
 	callGraph       *CallGraph
-	errors          []*IRError
+	errors          []*SemError
 }
 
 // NewSemanticAnalyzer creates a new semantic analyzer
 func NewSemanticAnalyzer() *SemanticAnalyzer {
 	sa := &SemanticAnalyzer{
 		callGraph: NewCallGraph(),
-		errors:    make([]*IRError, 0),
+		errors:    make([]*SemError, 0),
 	}
 	return sa
 }
 
-// Analyze performs semantic analysis on the AST and returns the IR
-func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationUnit, []*IRError) {
+// Analyze performs semantic analysis on the AST and returns the semantic model
+func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*SemCompilationUnit, []*SemError) {
 	// Initialize global scope
 	sa.globalScope = NewSymbolTable(nil, "<global>")
 	sa.currentScope = sa.globalScope
@@ -37,17 +37,17 @@ func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*IRCompilationU
 		sa.registerDeclaration(decl)
 	}
 
-	// Pass 2: Build IR with full type checking and resolution
-	irDecls := make([]IRDeclaration, 0, len(ast.Declarations()))
+	// Pass 2: Build semantic model with full type checking and resolution
+	semDecls := make([]SemDeclaration, 0, len(ast.Declarations()))
 	for _, decl := range ast.Declarations() {
-		irDecl := sa.processDeclaration(decl)
-		if irDecl != nil {
-			irDecls = append(irDecls, irDecl)
+		semDecl := sa.processDeclaration(decl)
+		if semDecl != nil {
+			semDecls = append(semDecls, semDecl)
 		}
 	}
 
-	return &IRCompilationUnit{
-		Declarations: irDecls,
+	return &SemCompilationUnit{
+		Declarations: semDecls,
 		GlobalScope:  sa.globalScope,
 		CallGraph:    sa.callGraph,
 		astNode:      ast,
@@ -174,10 +174,10 @@ func (sa *SemanticAnalyzer) registerType(node parser.TypeDeclaration) {
 }
 
 // ============================================================================
-// Pass 2: IR Building with Type Checking
+// Pass 2: Semantic Model Building with Type Checking
 // ============================================================================
 
-func (sa *SemanticAnalyzer) processDeclaration(node parser.ParserNode) IRDeclaration {
+func (sa *SemanticAnalyzer) processDeclaration(node parser.ParserNode) SemDeclaration {
 	switch n := node.(type) {
 	case parser.VariableDeclaration:
 		return sa.processVarDecl(n)
@@ -191,13 +191,13 @@ func (sa *SemanticAnalyzer) processDeclaration(node parser.ParserNode) IRDeclara
 	}
 }
 
-func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRVariableDecl {
+func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *SemVariableDecl {
 	name := node.Label().Name()
 	typeRef := node.TypeRef()
 	initExpr := node.Initializer()
 
 	var symbol *Symbol
-	var initializer IRExpression
+	var initializer SemExpression
 
 	if typeRef != nil {
 		// Explicit type: lookup symbol registered in pass 1
@@ -264,14 +264,14 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *IRV
 		sa.trackInitializationPattern(symbol, initializer)
 	}
 
-	return &IRVariableDecl{
+	return &SemVariableDecl{
 		Symbol:      symbol,
 		Initializer: initializer,
 		astNode:     node,
 	}
 }
 
-func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration) *IRFunctionDecl {
+func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration) *SemFunctionDecl {
 	name := node.Label().Name()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
@@ -314,7 +314,7 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 		returnType = sa.resolveTypeRef(retTypeRef)
 	}
 
-	return &IRFunctionDecl{
+	return &SemFunctionDecl{
 		Name:       name,
 		Parameters: parameters,
 		ReturnType: returnType,
@@ -324,7 +324,7 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 	}
 }
 
-func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *IRTypeDecl {
+func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *SemTypeDecl {
 	name := node.Name().Text()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil || symbol.Kind != SymbolType {
@@ -339,7 +339,7 @@ func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *IRType
 		return nil
 	}
 
-	return &IRTypeDecl{
+	return &SemTypeDecl{
 		TypeInfo: structType,
 		astNode:  node,
 	}
@@ -349,24 +349,24 @@ func (sa *SemanticAnalyzer) processTypeDecl(node parser.TypeDeclaration) *IRType
 // Statement Processing
 // ============================================================================
 
-func (sa *SemanticAnalyzer) processBlock(node parser.CodeBlock) *IRBlock {
+func (sa *SemanticAnalyzer) processBlock(node parser.CodeBlock) *SemBlock {
 	// Use current scope (function scope) - no new scope for blocks
 
-	statements := []IRStatement{}
+	statements := []SemStatement{}
 	for _, stmt := range node.Statements() {
-		irStmt := sa.processStatement(stmt)
-		if irStmt != nil {
-			statements = append(statements, irStmt)
+		semStmt := sa.processStatement(stmt)
+		if semStmt != nil {
+			statements = append(statements, semStmt)
 		}
 	}
 
-	return &IRBlock{
+	return &SemBlock{
 		Statements: statements,
 		astNode:    node,
 	}
 }
 
-func (sa *SemanticAnalyzer) processStatement(node parser.ParserNode) IRStatement {
+func (sa *SemanticAnalyzer) processStatement(node parser.ParserNode) SemStatement {
 	switch n := node.(type) {
 	case parser.VariableDeclaration:
 		return sa.processVarDecl(n)
@@ -388,7 +388,7 @@ func (sa *SemanticAnalyzer) processStatement(node parser.ParserNode) IRStatement
 	}
 }
 
-func (sa *SemanticAnalyzer) processAssignment(node parser.VariableAssignment) *IRAssignment {
+func (sa *SemanticAnalyzer) processAssignment(node parser.VariableAssignment) *SemAssignment {
 	name := node.Identifier().Text()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
@@ -403,35 +403,35 @@ func (sa *SemanticAnalyzer) processAssignment(node parser.VariableAssignment) *I
 
 	// TODO: Check type compatibility
 
-	return &IRAssignment{
+	return &SemAssignment{
 		Target:  symbol,
 		Value:   value,
 		astNode: node,
 	}
 }
 
-func (sa *SemanticAnalyzer) processIf(node parser.StatementIf) *IRIf {
+func (sa *SemanticAnalyzer) processIf(node parser.StatementIf) *SemIf {
 	condition := sa.processExpression(node.Condition())
 	thenBlock := sa.processBlock(node.ThenBlock())
 
 	// Process elsif clauses
-	elsifBlocks := []*IRElsif{}
+	elsifBlocks := []*SemElsif{}
 	for _, elsifNode := range node.ElsifClauses() {
 		elsifCondition := sa.processExpression(elsifNode.Condition())
 		elsifThenBlock := sa.processBlock(elsifNode.ThenBlock())
-		elsifBlocks = append(elsifBlocks, &IRElsif{
+		elsifBlocks = append(elsifBlocks, &SemElsif{
 			Condition: elsifCondition,
 			ThenBlock: elsifThenBlock,
 			astNode:   elsifNode,
 		})
 	}
 
-	var elseBlock *IRBlock
+	var elseBlock *SemBlock
 	if eb := node.ElseBlock(); eb != nil {
 		elseBlock = sa.processBlock(eb)
 	}
 
-	return &IRIf{
+	return &SemIf{
 		Condition:   condition,
 		ThenBlock:   thenBlock,
 		ElsifBlocks: elsifBlocks,
@@ -440,40 +440,40 @@ func (sa *SemanticAnalyzer) processIf(node parser.StatementIf) *IRIf {
 	}
 }
 
-func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
+func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *SemFor {
 	// No new scope for for loops - variables belong to function scope
 
-	var initializer IRStatement
+	var initializer SemStatement
 	if init := node.Initializer(); init != nil {
 		// Initializer can be a variable declaration or an expression
 		initializer = sa.processStatement(init)
 
 		// Mark variable as counter if it's a declaration
-		if varDecl, ok := initializer.(*IRVariableDecl); ok {
+		if varDecl, ok := initializer.(*SemVariableDecl); ok {
 			varDecl.Symbol.Usage.AddFlag(VarInitCounter)
 		}
 	}
 
-	var condition IRExpression
+	var condition SemExpression
 	if cond := node.Condition(); cond != nil {
 		condition = sa.processExpression(cond)
 		// Variables in condition are likely counters
 		sa.trackVariableUsageInExpression(condition, VarUsedCounter)
 	}
 
-	var increment IRExpression
+	var increment SemExpression
 	if inc := node.Increment(); inc != nil {
 		increment = sa.processExpression(inc)
 		// Variables in increment are counters
 		sa.trackVariableUsageInExpression(increment, VarUsedCounter)
 	}
 
-	var body *IRBlock
+	var body *SemBlock
 	if bodyNode := node.Body(); bodyNode != nil {
 		body = sa.processBlock(bodyNode)
 	}
 
-	return &IRFor{
+	return &SemFor{
 		Initializer: initializer,
 		Condition:   condition,
 		Increment:   increment,
@@ -482,7 +482,7 @@ func (sa *SemanticAnalyzer) processFor(node parser.StatementFor) *IRFor {
 	}
 }
 
-func (sa *SemanticAnalyzer) processSelect(node parser.StatementSelect) *IRSelect {
+func (sa *SemanticAnalyzer) processSelect(node parser.StatementSelect) *SemSelect {
 	// Process the select expression
 	expr := sa.processExpression(node.Expression())
 	if expr == nil {
@@ -490,7 +490,7 @@ func (sa *SemanticAnalyzer) processSelect(node parser.StatementSelect) *IRSelect
 	}
 
 	// Process cases
-	cases := []*IRSelectCase{}
+	cases := []*SemSelectCase{}
 	for _, caseNode := range node.Cases() {
 		// Process case value
 		caseValue := sa.processExpression(caseNode.Expression())
@@ -501,7 +501,7 @@ func (sa *SemanticAnalyzer) processSelect(node parser.StatementSelect) *IRSelect
 		// Process case body
 		caseBody := sa.processBlock(caseNode.Body())
 
-		cases = append(cases, &IRSelectCase{
+		cases = append(cases, &SemSelectCase{
 			Value:   caseValue,
 			Body:    caseBody,
 			astNode: caseNode,
@@ -509,12 +509,12 @@ func (sa *SemanticAnalyzer) processSelect(node parser.StatementSelect) *IRSelect
 	}
 
 	// Process optional else clause
-	var elseBody *IRBlock
+	var elseBody *SemBlock
 	if elseNode := node.Else(); elseNode != nil {
 		elseBody = sa.processBlock(elseNode.Body())
 	}
 
-	return &IRSelect{
+	return &SemSelect{
 		Expression: expr,
 		Cases:      cases,
 		Else:       elseBody,
@@ -522,23 +522,23 @@ func (sa *SemanticAnalyzer) processSelect(node parser.StatementSelect) *IRSelect
 	}
 }
 
-func (sa *SemanticAnalyzer) processExpressionStmt(node parser.StatementExpression) *IRExpressionStmt {
+func (sa *SemanticAnalyzer) processExpressionStmt(node parser.StatementExpression) *SemExpressionStmt {
 	expr := sa.processExpression(node.Expression())
-	return &IRExpressionStmt{
+	return &SemExpressionStmt{
 		Expression: expr,
 		astNode:    node,
 	}
 }
 
-func (sa *SemanticAnalyzer) processReturn(node parser.StatementReturn) *IRReturn {
-	var value IRExpression
+func (sa *SemanticAnalyzer) processReturn(node parser.StatementReturn) *SemReturn {
+	var value SemExpression
 	if node.Value() != nil {
 		value = sa.processExpression(node.Value())
 	}
 
 	// TODO: Check that the return value type is compatible with the function's declared return type
 
-	return &IRReturn{
+	return &SemReturn{
 		Value:   value,
 		astNode: node,
 	}
@@ -548,7 +548,7 @@ func (sa *SemanticAnalyzer) processReturn(node parser.StatementReturn) *IRReturn
 // Expression Processing
 // ============================================================================
 
-func (sa *SemanticAnalyzer) processExpression(node parser.Expression) IRExpression {
+func (sa *SemanticAnalyzer) processExpression(node parser.Expression) SemExpression {
 	if node == nil {
 		return nil
 	}
@@ -574,7 +574,7 @@ func (sa *SemanticAnalyzer) processExpression(node parser.Expression) IRExpressi
 	}
 }
 
-func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *IRConstant {
+func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *SemConstant {
 	token := node.Value()
 
 	var value interface{}
@@ -610,7 +610,7 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *IRCon
 		return nil
 	}
 
-	return &IRConstant{
+	return &SemConstant{
 		Value:    value,
 		TypeInfo: typ,
 		astNode:  node,
@@ -618,7 +618,7 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *IRCon
 }
 
 // processIdentifier handles identifier expressions (variable/parameter references)
-func (sa *SemanticAnalyzer) processIdentifier(node parser.ExpressionIdentifier) *IRSymbolRef {
+func (sa *SemanticAnalyzer) processIdentifier(node parser.ExpressionIdentifier) *SemSymbolRef {
 	// Get the identifier token directly from the node
 	token := node.Identifier()
 	if token == nil {
@@ -633,13 +633,13 @@ func (sa *SemanticAnalyzer) processIdentifier(node parser.ExpressionIdentifier) 
 		return nil
 	}
 
-	return &IRSymbolRef{
+	return &SemSymbolRef{
 		Symbol:  symbol,
 		astNode: node,
 	}
 }
 
-func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorUnaryPrefix) IRExpression {
+func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorUnaryPrefix) SemExpression {
 	operand := sa.processExpression(node.Operand())
 	if operand == nil {
 		return nil
@@ -649,7 +649,7 @@ func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorU
 
 	// Handle unary minus with constant folding for literals
 	if opToken == lexer.TokenMinus {
-		if constant, ok := operand.(*IRConstant); ok {
+		if constant, ok := operand.(*SemConstant); ok {
 			if numVal, ok := constant.Value.(int); ok {
 				negatedVal := -numVal
 				var typ Type
@@ -658,7 +658,7 @@ func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorU
 				} else {
 					typ = I16Type
 				}
-				return &IRConstant{
+				return &SemConstant{
 					Value:    negatedVal,
 					TypeInfo: typ,
 					astNode:  node,
@@ -672,7 +672,7 @@ func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorU
 	return nil
 }
 
-func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary, opToken lexer.TokenId) *IRBinaryOp {
+func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary, opToken lexer.TokenId) *SemBinaryOp {
 	left := sa.processExpression(node.Left())
 	right := sa.processExpression(node.Right())
 
@@ -693,7 +693,7 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 	// TODO: Implement proper type inference/coercion
 	resultType := left.Type()
 
-	return &IRBinaryOp{
+	return &SemBinaryOp{
 		Op:       op,
 		Left:     left,
 		Right:    right,
@@ -702,7 +702,7 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 	}
 }
 
-func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionInvocation) *IRFunctionCall {
+func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionInvocation) *SemFunctionCall {
 	name := node.FunctionName().Text()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
@@ -711,12 +711,12 @@ func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionIn
 	}
 
 	// Process arguments
-	args := []IRExpression{}
+	args := []SemExpression{}
 	if argList := node.Arguments(); argList != nil {
 		for _, arg := range argList.Arguments() {
-			irArg := sa.processExpression(arg)
-			if irArg != nil {
-				args = append(args, irArg)
+			semArg := sa.processExpression(arg)
+			if semArg != nil {
+				args = append(args, semArg)
 			}
 		}
 	}
@@ -732,7 +732,7 @@ func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionIn
 		sa.callGraph.AddCall(sa.currentFunction, name)
 	}
 
-	return &IRFunctionCall{
+	return &SemFunctionCall{
 		Function:  symbol,
 		Arguments: args,
 		TypeInfo:  returnType,
@@ -740,7 +740,7 @@ func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionIn
 	}
 }
 
-func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAccess) *IRMemberAccess {
+func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAccess) *SemMemberAccess {
 	// Process the object expression
 	object := sa.processExpression(node.Object())
 	if object == nil {
@@ -779,7 +779,7 @@ func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAcce
 		return nil
 	}
 
-	return &IRMemberAccess{
+	return &SemMemberAccess{
 		Object:   &object,
 		Field:    field,
 		TypeInfo: field.Type,
@@ -787,7 +787,7 @@ func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAcce
 	}
 }
 
-func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeInitializer) *IRTypeInitializer {
+func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeInitializer) *SemTypeInitializer {
 	// Get the type reference
 	typeRef := node.TypeRef()
 	if typeRef == nil {
@@ -809,7 +809,7 @@ func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeIni
 	}
 
 	// Process field initializers
-	fieldInits := []*IRFieldInit{}
+	fieldInits := []*SemFieldInit{}
 	if initializer := node.Initializer(); initializer != nil {
 		if fieldList := initializer.Fields(); fieldList != nil {
 			for _, fieldNode := range fieldList.Fields() {
@@ -837,7 +837,7 @@ func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeIni
 
 				// TODO: Type check that valueExpr type matches structField type
 
-				fieldInits = append(fieldInits, &IRFieldInit{
+				fieldInits = append(fieldInits, &SemFieldInit{
 					Field: structField,
 					Value: valueExpr,
 				})
@@ -845,7 +845,7 @@ func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeIni
 		}
 	}
 
-	return &IRTypeInitializer{
+	return &SemTypeInitializer{
 		StructType: structType,
 		Fields:     fieldInits,
 		TypeInfo:   structType,
@@ -944,44 +944,44 @@ func (sa *SemanticAnalyzer) updateVariableUsage(symbol *Symbol, usage VariableUs
 }
 
 // trackInitializationPattern analyzes how a variable is initialized
-func (sa *SemanticAnalyzer) trackInitializationPattern(symbol *Symbol, initExpr IRExpression) {
+func (sa *SemanticAnalyzer) trackInitializationPattern(symbol *Symbol, initExpr SemExpression) {
 	if symbol == nil || initExpr == nil {
 		return
 	}
 
 	switch e := initExpr.(type) {
-	case *IRConstant:
+	case *SemConstant:
 		symbol.Usage.AddFlag(VarInitConstant)
-	case *IRBinaryOp:
+	case *SemBinaryOp:
 		if sa.isArithmeticOperator(e.Op) {
 			symbol.Usage.AddFlag(VarInitArithmetic)
 		}
-	case *IRMemberAccess:
+	case *SemMemberAccess:
 		symbol.Usage.AddFlag(VarInitPointer)
-	case *IRTypeInitializer:
+	case *SemTypeInitializer:
 		symbol.Usage.AddFlag(VarInitPointer)
 	}
 }
 
 // trackVariableUsageInExpression recursively tracks how variables are used in expressions
-func (sa *SemanticAnalyzer) trackVariableUsageInExpression(expr IRExpression, usage VariableUsage) {
+func (sa *SemanticAnalyzer) trackVariableUsageInExpression(expr SemExpression, usage VariableUsage) {
 	if expr == nil {
 		return
 	}
 
 	switch e := expr.(type) {
-	case *IRSymbolRef:
+	case *SemSymbolRef:
 		sa.updateVariableUsage(e.Symbol, usage)
-	case *IRBinaryOp:
+	case *SemBinaryOp:
 		sa.trackVariableUsageInExpression(e.Left, usage)
 		sa.trackVariableUsageInExpression(e.Right, usage)
-	case *IRUnaryOp:
+	case *SemUnaryOp:
 		sa.trackVariableUsageInExpression(e.Operand, usage)
-	case *IRFunctionCall:
+	case *SemFunctionCall:
 		for _, arg := range e.Arguments {
 			sa.trackVariableUsageInExpression(arg, usage)
 		}
-	case *IRMemberAccess:
+	case *SemMemberAccess:
 		if e.Object != nil {
 			sa.trackVariableUsageInExpression(*e.Object, VarUsedPointer)
 		}
@@ -1000,5 +1000,5 @@ func (sa *SemanticAnalyzer) isArithmeticOperator(op BinaryOperator) bool {
 }
 
 func (sa *SemanticAnalyzer) error(msg string, node parser.ParserNode) {
-	sa.errors = append(sa.errors, NewIRError(msg, node))
+	sa.errors = append(sa.errors, NewSemError(msg, node))
 }

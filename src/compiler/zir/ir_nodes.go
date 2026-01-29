@@ -2,24 +2,24 @@ package zir
 
 import "zenith/compiler/parser"
 
-// IRNode is the base interface for all IR nodes
-type IRNode interface {
+// SemNode is the base interface for all semantic model nodes
+type SemNode interface {
 	ASTNode() parser.ParserNode // Reference back to original AST node
 }
 
-// IRDeclaration represents top-level declarations
-type IRDeclaration interface {
-	IRNode
+// SemDeclaration represents top-level declarations
+type SemDeclaration interface {
+	SemNode
 }
 
-// IRStatement represents executable statements
-type IRStatement interface {
-	IRNode
+// SemStatement represents executable statements
+type SemStatement interface {
+	SemNode
 }
 
-// IRExpression represents expressions that produce values
-type IRExpression interface {
-	IRNode
+// SemExpression represents expressions that produce values
+type SemExpression interface {
+	SemNode
 	Type() Type // All expressions have a resolved type
 }
 
@@ -27,186 +27,186 @@ type IRExpression interface {
 // Compilation Unit
 // ============================================================================
 
-type IRCompilationUnit struct {
-	Declarations []IRDeclaration
+type SemCompilationUnit struct {
+	Declarations []SemDeclaration
 	GlobalScope  *SymbolTable
 	CallGraph    *CallGraph // Function call relationships
 	astNode      parser.CompilationUnit
 }
 
-func (n *IRCompilationUnit) ASTNode() parser.ParserNode  { return n.astNode }
-func (n *IRCompilationUnit) AST() parser.CompilationUnit { return n.astNode }
+func (n *SemCompilationUnit) ASTNode() parser.ParserNode  { return n.astNode }
+func (n *SemCompilationUnit) AST() parser.CompilationUnit { return n.astNode }
 
 // ============================================================================
 // Declarations
 // ============================================================================
 
-// IRVariableDecl represents a variable declaration
-type IRVariableDecl struct {
+// SemVariableDecl represents a variable declaration
+type SemVariableDecl struct {
 	Symbol      *Symbol
-	Initializer IRExpression // nil if no initializer
-	TypeInfo    Type         // Resolved type
+	Initializer SemExpression // nil if no initializer
+	TypeInfo    Type          // Resolved type
 	astNode     parser.VariableDeclaration
 }
 
-func (n *IRVariableDecl) ASTNode() parser.ParserNode      { return n.astNode }
-func (n *IRVariableDecl) AST() parser.VariableDeclaration { return n.astNode }
+func (n *SemVariableDecl) ASTNode() parser.ParserNode      { return n.astNode }
+func (n *SemVariableDecl) AST() parser.VariableDeclaration { return n.astNode }
 
-// IRFunctionDecl represents a function declaration
-type IRFunctionDecl struct {
+// SemFunctionDecl represents a function declaration
+type SemFunctionDecl struct {
 	Name       string
 	Parameters []*Symbol
 	ReturnType Type // nil for void
-	Body       *IRBlock
+	Body       *SemBlock
 	Scope      *SymbolTable
 	astNode    parser.FunctionDeclaration
 }
 
-func (n *IRFunctionDecl) ASTNode() parser.ParserNode      { return n.astNode }
-func (n *IRFunctionDecl) AST() parser.FunctionDeclaration { return n.astNode }
+func (n *SemFunctionDecl) ASTNode() parser.ParserNode      { return n.astNode }
+func (n *SemFunctionDecl) AST() parser.FunctionDeclaration { return n.astNode }
 
-// IRTypeDecl represents a struct type declaration
-type IRTypeDecl struct {
+// SemTypeDecl represents a struct type declaration
+type SemTypeDecl struct {
 	TypeInfo *StructType
 	astNode  parser.TypeDeclaration
 }
 
-func (n *IRTypeDecl) ASTNode() parser.ParserNode  { return n.astNode }
-func (n *IRTypeDecl) AST() parser.TypeDeclaration { return n.astNode }
+func (n *SemTypeDecl) ASTNode() parser.ParserNode  { return n.astNode }
+func (n *SemTypeDecl) AST() parser.TypeDeclaration { return n.astNode }
 
 // ============================================================================
 // Statements
 // ============================================================================
 
-// IRBlock represents a block of statements
-type IRBlock struct {
-	Statements []IRStatement
+// SemBlock represents a block of statements
+type SemBlock struct {
+	Statements []SemStatement
 	astNode    parser.CodeBlock
 }
 
-func (n *IRBlock) ASTNode() parser.ParserNode { return n.astNode }
-func (n *IRBlock) AST() parser.CodeBlock      { return n.astNode }
+func (n *SemBlock) ASTNode() parser.ParserNode { return n.astNode }
+func (n *SemBlock) AST() parser.CodeBlock      { return n.astNode }
 
-// IRAssignment represents a variable assignment
-type IRAssignment struct {
+// SemAssignment represents a variable assignment
+type SemAssignment struct {
 	Target  *Symbol
-	Value   IRExpression
+	Value   SemExpression
 	astNode parser.VariableAssignment
 }
 
-func (n *IRAssignment) ASTNode() parser.ParserNode     { return n.astNode }
-func (n *IRAssignment) AST() parser.VariableAssignment { return n.astNode }
+func (n *SemAssignment) ASTNode() parser.ParserNode     { return n.astNode }
+func (n *SemAssignment) AST() parser.VariableAssignment { return n.astNode }
 
-// IRIf represents an if statement
-type IRIf struct {
-	Condition   IRExpression
-	ThenBlock   *IRBlock
-	ElsifBlocks []*IRElsif
-	ElseBlock   *IRBlock // nil if no else
+// SemIf represents an if statement
+type SemIf struct {
+	Condition   SemExpression
+	ThenBlock   *SemBlock
+	ElsifBlocks []*SemElsif
+	ElseBlock   *SemBlock // nil if no else
 	astNode     parser.StatementIf
 }
 
-func (n *IRIf) ASTNode() parser.ParserNode { return n.astNode }
-func (n *IRIf) AST() parser.StatementIf    { return n.astNode }
+func (n *SemIf) ASTNode() parser.ParserNode { return n.astNode }
+func (n *SemIf) AST() parser.StatementIf    { return n.astNode }
 
-// IRElsif represents an elsif clause
-type IRElsif struct {
-	Condition IRExpression
-	ThenBlock *IRBlock
+// SemElsif represents an elsif clause
+type SemElsif struct {
+	Condition SemExpression
+	ThenBlock *SemBlock
 	astNode   parser.StatementElsif
 }
 
-func (n *IRElsif) ASTNode() parser.ParserNode { return n.astNode }
-func (n *IRElsif) AST() parser.StatementElsif { return n.astNode }
+func (n *SemElsif) ASTNode() parser.ParserNode { return n.astNode }
+func (n *SemElsif) AST() parser.StatementElsif { return n.astNode }
 
-// IRFor represents a for loop
-type IRFor struct {
-	Initializer IRStatement  // nil if not present
-	Condition   IRExpression // nil if not present
-	Increment   IRExpression // nil if not present
-	Body        *IRBlock
+// SemFor represents a for loop
+type SemFor struct {
+	Initializer SemStatement  // nil if not present
+	Condition   SemExpression // nil if not present
+	Increment   SemExpression // nil if not present
+	Body        *SemBlock
 	astNode     parser.StatementFor
 }
 
-func (n *IRFor) ASTNode() parser.ParserNode { return n.astNode }
-func (n *IRFor) AST() parser.StatementFor   { return n.astNode }
+func (n *SemFor) ASTNode() parser.ParserNode { return n.astNode }
+func (n *SemFor) AST() parser.StatementFor   { return n.astNode }
 
-// IRSelect represents a select statement (switch)
-type IRSelect struct {
-	Expression IRExpression
-	Cases      []*IRSelectCase
-	Else       *IRBlock // nil if no else
+// SemSelect represents a select statement (switch)
+type SemSelect struct {
+	Expression SemExpression
+	Cases      []*SemSelectCase
+	Else       *SemBlock // nil if no else
 	astNode    parser.StatementSelect
 }
 
-func (n *IRSelect) ASTNode() parser.ParserNode  { return n.astNode }
-func (n *IRSelect) AST() parser.StatementSelect { return n.astNode }
+func (n *SemSelect) ASTNode() parser.ParserNode  { return n.astNode }
+func (n *SemSelect) AST() parser.StatementSelect { return n.astNode }
 
-// IRSelectCase represents a case in a select statement
-type IRSelectCase struct {
-	Value   IRExpression
-	Body    *IRBlock
+// SemSelectCase represents a case in a select statement
+type SemSelectCase struct {
+	Value   SemExpression
+	Body    *SemBlock
 	astNode parser.StatementSelectCase
 }
 
-func (n *IRSelectCase) ASTNode() parser.ParserNode      { return n.astNode }
-func (n *IRSelectCase) AST() parser.StatementSelectCase { return n.astNode }
+func (n *SemSelectCase) ASTNode() parser.ParserNode      { return n.astNode }
+func (n *SemSelectCase) AST() parser.StatementSelectCase { return n.astNode }
 
-// IRExpressionStmt represents an expression used as a statement
-type IRExpressionStmt struct {
-	Expression IRExpression
+// SemExpressionStmt represents an expression used as a statement
+type SemExpressionStmt struct {
+	Expression SemExpression
 	astNode    parser.StatementExpression
 }
 
-func (n *IRExpressionStmt) ASTNode() parser.ParserNode      { return n.astNode }
-func (n *IRExpressionStmt) AST() parser.StatementExpression { return n.astNode }
+func (n *SemExpressionStmt) ASTNode() parser.ParserNode      { return n.astNode }
+func (n *SemExpressionStmt) AST() parser.StatementExpression { return n.astNode }
 
-// IRReturn represents a return statement
-type IRReturn struct {
-	Value   IRExpression // nil if no return value
+// SemReturn represents a return statement
+type SemReturn struct {
+	Value   SemExpression // nil if no return value
 	astNode parser.StatementReturn
 }
 
-func (n *IRReturn) ASTNode() parser.ParserNode  { return n.astNode }
-func (n *IRReturn) AST() parser.StatementReturn { return n.astNode }
+func (n *SemReturn) ASTNode() parser.ParserNode  { return n.astNode }
+func (n *SemReturn) AST() parser.StatementReturn { return n.astNode }
 
 // ============================================================================
 // Expressions
 // ============================================================================
 
-// IRConstant represents a constant literal value
-type IRConstant struct {
+// SemConstant represents a constant literal value
+type SemConstant struct {
 	Value    interface{} // int, string, bool
 	TypeInfo Type
 	astNode  parser.Expression
 }
 
-func (n *IRConstant) ASTNode() parser.ParserNode { return n.astNode }
-func (n *IRConstant) AST() parser.Expression     { return n.astNode }
-func (n *IRConstant) Type() Type                 { return n.TypeInfo }
+func (n *SemConstant) ASTNode() parser.ParserNode { return n.astNode }
+func (n *SemConstant) AST() parser.Expression     { return n.astNode }
+func (n *SemConstant) Type() Type                 { return n.TypeInfo }
 
-// IRSymbolRef represents a reference to a symbol (variable, parameter)
-type IRSymbolRef struct {
+// SemSymbolRef represents a reference to a symbol (variable, parameter)
+type SemSymbolRef struct {
 	Symbol  *Symbol
 	astNode parser.Expression
 }
 
-func (n *IRSymbolRef) ASTNode() parser.ParserNode { return n.astNode }
-func (n *IRSymbolRef) AST() parser.Expression     { return n.astNode }
-func (n *IRSymbolRef) Type() Type                 { return n.Symbol.Type }
+func (n *SemSymbolRef) ASTNode() parser.ParserNode { return n.astNode }
+func (n *SemSymbolRef) AST() parser.Expression     { return n.astNode }
+func (n *SemSymbolRef) Type() Type                 { return n.Symbol.Type }
 
-// IRBinaryOp represents binary operations (arithmetic, comparison, logical, bitwise)
-type IRBinaryOp struct {
+// SemBinaryOp represents binary operations (arithmetic, comparison, logical, bitwise)
+type SemBinaryOp struct {
 	Op       BinaryOperator
-	Left     IRExpression
-	Right    IRExpression
+	Left     SemExpression
+	Right    SemExpression
 	TypeInfo Type
 	astNode  parser.ExpressionOperatorBinary
 }
 
-func (n *IRBinaryOp) ASTNode() parser.ParserNode           { return n.astNode }
-func (n *IRBinaryOp) AST() parser.ExpressionOperatorBinary { return n.astNode }
-func (n *IRBinaryOp) Type() Type                           { return n.TypeInfo }
+func (n *SemBinaryOp) ASTNode() parser.ParserNode           { return n.astNode }
+func (n *SemBinaryOp) AST() parser.ExpressionOperatorBinary { return n.astNode }
+func (n *SemBinaryOp) Type() Type                           { return n.TypeInfo }
 
 type BinaryOperator int
 
@@ -232,17 +232,17 @@ const (
 	OpLogicalOr
 )
 
-// IRUnaryOp represents unary operations
-type IRUnaryOp struct {
+// SemUnaryOp represents unary operations
+type SemUnaryOp struct {
 	Op       UnaryOperator
-	Operand  IRExpression
+	Operand  SemExpression
 	TypeInfo Type
 	astNode  parser.ExpressionOperatorUnaryPrefix
 }
 
-func (n *IRUnaryOp) ASTNode() parser.ParserNode                { return n.astNode }
-func (n *IRUnaryOp) AST() parser.ExpressionOperatorUnaryPrefix { return n.astNode }
-func (n *IRUnaryOp) Type() Type                                { return n.TypeInfo }
+func (n *SemUnaryOp) ASTNode() parser.ParserNode                { return n.astNode }
+func (n *SemUnaryOp) AST() parser.ExpressionOperatorUnaryPrefix { return n.astNode }
+func (n *SemUnaryOp) Type() Type                                { return n.TypeInfo }
 
 type UnaryOperator int
 
@@ -252,44 +252,44 @@ const (
 	OpBitwiseNot
 )
 
-// IRFunctionCall represents a function call
-type IRFunctionCall struct {
+// SemFunctionCall represents a function call
+type SemFunctionCall struct {
 	Function  *Symbol
-	Arguments []IRExpression
+	Arguments []SemExpression
 	TypeInfo  Type
 	astNode   parser.ExpressionFunctionInvocation
 }
 
-func (n *IRFunctionCall) ASTNode() parser.ParserNode               { return n.astNode }
-func (n *IRFunctionCall) AST() parser.ExpressionFunctionInvocation { return n.astNode }
-func (n *IRFunctionCall) Type() Type                               { return n.TypeInfo }
+func (n *SemFunctionCall) ASTNode() parser.ParserNode               { return n.astNode }
+func (n *SemFunctionCall) AST() parser.ExpressionFunctionInvocation { return n.astNode }
+func (n *SemFunctionCall) Type() Type                               { return n.TypeInfo }
 
-// IRMemberAccess represents accessing a struct field
-type IRMemberAccess struct {
-	Object   *IRExpression
+// SemMemberAccess represents accessing a struct field
+type SemMemberAccess struct {
+	Object   *SemExpression
 	Field    *StructField
 	TypeInfo Type
 	astNode  parser.ExpressionMemberAccess
 }
 
-func (n *IRMemberAccess) ASTNode() parser.ParserNode         { return n.astNode }
-func (n *IRMemberAccess) AST() parser.ExpressionMemberAccess { return n.astNode }
-func (n *IRMemberAccess) Type() Type                         { return n.TypeInfo }
+func (n *SemMemberAccess) ASTNode() parser.ParserNode         { return n.astNode }
+func (n *SemMemberAccess) AST() parser.ExpressionMemberAccess { return n.astNode }
+func (n *SemMemberAccess) Type() Type                         { return n.TypeInfo }
 
-// IRTypeInitializer represents struct initialization
-type IRTypeInitializer struct {
+// SemTypeInitializer represents struct initialization
+type SemTypeInitializer struct {
 	StructType *StructType
-	Fields     []*IRFieldInit
+	Fields     []*SemFieldInit
 	TypeInfo   Type
 	astNode    parser.ExpressionTypeInitializer
 }
 
-func (n *IRTypeInitializer) ASTNode() parser.ParserNode            { return n.astNode }
-func (n *IRTypeInitializer) AST() parser.ExpressionTypeInitializer { return n.astNode }
-func (n *IRTypeInitializer) Type() Type                            { return n.TypeInfo }
+func (n *SemTypeInitializer) ASTNode() parser.ParserNode            { return n.astNode }
+func (n *SemTypeInitializer) AST() parser.ExpressionTypeInitializer { return n.astNode }
+func (n *SemTypeInitializer) Type() Type                            { return n.TypeInfo }
 
-// IRFieldInit represents a field initialization in a struct literal
-type IRFieldInit struct {
+// SemFieldInit represents a field initialization in a struct literal
+type SemFieldInit struct {
 	Field *StructField
-	Value IRExpression
+	Value SemExpression
 }

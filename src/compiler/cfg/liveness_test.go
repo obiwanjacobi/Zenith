@@ -26,12 +26,12 @@ func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo, *zir
 
 	// Analyze to get IR
 	analyzer := zir.NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
-	require.Equal(t, 0, len(irErrors), "IR analysis errors: %v", irErrors)
-	require.Greater(t, len(irCU.Declarations), 0)
+	semCU, semErrors := analyzer.Analyze(cu)
+	require.Equal(t, 0, len(semErrors), "IR analysis errors: %v", semErrors)
+	require.Greater(t, len(semCU.Declarations), 0)
 
 	// Get function declaration
-	funcDecl, ok := irCU.Declarations[0].(*zir.IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*zir.SemFunctionDecl)
 	require.True(t, ok)
 
 	// Build CFG
@@ -41,7 +41,7 @@ func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo, *zir
 	// Compute liveness
 	liveness := ComputeLiveness(cfg)
 
-	symbolLookup := zir.NewSymbolLookup(irCU)
+	symbolLookup := zir.NewSymbolLookup(semCU)
 	return cfg, liveness, symbolLookup
 }
 
@@ -276,3 +276,4 @@ func Test_Liveness_ReturnStatement(t *testing.T) {
 	assert.False(t, liveness.Use[codeBlock.ID]["main.x"])
 	assert.False(t, liveness.Use[codeBlock.ID]["main.y"])
 }
+

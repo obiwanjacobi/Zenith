@@ -26,25 +26,25 @@ func Test_VariableUsage_Arithmetic(t *testing.T) {
 	require.True(t, ok)
 
 	analyzer := NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
-	requireNoErrors(t, irErrors)
+	semCU, semErrors := analyzer.Analyze(cu)
+	requireNoErrors(t, semErrors)
 
 	// Get the function declaration
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
 	require.True(t, ok)
 
 	// Get symbols from function body statements
-	xDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
+	xDecl, ok := funcDecl.Body.Statements[0].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "x", xDecl.Symbol.Name)
 	assert.True(t, xDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "x should be marked as used in arithmetic")
 
-	yDecl, ok := funcDecl.Body.Statements[1].(*IRVariableDecl)
+	yDecl, ok := funcDecl.Body.Statements[1].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "y", yDecl.Symbol.Name)
 	assert.True(t, yDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "y should be marked as used in arithmetic")
 
-	zDecl, ok := funcDecl.Body.Statements[2].(*IRVariableDecl)
+	zDecl, ok := funcDecl.Body.Statements[2].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "z", zDecl.Symbol.Name)
 	// z is defined but not used in arithmetic
@@ -69,19 +69,19 @@ func Test_VariableUsage_Counter(t *testing.T) {
 	require.True(t, ok)
 
 	analyzer := NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
-	requireNoErrors(t, irErrors)
+	semCU, semErrors := analyzer.Analyze(cu)
+	requireNoErrors(t, semErrors)
 
 	// Get the function declaration
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
 	require.True(t, ok)
 
 	// Get the for loop statement
-	forStmt, ok := funcDecl.Body.Statements[0].(*IRFor)
+	forStmt, ok := funcDecl.Body.Statements[0].(*SemFor)
 	require.True(t, ok)
 
 	// Get the loop variable from initializer
-	varDecl, ok := forStmt.Initializer.(*IRVariableDecl)
+	varDecl, ok := forStmt.Initializer.(*SemVariableDecl)
 	require.True(t, ok)
 
 	// Check that i is marked as counter
@@ -110,17 +110,17 @@ func Test_VariableUsage_MemberAccessPointer(t *testing.T) {
 	require.True(t, ok)
 
 	analyzer := NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
-	require.Equal(t, 0, len(irErrors), "Expected no IR errors: %v", irErrors)
+	semCU, semErrors := analyzer.Analyze(cu)
+	require.Equal(t, 0, len(semErrors), "Expected no IR errors: %v", semErrors)
 
 	// Get the function declaration (second declaration after Point type)
-	require.Greater(t, len(irCU.Declarations), 1, "Expected at least 2 declarations")
-	funcDecl, ok := irCU.Declarations[1].(*IRFunctionDecl)
+	require.Greater(t, len(semCU.Declarations), 1, "Expected at least 2 declarations")
+	funcDecl, ok := semCU.Declarations[1].(*SemFunctionDecl)
 	require.True(t, ok)
 
 	// Find the p symbol in the function's scope
 	require.Greater(t, len(funcDecl.Body.Statements), 0, "Expected at least 1 statement")
-	varDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
+	varDecl, ok := funcDecl.Body.Statements[0].(*SemVariableDecl)
 	require.True(t, ok)
 	require.Equal(t, "p", varDecl.Symbol.Name)
 
@@ -144,15 +144,15 @@ func Test_VariableUsage_General(t *testing.T) {
 	require.True(t, ok)
 
 	analyzer := NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
-	requireNoErrors(t, irErrors)
+	semCU, semErrors := analyzer.Analyze(cu)
+	requireNoErrors(t, semErrors)
 
 	// Get the function declaration
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
 	require.True(t, ok)
 
 	// Check that x has no specific usage (just declared, not used)
-	xDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
+	xDecl, ok := funcDecl.Body.Statements[0].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "x", xDecl.Symbol.Name)
 	assert.False(t, xDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "x should not be used in arithmetic")
@@ -176,26 +176,27 @@ func Test_VariableUsage_MultipleArithmetic(t *testing.T) {
 	require.True(t, ok)
 
 	analyzer := NewSemanticAnalyzer()
-	irCU, irErrors := analyzer.Analyze(cu)
-	requireNoErrors(t, irErrors)
+	semCU, semErrors := analyzer.Analyze(cu)
+	requireNoErrors(t, semErrors)
 
 	// Get the function declaration
-	funcDecl, ok := irCU.Declarations[0].(*IRFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
 	require.True(t, ok)
 
 	// All three variables used in arithmetic should be marked
-	aDecl, ok := funcDecl.Body.Statements[0].(*IRVariableDecl)
+	aDecl, ok := funcDecl.Body.Statements[0].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "a", aDecl.Symbol.Name)
 	assert.True(t, aDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "a should be used in arithmetic")
 
-	bDecl, ok := funcDecl.Body.Statements[1].(*IRVariableDecl)
+	bDecl, ok := funcDecl.Body.Statements[1].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "b", bDecl.Symbol.Name)
 	assert.True(t, bDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "b should be used in arithmetic")
 
-	cDecl, ok := funcDecl.Body.Statements[2].(*IRVariableDecl)
+	cDecl, ok := funcDecl.Body.Statements[2].(*SemVariableDecl)
 	require.True(t, ok)
 	assert.Equal(t, "c", cDecl.Symbol.Name)
 	assert.True(t, cDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "c should be used in arithmetic")
 }
+

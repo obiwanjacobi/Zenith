@@ -73,7 +73,7 @@ type BasicBlock struct {
 	ID           int               // Unique identifier
 	Label        BlockLabel        // Label for this block
 	LabelID      int               // Optional numeric suffix for label uniqueness
-	Instructions []zir.IRStatement // Statements in this block
+	Instructions []zir.SemStatement // Statements in this block
 	Successors   []*BasicBlock     // Blocks that can follow this one
 	Predecessors []*BasicBlock     // Blocks that can jump to this one
 }
@@ -106,7 +106,7 @@ func NewCFGBuilder() *CFGBuilder {
 }
 
 // BuildCFG transforms a function's IR into a CFG
-func (b *CFGBuilder) BuildCFG(funcDecl *zir.IRFunctionDecl) *CFG {
+func (b *CFGBuilder) BuildCFG(funcDecl *zir.SemFunctionDecl) *CFG {
 	// Create entry block
 	entry := b.newBlock(LabelEntry, -1)
 	b.currentBlock = entry
@@ -139,7 +139,7 @@ func (b *CFGBuilder) newBlock(label BlockLabel, referenceID int) *BasicBlock {
 		ID:           b.nextBlockID,
 		Label:        label,
 		LabelID:      referenceID,
-		Instructions: []zir.IRStatement{},
+		Instructions: []zir.SemStatement{},
 		Successors:   []*BasicBlock{},
 		Predecessors: []*BasicBlock{},
 	}
@@ -163,41 +163,41 @@ func (b *CFGBuilder) addEdge(from, to *BasicBlock) {
 }
 
 // processBlock processes an IR block and builds CFG blocks
-func (b *CFGBuilder) processBlock(block *zir.IRBlock, exitBlock *BasicBlock) {
+func (b *CFGBuilder) processBlock(block *zir.SemBlock, exitBlock *BasicBlock) {
 	for _, stmt := range block.Statements {
 		b.processStatement(stmt, exitBlock)
 	}
 }
 
 // processStatement processes a single IR statement
-func (b *CFGBuilder) processStatement(stmt zir.IRStatement, exitBlock *BasicBlock) {
+func (b *CFGBuilder) processStatement(stmt zir.SemStatement, exitBlock *BasicBlock) {
 	switch s := stmt.(type) {
-	case *zir.IRVariableDecl:
+	case *zir.SemVariableDecl:
 		// Variable declarations are simple statements
 		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
 
-	case *zir.IRAssignment:
+	case *zir.SemAssignment:
 		// Assignments are simple statements
 		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
 
-	case *zir.IRExpressionStmt:
+	case *zir.SemExpressionStmt:
 		// Expression statements (e.g., function calls)
 		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
 
-	case *zir.IRReturn:
+	case *zir.SemReturn:
 		// Return statement - add to current block and connect to exit
 		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
 		b.addEdge(b.currentBlock, exitBlock)
 		// Create a new block for any statements after return (unreachable code)
 		b.currentBlock = b.newBlock(LabelEntry, 0) // Use generic label for continuation
 
-	case *zir.IRIf:
+	case *zir.SemIf:
 		b.processIf(s, exitBlock)
 
-	case *zir.IRFor:
+	case *zir.SemFor:
 		b.processFor(s, exitBlock)
 
-	case *zir.IRSelect:
+	case *zir.SemSelect:
 		b.processSelect(s, exitBlock)
 
 	default:
@@ -207,7 +207,7 @@ func (b *CFGBuilder) processStatement(stmt zir.IRStatement, exitBlock *BasicBloc
 }
 
 // processIf processes an if statement, creating blocks for branches
-func (b *CFGBuilder) processIf(ifStmt *zir.IRIf, exitBlock *BasicBlock) {
+func (b *CFGBuilder) processIf(ifStmt *zir.SemIf, exitBlock *BasicBlock) {
 	// Current block evaluates condition and branches
 	condBlock := b.currentBlock
 	condBlock.Instructions = append(condBlock.Instructions, ifStmt)
@@ -266,7 +266,7 @@ func (b *CFGBuilder) processIf(ifStmt *zir.IRIf, exitBlock *BasicBlock) {
 }
 
 // processFor processes a for loop, creating blocks for loop structure
-func (b *CFGBuilder) processFor(forStmt *zir.IRFor, exitBlock *BasicBlock) {
+func (b *CFGBuilder) processFor(forStmt *zir.SemFor, exitBlock *BasicBlock) {
 	// Process initializer in current block
 	if forStmt.Initializer != nil {
 		b.currentBlock.Instructions = append(b.currentBlock.Instructions, forStmt.Initializer)
@@ -291,7 +291,7 @@ func (b *CFGBuilder) processFor(forStmt *zir.IRFor, exitBlock *BasicBlock) {
 	b.addEdge(b.currentBlock, incBlock)
 	if forStmt.Increment != nil {
 		// Store increment as an expression statement
-		incBlock.Instructions = append(incBlock.Instructions, &zir.IRExpressionStmt{
+		incBlock.Instructions = append(incBlock.Instructions, &zir.SemExpressionStmt{
 			Expression: forStmt.Increment,
 		})
 	}
@@ -308,7 +308,7 @@ func (b *CFGBuilder) processFor(forStmt *zir.IRFor, exitBlock *BasicBlock) {
 }
 
 // processSelect processes a select statement, creating blocks for each case
-func (b *CFGBuilder) processSelect(selectStmt *zir.IRSelect, exitBlock *BasicBlock) {
+func (b *CFGBuilder) processSelect(selectStmt *zir.SemSelect, exitBlock *BasicBlock) {
 	// Current block evaluates the select expression
 	exprBlock := b.currentBlock
 	exprBlock.Instructions = append(exprBlock.Instructions, selectStmt)
@@ -365,3 +365,4 @@ func (cfg *CFG) String() string {
 	}
 	return sb.String()
 }
+

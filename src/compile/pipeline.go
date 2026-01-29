@@ -19,7 +19,7 @@ type CompilationResult struct {
 	// Intermediate representations
 	Tokens lexer.TokenStream
 	AST    parser.ParserNode
-	IR     *zir.IRCompilationUnit
+	IR     *zir.SemCompilationUnit
 
 	// Per-function CFG and analysis results
 	FunctionCFGs     map[string]*cfg.CFG
@@ -33,7 +33,7 @@ type CompilationResult struct {
 	// Error tracking
 	LexerErrors    []error
 	ParserErrors   []parser.ParserError
-	SemanticErrors []*zir.IRError
+	SemanticErrors []*zir.SemError
 	CodeGenErrors  []error
 
 	// Success flag
@@ -180,8 +180,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	analyzer := zir.NewSemanticAnalyzer()
-	irCompilationUnit, semanticErrors := analyzer.Analyze(compilationUnit)
-	result.IR = irCompilationUnit
+	semCompilationUnit, semanticErrors := analyzer.Analyze(compilationUnit)
+	result.IR = semCompilationUnit
 	result.SemanticErrors = semanticErrors
 
 	if len(semanticErrors) > 0 {
@@ -195,7 +195,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	if opts.DumpIR {
-		dumpIR(irCompilationUnit)
+		dumpIR(semCompilationUnit)
 	}
 
 	if opts.StopAfterSemantic {
@@ -211,8 +211,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	cfgBuilder := cfg.NewCFGBuilder()
-	for _, decl := range irCompilationUnit.Declarations {
-		if fnDecl, ok := decl.(*zir.IRFunctionDecl); ok {
+	for _, decl := range semCompilationUnit.Declarations {
+		if fnDecl, ok := decl.(*zir.SemFunctionDecl); ok {
 			functionCFG := cfgBuilder.BuildCFG(fnDecl)
 			result.FunctionCFGs[fnDecl.Name] = functionCFG
 
@@ -320,7 +320,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// Run instruction selection on the IR
-	err := cfg.SelectInstructions(irCompilationUnit, instructionSelector, callingConvention)
+	err := cfg.SelectInstructions(semCompilationUnit, instructionSelector, callingConvention)
 	if err != nil {
 		result.CodeGenErrors = append(result.CodeGenErrors, err)
 		return result, fmt.Errorf("instruction selection failed: %w", err)
@@ -375,17 +375,17 @@ func dumpAST(ast parser.CompilationUnit) {
 	fmt.Println()
 }
 
-func dumpIR(ir *zir.IRCompilationUnit) {
-	fmt.Println("========== IR ==========")
+func dumpIR(ir *zir.SemCompilationUnit) {
+	fmt.Println("========== IR ===========")
 	fmt.Printf("IR Compilation Unit with %d declarations\n", len(ir.Declarations))
 	for _, decl := range ir.Declarations {
 		switch d := decl.(type) {
-		case *zir.IRFunctionDecl:
+		case *zir.SemFunctionDecl:
 			fmt.Printf("  Function: %s (params=%d)\n",
 				d.Name, len(d.Parameters))
-		case *zir.IRVariableDecl:
+		case *zir.SemVariableDecl:
 			fmt.Printf("  Variable: %s\n", d.Symbol.Name)
-		case *zir.IRTypeDecl:
+		case *zir.SemTypeDecl:
 			fmt.Printf("  Type: %s\n", d.TypeInfo.Name())
 		default:
 			fmt.Printf("  Unknown: %T\n", decl)
