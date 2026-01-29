@@ -11,7 +11,7 @@ const (
 
 // VariableUsage represents how a variable is initialized and used in the program (CPU-agnostic)
 // Uses bitflags to track multiple usage patterns
-type VariableUsage int
+type VariableUsage uint16
 
 const (
 	// Initialization flags (how the variable was initialized)
