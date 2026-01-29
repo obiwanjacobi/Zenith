@@ -9,6 +9,7 @@ Details on the compiler construction.
 - Enable low level IO addressing and peripheral support (PIO/SIO/CTC/DMA)
 - https://retrocomputing.stackexchange.com/questions/6095/why-do-c-to-z80-compilers-produce-poor-code
 - https://retrocomputing.stackexchange.com/questions/15004/what-languages-are-better-fit-for-generating-efficient-code-for-popular-8-bit-cp
+- https://github.com/z88dk/zsdcc/blob/zsdcc/sdcc/src/z80/peeph-z80.def
 
 ## Function Parameters and Return value
 
