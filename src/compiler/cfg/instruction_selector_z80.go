@@ -8,18 +8,16 @@ import (
 // instructionSelectorZ80 implements InstructionSelector for the Z80
 type instructionSelectorZ80 struct {
 	vrAlloc           *VirtualRegisterAllocator
-	instructions      []MachineInstruction // Deprecated: kept for backward compatibility
-	currentBlock      *BasicBlock          // Current block for instruction emission
+	currentBlock      *BasicBlock // Current block for instruction emission
 	callingConvention CallingConvention
 	labelCounter      int
 }
 
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
-func NewInstructionSelectorZ80(cc CallingConvention) InstructionSelector {
+func NewInstructionSelectorZ80() InstructionSelector {
 	return &instructionSelectorZ80{
 		vrAlloc:           NewVirtualRegisterAllocator(),
-		instructions:      make([]MachineInstruction, 0),
-		callingConvention: cc,
+		callingConvention: NewCallingConventionZ80(),
 		labelCounter:      0,
 	}
 }
@@ -602,26 +600,13 @@ func (z *instructionSelectorZ80) SetCurrentBlock(block *BasicBlock) {
 
 // EmitInstruction adds an instruction to the specified block
 func (z *instructionSelectorZ80) EmitInstruction(block *BasicBlock, instr MachineInstruction) {
-	if block != nil {
-		block.MachineInstructions = append(block.MachineInstructions, instr)
-	}
-	// Also add to flat list for backward compatibility
-	z.instructions = append(z.instructions, instr)
+	block.MachineInstructions = append(block.MachineInstructions, instr)
+
 }
 
 // emit is a helper that emits to the current block
 func (z *instructionSelectorZ80) emit(instr MachineInstruction) {
 	z.EmitInstruction(z.currentBlock, instr)
-}
-
-// GetInstructions returns all emitted instructions (backward compatibility)
-func (z *instructionSelectorZ80) GetInstructions() []MachineInstruction {
-	return z.instructions
-}
-
-// ClearInstructions resets the instruction buffer
-func (z *instructionSelectorZ80) ClearInstructions() {
-	z.instructions = make([]MachineInstruction, 0)
 }
 
 // GetCallingConvention returns the calling convention

@@ -56,10 +56,12 @@ func newTestBlock() *BasicBlock {
 
 // Test selectConstant
 func Test_InstructionSelection_Constant(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	constant := &zsm.SemConstant{
 		Value:    42,
@@ -73,16 +75,18 @@ func Test_InstructionSelection_Constant(t *testing.T) {
 	assert.Equal(t, 8, vr.Size)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }
 
 // Test selectBinaryOp with addition
 func Test_InstructionSelection_BinaryOp_Add(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	left := &zsm.SemConstant{Value: 10, TypeInfo: u8Type()}
 	right := &zsm.SemConstant{Value: 20, TypeInfo: u8Type()}
@@ -101,7 +105,7 @@ func Test_InstructionSelection_BinaryOp_Add(t *testing.T) {
 	assert.Equal(t, 8, vr.Size)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 	// Should have at least 2 load constants and add instructions
 	assert.GreaterOrEqual(t, len(instructions), 3)
@@ -132,10 +136,12 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewCallingConventionZ80()
+			block := newTestBlock()
 
-			selector := NewInstructionSelectorZ80(cc)
-			ctx := NewInstructionSelectionContext(selector, cc)
+			selector := NewInstructionSelectorZ80()
+			selector.SetCurrentBlock(block)
+			ctx := NewInstructionSelectionContext(selector)
+			ctx.currentBlock = block
 
 			left := newSemConstant(10, u8Type())
 			right := newSemConstant(20, u8Type())
@@ -147,7 +153,7 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 			assert.NotNil(t, vr)
 
 			// Check that instructions were generated
-			instructions := selector.GetInstructions()
+			instructions := block.MachineInstructions
 			assert.NotEmpty(t, instructions)
 		})
 	}
@@ -166,10 +172,12 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewCallingConventionZ80()
+			block := newTestBlock()
 
-			selector := NewInstructionSelectorZ80(cc)
-			ctx := NewInstructionSelectionContext(selector, cc)
+			selector := NewInstructionSelectorZ80()
+			selector.SetCurrentBlock(block)
+			ctx := NewInstructionSelectionContext(selector)
+			ctx.currentBlock = block
 
 			operand := newSemConstant(42, u8Type())
 			unaryOp := newSemUnaryOp(tt.op, operand, u8Type())
@@ -180,7 +188,7 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 			assert.NotNil(t, vr)
 
 			// Check that instructions were generated
-			instructions := selector.GetInstructions()
+			instructions := block.MachineInstructions
 			assert.NotEmpty(t, instructions)
 		})
 	}
@@ -188,10 +196,12 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 
 // Test selectVariableDecl
 func Test_InstructionSelection_VariableDecl(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	symbol := &zsm.Symbol{
 		Name: "x",
@@ -215,16 +225,18 @@ func Test_InstructionSelection_VariableDecl(t *testing.T) {
 	assert.Equal(t, "x", vr.Name)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }
 
 // Test selectAssignment
 func Test_InstructionSelection_Assignment(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	// Create a variable first
 	symbol := &zsm.Symbol{
@@ -243,16 +255,18 @@ func Test_InstructionSelection_Assignment(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }
 
 // Test selectReturn with value
 func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	returnStmt := &zsm.SemReturn{
 		Value: &zsm.SemConstant{Value: 42, TypeInfo: u8Type()},
@@ -263,16 +277,18 @@ func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }
 
 // Test selectReturn void
 func Test_InstructionSelection_ReturnVoid(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	returnStmt := &zsm.SemReturn{
 		Value: nil,
@@ -283,16 +299,18 @@ func Test_InstructionSelection_ReturnVoid(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that instructions were generated (at least RET)
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }
 
 // Test selectFunctionCall
 func Test_InstructionSelection_FunctionCall(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	funcSymbol := &zsm.Symbol{
 		Name: "add",
@@ -314,16 +332,18 @@ func Test_InstructionSelection_FunctionCall(t *testing.T) {
 	assert.NotNil(t, vr)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }
 
 // Test expression caching
 func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	constant := &zsm.SemConstant{Value: 42, TypeInfo: u8Type()}
 
@@ -332,7 +352,7 @@ func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, vr1)
 
-	count1 := len(selector.GetInstructions())
+	count1 := len(block.MachineInstructions)
 
 	// Second call - should reuse cached result
 	vr2, err := ctx.selectExpression(constant)
@@ -340,16 +360,14 @@ func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
 	assert.NotNil(t, vr2)
 	assert.Equal(t, vr1, vr2, "Should return same VirtualRegister")
 
-	count2 := len(selector.GetInstructions())
+	count2 := len(block.MachineInstructions)
 	assert.Equal(t, count1, count2, "Should not generate additional instructions")
 }
 
 // Test selectSymbolRef
 func Test_InstructionSelection_SymbolRef(t *testing.T) {
-	cc := NewCallingConventionZ80()
-
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	ctx := NewInstructionSelectionContext(selector)
 
 	// Create a variable
 	symbol := &zsm.Symbol{
@@ -371,10 +389,8 @@ func Test_InstructionSelection_SymbolRef(t *testing.T) {
 
 // Test selectSymbolRef with undefined variable
 func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
-	cc := NewCallingConventionZ80()
-
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	ctx := NewInstructionSelectionContext(selector)
 
 	symbol := &zsm.Symbol{
 		Name: "undefined",
@@ -393,10 +409,8 @@ func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
 
 // Test selectFunction with parameters
 func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
-	cc := NewCallingConventionZ80()
-
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	ctx := NewInstructionSelectionContext(selector)
 
 	param1 := &zsm.Symbol{Name: "a", Type: u8Type()}
 	param2 := &zsm.Symbol{Name: "b", Type: u8Type()}
@@ -419,9 +433,10 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 		},
 	}
 
-	err := ctx.selectFunction(fn)
+	cfg, err := ctx.selectFunction(fn)
 
 	require.NoError(t, err)
+	require.NotNil(t, cfg)
 
 	// Check that parameters are allocated
 	vr1, ok := ctx.symbolToVReg[param1]
@@ -433,15 +448,13 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 	assert.NotNil(t, vr2)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := ctx.currentCFG.GetAllInstructions()
 	assert.NotEmpty(t, instructions)
 }
 
 // Test SelectInstructions with full compilation unit
 func Test_SelectInstructions_Simple(t *testing.T) {
-	cc := NewCallingConventionZ80()
-
-	selector := NewInstructionSelectorZ80(cc)
+	selector := NewInstructionSelectorZ80()
 
 	fn := &zsm.SemFunctionDecl{
 		Name:       "test",
@@ -460,21 +473,24 @@ func Test_SelectInstructions_Simple(t *testing.T) {
 		Declarations: []zsm.SemDeclaration{fn},
 	}
 
-	err := SelectInstructions(compilationUnit, selector, cc)
+	cfgs, err := SelectInstructions(compilationUnit, selector)
 
 	require.NoError(t, err)
+	require.Len(t, cfgs, 1)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := cfgs[0].GetAllInstructions()
 	assert.NotEmpty(t, instructions)
 }
 
 // Test complex expression with nested operations
 func Test_InstructionSelection_ComplexExpression(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	// (10 + 20) * 30
 	expr := &zsm.SemBinaryOp{
@@ -495,7 +511,7 @@ func Test_InstructionSelection_ComplexExpression(t *testing.T) {
 	assert.NotNil(t, vr)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 	// Should have multiple instructions for nested operations
 	assert.GreaterOrEqual(t, len(instructions), 5)
@@ -503,10 +519,12 @@ func Test_InstructionSelection_ComplexExpression(t *testing.T) {
 
 // Test multiple variable declarations
 func Test_InstructionSelection_MultipleVariables(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	symbol1 := &zsm.Symbol{Name: "x", Type: u8Type()}
 	symbol2 := &zsm.Symbol{Name: "y", Type: u8Type()}
@@ -535,16 +553,14 @@ func Test_InstructionSelection_MultipleVariables(t *testing.T) {
 	assert.NotEqual(t, ctx.symbolToVReg[symbol1], ctx.symbolToVReg[symbol2])
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }
 
 // Test variable declaration without initializer
 func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
-	cc := NewCallingConventionZ80()
-
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	ctx := NewInstructionSelectionContext(selector)
 
 	symbol := &zsm.Symbol{Name: "x", Type: u8Type()}
 
@@ -566,10 +582,12 @@ func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
 
 // Test 16-bit operations
 func Test_InstructionSelection_16BitOperations(t *testing.T) {
-	cc := NewCallingConventionZ80()
+	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80(cc)
-	ctx := NewInstructionSelectionContext(selector, cc)
+	selector := NewInstructionSelectorZ80()
+	selector.SetCurrentBlock(block)
+	ctx := NewInstructionSelectionContext(selector)
+	ctx.currentBlock = block
 
 	binaryOp := &zsm.SemBinaryOp{
 		Op:       zsm.OpAdd,
@@ -585,6 +603,6 @@ func Test_InstructionSelection_16BitOperations(t *testing.T) {
 	assert.Equal(t, 16, vr.Size)
 
 	// Check that instructions were generated
-	instructions := selector.GetInstructions()
+	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
 }

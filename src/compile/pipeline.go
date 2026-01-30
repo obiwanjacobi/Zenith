@@ -308,28 +308,29 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// Get architecture-specific calling convention and instruction selector
-	var callingConvention cfg.CallingConvention
 	var instructionSelector cfg.InstructionSelector
 
 	switch opts.TargetArch {
 	case "z80":
-		callingConvention = cfg.NewCallingConventionZ80()
-		instructionSelector = cfg.NewInstructionSelectorZ80(callingConvention)
+		instructionSelector = cfg.NewInstructionSelectorZ80()
 	default:
 		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
 	}
 
 	// Run instruction selection on the IR
-	err := cfg.SelectInstructions(semCompilationUnit, instructionSelector, callingConvention)
+	cfgs, err := cfg.SelectInstructions(semCompilationUnit, instructionSelector)
 	if err != nil {
 		result.CodeGenErrors = append(result.CodeGenErrors, err)
 		return result, fmt.Errorf("instruction selection failed: %w", err)
 	}
 
-	// Extract instructions per function
-	// Note: The instruction selector accumulates all instructions
-	// We need to segment them by function
-	allInstructions := instructionSelector.GetInstructions()
+	// Extract instructions from each function's CFG
+	allInstructions := []cfg.MachineInstruction{}
+	for _, funcCFG := range cfgs {
+		funcInstructions := funcCFG.GetAllInstructions()
+		result.Instructions[funcCFG.FunctionName] = funcInstructions
+		allInstructions = append(allInstructions, funcInstructions...)
+	}
 	result.Instructions["<all>"] = allInstructions
 
 	if opts.Verbose {

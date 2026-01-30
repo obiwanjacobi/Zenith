@@ -368,3 +368,12 @@ func (cfg *CFG) String() string {
 	}
 	return sb.String()
 }
+
+// GetAllInstructions collects all machine instructions from all blocks in the CFG
+func (cfg *CFG) GetAllInstructions() []MachineInstruction {
+	var instructions []MachineInstruction
+	for _, block := range cfg.Blocks {
+		instructions = append(instructions, block.MachineInstructions...)
+	}
+	return instructions
+}

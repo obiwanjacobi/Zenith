@@ -28,11 +28,11 @@ type InstructionSelectionContext struct {
 }
 
 // NewInstructionSelectionContext creates a new context for instruction selection
-func NewInstructionSelectionContext(selector InstructionSelector, cc CallingConvention) *InstructionSelectionContext {
+func NewInstructionSelectionContext(selector InstructionSelector) *InstructionSelectionContext {
 	return &InstructionSelectionContext{
 		selector:          selector,
 		vrAlloc:           NewVirtualRegisterAllocator(),
-		callingConvention: cc,
+		callingConvention: selector.GetCallingConvention(),
 		symbolToVReg:      make(map[*zsm.Symbol]*VirtualRegister),
 		exprToVReg:        make(map[zsm.SemExpression]*VirtualRegister),
 	}
@@ -40,23 +40,27 @@ func NewInstructionSelectionContext(selector InstructionSelector, cc CallingConv
 
 // SelectInstructions walks the IR and generates machine instructions
 // It first builds a CFG for each function, then generates instructions for each block
-func SelectInstructions(compilationUnit *zsm.SemCompilationUnit, selector InstructionSelector, cc CallingConvention) error {
-	ctx := NewInstructionSelectionContext(selector, cc)
+// Returns a slice of CFGs containing the generated instructions
+func SelectInstructions(compilationUnit *zsm.SemCompilationUnit, selector InstructionSelector) ([]*CFG, error) {
+	ctx := NewInstructionSelectionContext(selector)
+	var cfgs []*CFG
 
 	// Process each function
 	for _, decl := range compilationUnit.Declarations {
 		if funcDecl, ok := decl.(*zsm.SemFunctionDecl); ok {
-			if err := ctx.selectFunction(funcDecl); err != nil {
-				return fmt.Errorf("selecting instructions for function %s: %w", funcDecl.Name, err)
+			cfg, err := ctx.selectFunction(funcDecl)
+			if err != nil {
+				return nil, fmt.Errorf("selecting instructions for function %s: %w", funcDecl.Name, err)
 			}
+			cfgs = append(cfgs, cfg)
 		}
 	}
 
-	return nil
+	return cfgs, nil
 }
 
 // selectFunction processes a single function
-func (ctx *InstructionSelectionContext) selectFunction(fn *zsm.SemFunctionDecl) error {
+func (ctx *InstructionSelectionContext) selectFunction(fn *zsm.SemFunctionDecl) (*CFG, error) {
 	ctx.currentFunction = fn
 
 	// Build CFG for this function
@@ -92,11 +96,11 @@ func (ctx *InstructionSelectionContext) selectFunction(fn *zsm.SemFunctionDecl) 
 	// Process each basic block in the CFG
 	for _, block := range cfg.Blocks {
 		if err := ctx.selectBasicBlock(block); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return cfg, nil
 }
 
 // selectBasicBlock processes a single basic block

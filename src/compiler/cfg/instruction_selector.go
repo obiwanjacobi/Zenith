@@ -186,12 +186,6 @@ type InstructionSelector interface {
 	// SetCurrentBlock sets the active block for instruction emission
 	SetCurrentBlock(block *BasicBlock)
 
-	// GetInstructions returns all emitted instructions (across all blocks, for backward compatibility)
-	GetInstructions() []MachineInstruction
-
-	// ClearInstructions resets the instruction buffer
-	ClearInstructions()
-
 	// GetCallingConvention returns the calling convention used by this selector
 	GetCallingConvention() CallingConvention
 
