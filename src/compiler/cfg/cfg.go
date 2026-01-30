@@ -70,12 +70,13 @@ func (l BlockLabel) String() string {
 
 // BasicBlock represents a sequence of instructions with one entry and one exit
 type BasicBlock struct {
-	ID           int                // Unique identifier
-	Label        BlockLabel         // Label for this block
-	LabelID      int                // Optional numeric suffix for label uniqueness
-	Instructions []zsm.SemStatement // Statements in this block
-	Successors   []*BasicBlock      // Blocks that can follow this one
-	Predecessors []*BasicBlock      // Blocks that can jump to this one
+	ID                  int                  // Unique identifier
+	Label               BlockLabel           // Label for this block
+	LabelID             int                  // Optional numeric suffix for label uniqueness
+	Instructions        []zsm.SemStatement   // Statements in this block (IR level)
+	MachineInstructions []MachineInstruction // Generated machine instructions for this block
+	Successors          []*BasicBlock        // Blocks that can follow this one
+	Predecessors        []*BasicBlock        // Blocks that can jump to this one
 }
 
 // CFG represents a control flow graph for a function
@@ -136,12 +137,13 @@ func (b *CFGBuilder) BuildCFG(funcDecl *zsm.SemFunctionDecl) *CFG {
 // If referenceID >= 0, stores it as LabelID for uniqueness
 func (b *CFGBuilder) newBlock(label BlockLabel, referenceID int) *BasicBlock {
 	block := &BasicBlock{
-		ID:           b.nextBlockID,
-		Label:        label,
-		LabelID:      referenceID,
-		Instructions: []zsm.SemStatement{},
-		Successors:   []*BasicBlock{},
-		Predecessors: []*BasicBlock{},
+		ID:                  b.nextBlockID,
+		Label:               label,
+		LabelID:             referenceID,
+		Instructions:        []zsm.SemStatement{},
+		MachineInstructions: []MachineInstruction{},
+		Successors:          []*BasicBlock{},
+		Predecessors:        []*BasicBlock{},
 	}
 	b.nextBlockID++
 	b.blocks = append(b.blocks, block)
@@ -351,7 +353,8 @@ func (cfg *CFG) String() string {
 	sb.WriteString("CFG:\n")
 	for _, block := range cfg.Blocks {
 		sb.WriteString(fmt.Sprintf("  Block %d (%s):\n", block.ID, block.GetFullLabel()))
-		sb.WriteString(fmt.Sprintf("    Instructions: %d\n", len(block.Instructions)))
+		sb.WriteString(fmt.Sprintf("    IR Instructions: %d\n", len(block.Instructions)))
+		sb.WriteString(fmt.Sprintf("    Machine Instructions: %d\n", len(block.MachineInstructions)))
 		sb.WriteString("    Successors: ")
 		for _, succ := range block.Successors {
 			sb.WriteString(fmt.Sprintf("%d ", succ.ID))

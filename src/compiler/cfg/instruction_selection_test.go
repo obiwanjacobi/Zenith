@@ -42,10 +42,23 @@ func newSemUnaryOp(op zsm.UnaryOperator, operand zsm.SemExpression, typ zsm.Type
 	}
 }
 
+// Helper to create a test basic block for instruction selection tests
+func newTestBlock() *BasicBlock {
+	return &BasicBlock{
+		ID:                  0,
+		Label:               LabelEntry,
+		Instructions:        []zsm.SemStatement{},
+		MachineInstructions: []MachineInstruction{},
+		Successors:          []*BasicBlock{},
+		Predecessors:        []*BasicBlock{},
+	}
+}
+
 // Test selectConstant
 func Test_InstructionSelection_Constant(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	constant := &zsm.SemConstant{
@@ -66,8 +79,9 @@ func Test_InstructionSelection_Constant(t *testing.T) {
 
 // Test selectBinaryOp with addition
 func Test_InstructionSelection_BinaryOp_Add(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	left := &zsm.SemConstant{Value: 10, TypeInfo: u8Type()}
@@ -118,8 +132,9 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewZ80CallingConvention()
-			selector := NewZ80InstructionSelector(cc)
+			cc := NewCallingConventionZ80()
+
+			selector := NewInstructionSelectorZ80(cc)
 			ctx := NewInstructionSelectionContext(selector, cc)
 
 			left := newSemConstant(10, u8Type())
@@ -151,8 +166,9 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cc := NewZ80CallingConvention()
-			selector := NewZ80InstructionSelector(cc)
+			cc := NewCallingConventionZ80()
+
+			selector := NewInstructionSelectorZ80(cc)
 			ctx := NewInstructionSelectionContext(selector, cc)
 
 			operand := newSemConstant(42, u8Type())
@@ -172,8 +188,9 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 
 // Test selectVariableDecl
 func Test_InstructionSelection_VariableDecl(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	symbol := &zsm.Symbol{
@@ -204,8 +221,9 @@ func Test_InstructionSelection_VariableDecl(t *testing.T) {
 
 // Test selectAssignment
 func Test_InstructionSelection_Assignment(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	// Create a variable first
@@ -231,8 +249,9 @@ func Test_InstructionSelection_Assignment(t *testing.T) {
 
 // Test selectReturn with value
 func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	returnStmt := &zsm.SemReturn{
@@ -250,8 +269,9 @@ func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
 
 // Test selectReturn void
 func Test_InstructionSelection_ReturnVoid(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	returnStmt := &zsm.SemReturn{
@@ -269,8 +289,9 @@ func Test_InstructionSelection_ReturnVoid(t *testing.T) {
 
 // Test selectFunctionCall
 func Test_InstructionSelection_FunctionCall(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	funcSymbol := &zsm.Symbol{
@@ -299,8 +320,9 @@ func Test_InstructionSelection_FunctionCall(t *testing.T) {
 
 // Test expression caching
 func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	constant := &zsm.SemConstant{Value: 42, TypeInfo: u8Type()}
@@ -324,8 +346,9 @@ func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
 
 // Test selectSymbolRef
 func Test_InstructionSelection_SymbolRef(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	// Create a variable
@@ -348,8 +371,9 @@ func Test_InstructionSelection_SymbolRef(t *testing.T) {
 
 // Test selectSymbolRef with undefined variable
 func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	symbol := &zsm.Symbol{
@@ -369,8 +393,9 @@ func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
 
 // Test selectFunction with parameters
 func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	param1 := &zsm.Symbol{Name: "a", Type: u8Type()}
@@ -414,8 +439,9 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 
 // Test SelectInstructions with full compilation unit
 func Test_SelectInstructions_Simple(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 
 	fn := &zsm.SemFunctionDecl{
 		Name:       "test",
@@ -445,8 +471,9 @@ func Test_SelectInstructions_Simple(t *testing.T) {
 
 // Test complex expression with nested operations
 func Test_InstructionSelection_ComplexExpression(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	// (10 + 20) * 30
@@ -476,8 +503,9 @@ func Test_InstructionSelection_ComplexExpression(t *testing.T) {
 
 // Test multiple variable declarations
 func Test_InstructionSelection_MultipleVariables(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	symbol1 := &zsm.Symbol{Name: "x", Type: u8Type()}
@@ -513,8 +541,9 @@ func Test_InstructionSelection_MultipleVariables(t *testing.T) {
 
 // Test variable declaration without initializer
 func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	symbol := &zsm.Symbol{Name: "x", Type: u8Type()}
@@ -537,8 +566,9 @@ func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
 
 // Test 16-bit operations
 func Test_InstructionSelection_16BitOperations(t *testing.T) {
-	cc := NewZ80CallingConvention()
-	selector := NewZ80InstructionSelector(cc)
+	cc := NewCallingConventionZ80()
+
+	selector := NewInstructionSelectorZ80(cc)
 	ctx := NewInstructionSelectionContext(selector, cc)
 
 	binaryOp := &zsm.SemBinaryOp{

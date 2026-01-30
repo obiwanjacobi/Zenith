@@ -3,7 +3,7 @@ package cfg
 import (
 	"fmt"
 
-	"zenith/compiler/zir"
+	"zenith/compiler/zsm"
 )
 
 // RegisterClass represents the class/category of a register
@@ -38,7 +38,7 @@ type SymbolInfo interface {
 	GetTypeSize(qualifiedName string) int
 
 	// GetUsage returns the usage pattern of the symbol
-	GetUsage(qualifiedName string) zir.VariableUsage
+	GetUsage(qualifiedName string) zsm.VariableUsage
 }
 
 // Register represents a physical register
@@ -59,7 +59,7 @@ type AllocationResult struct {
 	Spilled map[string]bool
 
 	// Variable usage patterns (from symbol table, used for preference-based allocation)
-	VariableUsages map[string]zir.VariableUsage
+	VariableUsages map[string]zsm.VariableUsage
 
 	// Variable type sizes in bits (8 or 16) - needed to match register width
 	VariableSizes map[string]int
@@ -105,7 +105,7 @@ func (ra *RegisterAllocator) AllocateWithPrecoloring(ig *InterferenceGraph, symb
 	result := &AllocationResult{
 		Allocation:     make(map[string]string),
 		Spilled:        make(map[string]bool),
-		VariableUsages: make(map[string]zir.VariableUsage),
+		VariableUsages: make(map[string]zsm.VariableUsage),
 		VariableSizes:  make(map[string]int),
 	}
 

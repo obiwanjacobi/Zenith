@@ -1,7 +1,7 @@
 package cfg
 
 import (
-	"zenith/compiler/zir"
+	"zenith/compiler/zsm"
 )
 
 // LivenessInfo contains liveness analysis results for a CFG
@@ -104,25 +104,25 @@ func computeUseDefSets(block *BasicBlock, scopeName string, use, def map[string]
 }
 
 // getUsedVariables returns the names of variables read by a statement
-func getUsedVariables(stmt zir.SemStatement, scopeName string) []string {
+func getUsedVariables(stmt zsm.SemStatement, scopeName string) []string {
 	var used []string
 
 	switch s := stmt.(type) {
-	case *zir.SemVariableDecl:
+	case *zsm.SemVariableDecl:
 		// Initializer uses variables
 		if s.Initializer != nil {
 			used = append(used, getUsedInExpression(s.Initializer, scopeName)...)
 		}
 
-	case *zir.SemAssignment:
+	case *zsm.SemAssignment:
 		// Right side uses variables
 		used = append(used, getUsedInExpression(s.Value, scopeName)...)
 
-	case *zir.SemExpressionStmt:
+	case *zsm.SemExpressionStmt:
 		// Expression may use variables
 		used = append(used, getUsedInExpression(s.Expression, scopeName)...)
 
-	case *zir.SemReturn:
+	case *zsm.SemReturn:
 		// Return value uses variables
 		if s.Value != nil {
 			used = append(used, getUsedInExpression(s.Value, scopeName)...)
@@ -134,15 +134,15 @@ func getUsedVariables(stmt zir.SemStatement, scopeName string) []string {
 
 // getDefinedVariables returns the names of variables written by a statement
 // Uses fully qualified names from Symbol.QualifiedName
-func getDefinedVariables(stmt zir.SemStatement, scopeName string) []string {
+func getDefinedVariables(stmt zsm.SemStatement, scopeName string) []string {
 	var defined []string
 
 	switch s := stmt.(type) {
-	case *zir.SemVariableDecl:
+	case *zsm.SemVariableDecl:
 		// Variable declaration defines a variable
 		defined = append(defined, s.Symbol.QualifiedName)
 
-	case *zir.SemAssignment:
+	case *zsm.SemAssignment:
 		// Assignment defines the target variable
 		defined = append(defined, s.Target.QualifiedName)
 	}
@@ -152,7 +152,7 @@ func getDefinedVariables(stmt zir.SemStatement, scopeName string) []string {
 
 // getUsedInExpression recursively extracts variable names used in an expression
 // Uses fully qualified names from Symbol.QualifiedName
-func getUsedInExpression(expr zir.SemExpression, scopeName string) []string {
+func getUsedInExpression(expr zsm.SemExpression, scopeName string) []string {
 	if expr == nil {
 		return nil
 	}
@@ -160,35 +160,35 @@ func getUsedInExpression(expr zir.SemExpression, scopeName string) []string {
 	var used []string
 
 	switch e := expr.(type) {
-	case *zir.SemSymbolRef:
+	case *zsm.SemSymbolRef:
 		// Symbol reference uses the variable (with its qualified name)
 		used = append(used, e.Symbol.QualifiedName)
 
-	case *zir.SemBinaryOp:
+	case *zsm.SemBinaryOp:
 		// Binary operation uses both operands
 		used = append(used, getUsedInExpression(e.Left, scopeName)...)
 		used = append(used, getUsedInExpression(e.Right, scopeName)...)
 
-	case *zir.SemUnaryOp:
+	case *zsm.SemUnaryOp:
 		// Unary operation uses its operand
 		used = append(used, getUsedInExpression(e.Operand, scopeName)...)
 
-	case *zir.SemFunctionCall:
+	case *zsm.SemFunctionCall:
 		// Function call uses all arguments
 		for _, arg := range e.Arguments {
 			used = append(used, getUsedInExpression(arg, scopeName)...)
 		}
 
-	case *zir.SemConstant:
+	case *zsm.SemConstant:
 		// Constants don't use variables
 
-	case *zir.SemMemberAccess:
+	case *zsm.SemMemberAccess:
 		// Member access uses the base object
 		if e.Object != nil {
 			used = append(used, getUsedInExpression(*e.Object, scopeName)...)
 		}
 
-	case *zir.SemTypeInitializer:
+	case *zsm.SemTypeInitializer:
 		// Type initializer uses field values
 		for _, field := range e.Fields {
 			used = append(used, getUsedInExpression(field.Value, scopeName)...)
@@ -251,4 +251,3 @@ func (info *LivenessInfo) IsLiveAt(varName string, blockID int) bool {
 func (info *LivenessInfo) IsLiveOutOf(varName string, blockID int) bool {
 	return info.LiveOut[blockID][varName]
 }
-

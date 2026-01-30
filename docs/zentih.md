@@ -30,7 +30,7 @@ If the target it is assigned to is explicitly typed, that type will be used, unl
 `x := 420`      u16
 `x := -128`     i16
 `x:u16 = 42`    u16 typed target
-`x = i8(42)`    i8  conversion
+`x = i8(42)`    i8  conversion (from u8)
 
 If the literal does not fit in a primitve type a compiler error is generated.
 Use a conversion function or a explicitly typed target.

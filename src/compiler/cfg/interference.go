@@ -3,7 +3,7 @@ package cfg
 import (
 	"fmt"
 	"sort"
-	"zenith/compiler/zir"
+	"zenith/compiler/zsm"
 )
 
 // InterferenceGraph represents which variables cannot share the same register
@@ -156,25 +156,25 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 }
 
 // Helper functions to get used/defined variables in a statement
-func getUsedInStatement(stmt zir.SemStatement, scopeName string) map[string]bool {
+func getUsedInStatement(stmt zsm.SemStatement, scopeName string) map[string]bool {
 	used := make(map[string]bool)
 	switch s := stmt.(type) {
-	case *zir.SemVariableDecl:
+	case *zsm.SemVariableDecl:
 		if s.Initializer != nil {
 			for _, v := range getUsedInExpression(s.Initializer, scopeName) {
 				used[v] = true
 			}
 		}
-	case *zir.SemAssignment:
+	case *zsm.SemAssignment:
 		// Right-hand side uses variables
 		for _, v := range getUsedInExpression(s.Value, scopeName) {
 			used[v] = true
 		}
-	case *zir.SemExpressionStmt:
+	case *zsm.SemExpressionStmt:
 		for _, v := range getUsedInExpression(s.Expression, scopeName) {
 			used[v] = true
 		}
-	case *zir.SemReturn:
+	case *zsm.SemReturn:
 		if s.Value != nil {
 			for _, v := range getUsedInExpression(s.Value, scopeName) {
 				used[v] = true
@@ -184,15 +184,14 @@ func getUsedInStatement(stmt zir.SemStatement, scopeName string) map[string]bool
 	return used
 }
 
-func getDefinedInStatement(stmt zir.SemStatement, scopeName string) map[string]bool {
+func getDefinedInStatement(stmt zsm.SemStatement, scopeName string) map[string]bool {
 	defined := make(map[string]bool)
 	switch s := stmt.(type) {
-	case *zir.SemVariableDecl:
+	case *zsm.SemVariableDecl:
 		defined[s.Symbol.QualifiedName] = true
-	case *zir.SemAssignment:
+	case *zsm.SemAssignment:
 		// Left-hand side defines a variable
 		defined[s.Target.QualifiedName] = true
 	}
 	return defined
 }
-

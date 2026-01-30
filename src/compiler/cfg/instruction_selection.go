@@ -22,6 +22,9 @@ type InstructionSelectionContext struct {
 
 	// Current CFG being processed
 	currentCFG *CFG
+
+	// Current basic block being processed
+	currentBlock *BasicBlock
 }
 
 // NewInstructionSelectionContext creates a new context for instruction selection
@@ -98,6 +101,10 @@ func (ctx *InstructionSelectionContext) selectFunction(fn *zsm.SemFunctionDecl) 
 
 // selectBasicBlock processes a single basic block
 func (ctx *InstructionSelectionContext) selectBasicBlock(block *BasicBlock) error {
+	// Set the current block in both context and selector
+	ctx.currentBlock = block
+	ctx.selector.SetCurrentBlock(block)
+
 	// Process all statements in this block
 	for _, stmt := range block.Instructions {
 		if err := ctx.selectStatement(stmt); err != nil {

@@ -1,4 +1,4 @@
-package zir
+package zsm
 
 // CallGraph represents the function call relationships in the program
 type CallGraph struct {

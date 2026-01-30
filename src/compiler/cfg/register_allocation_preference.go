@@ -1,6 +1,6 @@
 package cfg
 
-import "zenith/compiler/zir"
+import "zenith/compiler/zsm"
 
 // RegisterPreference represents how well a register matches a variable's usage
 type RegisterPreference struct {
@@ -11,7 +11,7 @@ type RegisterPreference struct {
 // calculateRegisterPreference scores how well a register matches a variable's usage pattern
 // Uses the provided RegisterCapabilities to perform architecture-specific scoring
 // variableSize is the bit width of the variable (8 or 16)
-func calculateRegisterPreference(reg *Register, usage zir.VariableUsage, variableSize int, capabilities RegisterCapabilities) int {
+func calculateRegisterPreference(reg *Register, usage zsm.VariableUsage, variableSize int, capabilities RegisterCapabilities) int {
 	if capabilities == nil {
 		// Fallback to generic scoring if no capabilities provided
 		capabilities = &GenericRegisterCapabilities{}
@@ -24,7 +24,7 @@ func calculateRegisterPreference(reg *Register, usage zir.VariableUsage, variabl
 // Returns -1 if no suitable register is available
 func selectBestRegister(
 	variable string,
-	usage zir.VariableUsage,
+	usage zsm.VariableUsage,
 	variableSize int,
 	availableRegisters []*Register,
 	usedColors map[int]bool,
@@ -53,7 +53,7 @@ func selectBestRegister(
 // This shows how you'd integrate usage-aware allocation into the coloring phase
 func examplePreferenceBasedColoring(
 	variable string,
-	usage zir.VariableUsage,
+	usage zsm.VariableUsage,
 	variableSize int,
 	availableRegisters []*Register,
 	usedColors map[int]bool,
@@ -68,7 +68,7 @@ func examplePreferenceBasedColoring(
 	//
 	// We select based on preference score (considering variable size and usage):
 	// The variableSize would come from AllocationResult.VariableSizes[variable]
-	// which is populated from the symbol's Type (e.g., zir.U8Type -> 8 bits, zir.U16Type -> 16 bits)
+	// which is populated from the symbol's Type (e.g., zsm.U8Type -> 8 bits, zsm.U16Type -> 16 bits)
 	bestIdx := selectBestRegister(variable, usage, variableSize, availableRegisters, usedColors, capabilities)
 	if bestIdx >= 0 {
 		return availableRegisters[bestIdx].Name, true

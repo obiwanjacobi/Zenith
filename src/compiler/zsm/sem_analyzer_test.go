@@ -1,4 +1,4 @@
-package zir
+package zsm
 
 import (
 	"fmt"
@@ -1034,5 +1034,3 @@ func Test_Analyze_CallGraph_NestedFunctionCalls(t *testing.T) {
 	allFuncs := semCU.CallGraph.GetAllFunctions()
 	assert.Equal(t, 3, len(allFuncs))
 }
-
-

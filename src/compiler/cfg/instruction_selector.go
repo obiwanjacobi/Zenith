@@ -180,10 +180,13 @@ type InstructionSelector interface {
 	// AllocateVirtualConstrained creates a virtual register with specific constraints
 	AllocateVirtualConstrained(size int, allowedSet []*Register, requiredClass RegisterClass) *VirtualRegister
 
-	// EmitInstruction adds an instruction to the current sequence
-	EmitInstruction(instr MachineInstruction)
+	// EmitInstruction adds an instruction to the current block
+	EmitInstruction(block *BasicBlock, instr MachineInstruction)
 
-	// GetInstructions returns all emitted instructions
+	// SetCurrentBlock sets the active block for instruction emission
+	SetCurrentBlock(block *BasicBlock)
+
+	// GetInstructions returns all emitted instructions (across all blocks, for backward compatibility)
 	GetInstructions() []MachineInstruction
 
 	// ClearInstructions resets the instruction buffer
@@ -217,13 +220,12 @@ type MachineInstruction interface {
 	// GetAddressingMode returns instruction addressing mode flags
 	GetAddressingMode() AddressingMode
 
-	// GetTargetBlock returns the basic block target (for branches/jumps)
-	// Returns nil if this instruction doesn't have a block target
-	GetTargetBlock() *BasicBlock
-
-	// GetBranchTargets returns both branch targets (true and false blocks)
-	// Returns nil if this instruction is not a conditional branch
-	GetBranchTargets() (trueBlock, falseBlock *BasicBlock)
+	// GetTargetBlocks returns the basic block targets for control flow instructions
+	// Returns nil if this instruction doesn't transfer control
+	// Returns 1 block for unconditional jumps/gotos
+	// Returns 2 blocks for conditional branches ([0]=true target, [1]=false target)
+	// Returns n blocks for multi-way branches (select/switch/case - in order)
+	GetTargetBlocks() []*BasicBlock
 
 	// GetComment returns a human-readable comment (for debugging/disassembly)
 	GetComment() string

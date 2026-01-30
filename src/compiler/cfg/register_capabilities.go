@@ -1,12 +1,12 @@
 package cfg
 
-import "zenith/compiler/zir"
+import "zenith/compiler/zsm"
 
 // RegisterCapabilities defines architecture-specific register capabilities
 type RegisterCapabilities interface {
 	// ScoreRegisterForUsage returns a score (higher = better) for how well
 	// a register matches a variable's usage pattern and size requirements
-	ScoreRegisterForUsage(reg *Register, usage zir.VariableUsage, variableSize int) int
+	ScoreRegisterForUsage(reg *Register, usage zsm.VariableUsage, variableSize int) int
 
 	// IsRegisterPair returns true if the register is a multi-byte register pair
 	IsRegisterPair(reg *Register) bool
@@ -15,7 +15,7 @@ type RegisterCapabilities interface {
 // GenericRegisterCapabilities provides basic scoring without architecture-specific optimizations
 type GenericRegisterCapabilities struct{}
 
-func (c *GenericRegisterCapabilities) ScoreRegisterForUsage(reg *Register, usage zir.VariableUsage, variableSize int) int {
+func (c *GenericRegisterCapabilities) ScoreRegisterForUsage(reg *Register, usage zsm.VariableUsage, variableSize int) int {
 	score := 10 // Base score
 
 	// Strong preference for matching register size to variable size

@@ -1,4 +1,4 @@
-package zir
+package zsm
 
 import (
 	"fmt"

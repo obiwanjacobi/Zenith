@@ -1,4 +1,4 @@
-package zir
+package zsm
 
 // Type represents a resolved type in the IR
 type Type interface {

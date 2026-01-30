@@ -8,7 +8,7 @@ import (
 )
 
 func Test_Z80CallingConvention_FirstParam16Bit(t *testing.T) {
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 
 	reg, offset, useStack := cc.GetParameterLocation(0, 16)
 
@@ -19,7 +19,7 @@ func Test_Z80CallingConvention_FirstParam16Bit(t *testing.T) {
 }
 
 func Test_Z80CallingConvention_FirstParam8Bit(t *testing.T) {
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 
 	reg, offset, useStack := cc.GetParameterLocation(0, 8)
 
@@ -30,7 +30,7 @@ func Test_Z80CallingConvention_FirstParam8Bit(t *testing.T) {
 }
 
 func Test_Z80CallingConvention_SecondParam16Bit(t *testing.T) {
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 
 	reg, offset, useStack := cc.GetParameterLocation(1, 16)
 
@@ -41,7 +41,7 @@ func Test_Z80CallingConvention_SecondParam16Bit(t *testing.T) {
 }
 
 func Test_Z80CallingConvention_FourthParamOnStack(t *testing.T) {
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 
 	reg, offset, useStack := cc.GetParameterLocation(3, 16)
 
@@ -51,7 +51,7 @@ func Test_Z80CallingConvention_FourthParamOnStack(t *testing.T) {
 }
 
 func Test_Z80CallingConvention_ReturnValue8Bit(t *testing.T) {
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 
 	reg := cc.GetReturnValueRegister(8)
 
@@ -60,7 +60,7 @@ func Test_Z80CallingConvention_ReturnValue8Bit(t *testing.T) {
 }
 
 func Test_Z80CallingConvention_ReturnValue16Bit(t *testing.T) {
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 
 	reg := cc.GetReturnValueRegister(16)
 
@@ -69,7 +69,7 @@ func Test_Z80CallingConvention_ReturnValue16Bit(t *testing.T) {
 }
 
 func Test_Z80CallingConvention_CallerSavedRegisters(t *testing.T) {
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 
 	callerSaved := cc.GetCallerSavedRegisters()
 
@@ -99,7 +99,7 @@ func Test_Z80CallingConvention_CallerSavedRegisters(t *testing.T) {
 
 func Test_RegisterAllocator_WithCallingConvention(t *testing.T) {
 	allocator := NewRegisterAllocator(Z80Registers)
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 	allocator.SetCallingConvention(cc)
 
 	// Build pre-coloring for function with 2 params: foo(x: u16, y: u8)
@@ -149,7 +149,7 @@ func Test_RegisterAllocator_FunctionWithParametersIntegration(t *testing.T) {
 
 	// Create allocator with calling convention
 	allocator := NewRegisterAllocator(Z80Registers)
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 	allocator.SetCallingConvention(cc)
 
 	// Build pre-coloring for parameters
@@ -198,7 +198,7 @@ func Test_RegisterAllocator_ThreeParametersWithStackSpill(t *testing.T) {
 	paramSizes := []int{16, 16, 16}
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 	allocator.SetCallingConvention(cc)
 
 	precolored := allocator.BuildParameterPrecoloring("calc", paramNames, paramSizes)
@@ -246,7 +246,7 @@ func Test_RegisterAllocator_MixedParameterSizes(t *testing.T) {
 	paramSizes := []int{8, 16}
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	cc := NewCallingConvention_Z80()
+	cc := NewCallingConventionZ80()
 	allocator.SetCallingConvention(cc)
 
 	precolored := allocator.BuildParameterPrecoloring("process", paramNames, paramSizes)

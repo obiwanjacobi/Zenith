@@ -1,4 +1,4 @@
-package zir
+package zsm
 
 // SymbolKind represents the kind of symbol
 type SymbolKind int

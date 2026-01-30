@@ -172,7 +172,7 @@ Represents a sequence of instructions with single entry and single exit.
 - Contains only straight-line IR statements (no branches mid-block)
 - Has unique ID and optional label (Entry, Exit, IfThen, etc.)
 - Connected to other blocks via Successor and Predecessor edges
-- Instructions are `[]zir.IRStatement`
+- Instructions are `[]zsm.IRStatement`
 
 **Critical Invariant:** Control flow between blocks is explicit through edges, not through instructions within blocks.
 

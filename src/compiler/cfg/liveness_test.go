@@ -5,14 +5,14 @@ import (
 
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
-	"zenith/compiler/zir"
+	"zenith/compiler/zsm"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // Helper function to build CFG and compute liveness from code
-func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo, *zir.SymbolLookup) {
+func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo, *zsm.SymbolLookup) {
 	// Tokenize
 	tokens := lexer.OpenTokenStream(code)
 
@@ -25,13 +25,13 @@ func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo, *zir
 	require.True(t, ok)
 
 	// Analyze to get IR
-	analyzer := zir.NewSemanticAnalyzer()
+	analyzer := zsm.NewSemanticAnalyzer()
 	semCU, semErrors := analyzer.Analyze(cu)
 	require.Equal(t, 0, len(semErrors), "IR analysis errors: %v", semErrors)
 	require.Greater(t, len(semCU.Declarations), 0)
 
 	// Get function declaration
-	funcDecl, ok := semCU.Declarations[0].(*zir.SemFunctionDecl)
+	funcDecl, ok := semCU.Declarations[0].(*zsm.SemFunctionDecl)
 	require.True(t, ok)
 
 	// Build CFG
@@ -41,7 +41,7 @@ func buildLivenessFromCode(t *testing.T, code string) (*CFG, *LivenessInfo, *zir
 	// Compute liveness
 	liveness := ComputeLiveness(cfg)
 
-	symbolLookup := zir.NewSymbolLookup(semCU)
+	symbolLookup := zsm.NewSymbolLookup(semCU)
 	return cfg, liveness, symbolLookup
 }
 
@@ -276,4 +276,3 @@ func Test_Liveness_ReturnStatement(t *testing.T) {
 	assert.False(t, liveness.Use[codeBlock.ID]["main.x"])
 	assert.False(t, liveness.Use[codeBlock.ID]["main.y"])
 }
-

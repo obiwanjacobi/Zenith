@@ -1,4 +1,4 @@
-package zir
+package zsm
 
 import (
 	"testing"
@@ -199,4 +199,3 @@ func Test_VariableUsage_MultipleArithmetic(t *testing.T) {
 	assert.Equal(t, "c", cDecl.Symbol.Name)
 	assert.True(t, cDecl.Symbol.Usage.HasFlag(VarUsedArithmetic), "c should be used in arithmetic")
 }
-

@@ -1,4 +1,4 @@
-package zir
+package zsm
 
 // SymbolLookup provides symbol information for register allocation
 // Maps qualified symbol names to their type information

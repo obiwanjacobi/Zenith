@@ -28,8 +28,8 @@ var Z80Registers = []*Register{
 	&RegBC, &RegDE, &RegHL, &RegAF, &RegSP,
 }
 
-// Z80CallingConvention implements a standard calling convention for Z80
-type Z80CallingConvention struct {
+// callingConventionZ80 implements a standard calling convention for Z80
+type callingConventionZ80 struct {
 	registers []*Register
 }
 
@@ -46,13 +46,13 @@ type Z80CallingConvention struct {
 //
 // Caller-saved (volatile): AF, BC, DE, HL
 // Callee-saved (non-volatile): IX, IY (if available)
-func NewCallingConvention_Z80() CallingConvention {
-	return &Z80CallingConvention{
+func NewCallingConventionZ80() CallingConvention {
+	return &callingConventionZ80{
 		registers: Z80Registers,
 	}
 }
 
-func (cc *Z80CallingConvention) GetParameterLocation(paramIndex int, paramSize int) (register *Register, stackOffset int, useStack bool) {
+func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize int) (register *Register, stackOffset int, useStack bool) {
 	// Map parameter indices to register pairs
 	// For 8-bit params, use the low byte of the pair
 	var regName string
@@ -97,7 +97,7 @@ func (cc *Z80CallingConvention) GetParameterLocation(paramIndex int, paramSize i
 	return nil, 2 + paramIndex*2, true
 }
 
-func (cc *Z80CallingConvention) GetReturnValueRegister(returnSize int) *Register {
+func (cc *callingConventionZ80) GetReturnValueRegister(returnSize int) *Register {
 	var regName string
 	if returnSize == 8 {
 		regName = "A"
@@ -113,7 +113,7 @@ func (cc *Z80CallingConvention) GetReturnValueRegister(returnSize int) *Register
 	return nil
 }
 
-func (cc *Z80CallingConvention) GetCallerSavedRegisters() []*Register {
+func (cc *callingConventionZ80) GetCallerSavedRegisters() []*Register {
 	// Caller must save: AF, BC, DE, HL (all general-purpose registers)
 	callerSaved := make([]*Register, 0)
 	volatileNames := map[string]bool{
@@ -131,18 +131,18 @@ func (cc *Z80CallingConvention) GetCallerSavedRegisters() []*Register {
 	return callerSaved
 }
 
-func (cc *Z80CallingConvention) GetCalleeSavedRegisters() []*Register {
+func (cc *callingConventionZ80) GetCalleeSavedRegisters() []*Register {
 	// Callee must preserve: IX, IY (if we use them)
 	// For now, return empty since we're not using IX/IY
 	return []*Register{}
 }
 
-func (cc *Z80CallingConvention) GetStackAlignment() int {
+func (cc *callingConventionZ80) GetStackAlignment() int {
 	// Z80 doesn't have strict alignment requirements
 	return 1
 }
 
-func (cc *Z80CallingConvention) GetStackGrowthDirection() bool {
+func (cc *callingConventionZ80) GetStackGrowthDirection() bool {
 	// Z80 stack grows downward (toward lower addresses)
 	return true
 }

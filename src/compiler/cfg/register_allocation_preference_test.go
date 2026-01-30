@@ -3,13 +3,13 @@ package cfg
 import (
 	"testing"
 
-	"zenith/compiler/zir"
+	"zenith/compiler/zsm"
 )
 
 func Test_RegisterPreference_ArithmeticPreference(t *testing.T) {
 	// 8-bit variable used for arithmetic operations should prefer A register
-	usage := zir.VarInitConstant
-	usage.AddFlag(zir.VarUsedArithmetic)
+	usage := zsm.VarInitConstant
+	usage.AddFlag(zsm.VarUsedArithmetic)
 
 	regA := Register{Name: "A", Size: 8, Class: RegisterClassAccumulator}
 	regB := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
@@ -30,8 +30,8 @@ func Test_RegisterPreference_ArithmeticPreference(t *testing.T) {
 
 func Test_RegisterPreference_PointerPreference8Bit(t *testing.T) {
 	// 8-bit variable used for pointer/indirect addressing
-	usage := zir.VarInitPointer
-	usage.AddFlag(zir.VarUsedPointer)
+	usage := zsm.VarInitPointer
+	usage.AddFlag(zsm.VarUsedPointer)
 
 	regA := Register{Name: "A", Size: 8, Class: RegisterClassAccumulator}
 	regH := Register{Name: "H", Size: 8, Class: RegisterClassIndex}
@@ -54,8 +54,8 @@ func Test_RegisterPreference_PointerPreference8Bit(t *testing.T) {
 
 func Test_RegisterPreference_PointerPreference16Bit(t *testing.T) {
 	// 16-bit variable used for pointer should prefer HL pair
-	usage := zir.VarInitPointer
-	usage.AddFlag(zir.VarUsedPointer)
+	usage := zsm.VarInitPointer
+	usage.AddFlag(zsm.VarUsedPointer)
 
 	regHL := Register{Name: "HL", Size: 16, Class: RegisterClassIndex}
 	regDE := Register{Name: "DE", Size: 16, Class: RegisterClassGeneral}
@@ -76,8 +76,8 @@ func Test_RegisterPreference_PointerPreference16Bit(t *testing.T) {
 
 func Test_RegisterPreference_CounterPreference(t *testing.T) {
 	// 8-bit variable used as loop counter should prefer B or C
-	usage := zir.VarInitCounter
-	usage.AddFlag(zir.VarUsedCounter)
+	usage := zsm.VarInitCounter
+	usage.AddFlag(zsm.VarUsedCounter)
 
 	regA := Register{Name: "A", Size: 8, Class: RegisterClassAccumulator}
 	regB := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
@@ -100,7 +100,7 @@ func Test_RegisterPreference_CounterPreference(t *testing.T) {
 
 func Test_RegisterPreference_SizeMatching(t *testing.T) {
 	// Test that register size matching is prioritized
-	usage := zir.VarInitConstant // No special usage
+	usage := zsm.VarInitConstant // No special usage
 
 	reg8 := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
 	reg16 := Register{Name: "BC", Size: 16, Class: RegisterClassGeneral}
@@ -127,8 +127,8 @@ func Test_RegisterPreference_SizeMatching(t *testing.T) {
 
 func Test_SelectBestRegister(t *testing.T) {
 	// Test selecting best register based on usage for 8-bit arithmetic
-	usage := zir.VarInitNone
-	usage.AddFlag(zir.VarUsedArithmetic)
+	usage := zsm.VarInitNone
+	usage.AddFlag(zsm.VarUsedArithmetic)
 
 	registers := Z80Registers
 	usedColors := make(map[int]bool)
@@ -163,8 +163,8 @@ func Test_SelectBestRegister(t *testing.T) {
 
 func Test_SelectBestRegister16Bit(t *testing.T) {
 	// Test selecting best register for 16-bit pointer
-	usage := zir.VarInitPointer
-	usage.AddFlag(zir.VarUsedPointer)
+	usage := zsm.VarInitPointer
+	usage.AddFlag(zsm.VarUsedPointer)
 
 	registers := Z80Registers
 	usedColors := make(map[int]bool)

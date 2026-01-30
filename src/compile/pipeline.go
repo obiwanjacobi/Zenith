@@ -8,7 +8,7 @@ import (
 	"zenith/compiler/cfg"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
-	"zenith/compiler/zir"
+	"zenith/compiler/zsm"
 )
 
 // CompilationResult contains the output of the compilation pipeline
@@ -19,7 +19,7 @@ type CompilationResult struct {
 	// Intermediate representations
 	Tokens lexer.TokenStream
 	AST    parser.ParserNode
-	IR     *zir.SemCompilationUnit
+	IR     *zsm.SemCompilationUnit
 
 	// Per-function CFG and analysis results
 	FunctionCFGs     map[string]*cfg.CFG
@@ -33,7 +33,7 @@ type CompilationResult struct {
 	// Error tracking
 	LexerErrors    []error
 	ParserErrors   []parser.ParserError
-	SemanticErrors []*zir.SemError
+	SemanticErrors []*zsm.SemError
 	CodeGenErrors  []error
 
 	// Success flag
@@ -179,7 +179,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		fmt.Println("==> Stage 3: Semantic Analysis & IR Generation")
 	}
 
-	analyzer := zir.NewSemanticAnalyzer()
+	analyzer := zsm.NewSemanticAnalyzer()
 	semCompilationUnit, semanticErrors := analyzer.Analyze(compilationUnit)
 	result.IR = semCompilationUnit
 	result.SemanticErrors = semanticErrors
@@ -212,7 +212,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	cfgBuilder := cfg.NewCFGBuilder()
 	for _, decl := range semCompilationUnit.Declarations {
-		if fnDecl, ok := decl.(*zir.SemFunctionDecl); ok {
+		if fnDecl, ok := decl.(*zsm.SemFunctionDecl); ok {
 			functionCFG := cfgBuilder.BuildCFG(fnDecl)
 			result.FunctionCFGs[fnDecl.Name] = functionCFG
 
@@ -313,8 +313,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	switch opts.TargetArch {
 	case "z80":
-		callingConvention = cfg.NewCallingConvention_Z80()
-		instructionSelector = cfg.NewZ80InstructionSelector(callingConvention)
+		callingConvention = cfg.NewCallingConventionZ80()
+		instructionSelector = cfg.NewInstructionSelectorZ80(callingConvention)
 	default:
 		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
 	}
@@ -375,17 +375,17 @@ func dumpAST(ast parser.CompilationUnit) {
 	fmt.Println()
 }
 
-func dumpIR(ir *zir.SemCompilationUnit) {
+func dumpIR(ir *zsm.SemCompilationUnit) {
 	fmt.Println("========== IR ===========")
 	fmt.Printf("IR Compilation Unit with %d declarations\n", len(ir.Declarations))
 	for _, decl := range ir.Declarations {
 		switch d := decl.(type) {
-		case *zir.SemFunctionDecl:
+		case *zsm.SemFunctionDecl:
 			fmt.Printf("  Function: %s (params=%d)\n",
 				d.Name, len(d.Parameters))
-		case *zir.SemVariableDecl:
+		case *zsm.SemVariableDecl:
 			fmt.Printf("  Variable: %s\n", d.Symbol.Name)
-		case *zir.SemTypeDecl:
+		case *zsm.SemTypeDecl:
 			fmt.Printf("  Type: %s\n", d.TypeInfo.Name())
 		default:
 			fmt.Printf("  Unknown: %T\n", decl)
