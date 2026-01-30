@@ -404,7 +404,7 @@ Use `NewZ80Call()` to invoke runtime functions like `__mul8`, `__shl16_var`, etc
 
 ✅ **Correct approach:**
 
-1. Check what constructors exist: `NewZ80Instruction`, `NewZ80InstructionImm8`, etc.
+1. Check what constructors exist.
 2. Check what opcodes are defined: `Z80_LD_R_R`, `Z80_ADD_A_R`, etc.
 3. Only use what exists, or add missing pieces to plan
 
@@ -521,7 +521,7 @@ During function prologue generation:
 
 **Available constructors:**
 
-- `NewZ80Instruction(opcode, result, operand)` - Basic 2-operand instructions
+- `newInstructionZ80(opcode, result, operand)` - Basic 2-operand instructions
 - `NewZ80InstructionImm8(opcode, result, imm8)` - With immediate byte
 - `NewZ80InstructionImm16(opcode, result, imm16)` - With immediate word
 - `NewZ80Branch(opcode, condition, trueBlock, falseBlock)` - Conditional branch
@@ -697,7 +697,7 @@ Before implementing:
 
 **Instruction Constructors:**
 
-- `NewZ80Instruction(opcode, result, operand)` - Basic 2-operand instruction
+- `newInstructionZ80(opcode, result, operand)` - Basic 2-operand instruction
 
 - `NewZ80InstructionImm8(opcode, result, imm8)` - With 8-bit immediate
 

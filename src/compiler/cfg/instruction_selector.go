@@ -224,7 +224,7 @@ type MachineInstruction interface {
 	// Returns nil if this instruction doesn't transfer control
 	// Returns 1 block for unconditional jumps/gotos
 	// Returns 2 blocks for conditional branches ([0]=true target, [1]=false target)
-	// Returns n blocks for multi-way branches (select/switch/case - in order)
+	// Returns n blocks for multi-way branches (select/case/else - in order, else always last)
 	GetTargetBlocks() []*BasicBlock
 
 	// GetComment returns a human-readable comment (for debugging/disassembly)
