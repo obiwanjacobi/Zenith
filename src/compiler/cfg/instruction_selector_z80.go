@@ -36,13 +36,13 @@ func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size in
 		// LD A, left
 		// ADD A, right
 		// LD result, A
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_ADD_A_R, vrA, right))
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
 	case 16:
 		// 16-bit add: ADD HL, rr
-		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
+		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
 		z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 		z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, right))
 		z.emit(newInstructionZ80(Z80_LD_RR_NN, result, vrHL))
@@ -57,7 +57,7 @@ func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size in
 func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
 	result := z.vrAlloc.Allocate(size)
 
-	vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 	switch size {
 	case 8:
 		// 8-bit subtract: SUB uses A register implicitly
@@ -66,7 +66,7 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, si
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
 	case 16:
 		// 16-bit subtract: SBC HL, rr
-		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
+		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
 		z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 		// Clear carry flag first (OR A)
 		z.emit(newInstructionZ80(Z80_OR_R, vrA, vrA))
@@ -84,8 +84,8 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, si
 func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
 	// Prepare arguments according to calling convention
 	// Typically: HL = left, DE = right, result in HL
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
@@ -107,8 +107,8 @@ func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, si
 // SelectDivide generates instructions for division (a / b)
 // Z80 has no divide instruction - call runtime helper
 func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
@@ -131,7 +131,7 @@ func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size int
 
 	if size == 8 {
 		// Two's complement: XOR 0xFF, INC
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, operand))
 		z.emit(newInstructionZ80Imm8(Z80_XOR_N, vrA, 0xFF))
 		z.emit(newInstructionZ80(Z80_INC_R, vrA, nil))
@@ -152,7 +152,7 @@ func (z *instructionSelectorZ80) SelectBitwiseAnd(left, right *VirtualRegister, 
 	result := z.vrAlloc.Allocate(size)
 
 	if size == 8 {
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_AND_R, vrA, right))
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
@@ -169,7 +169,7 @@ func (z *instructionSelectorZ80) SelectBitwiseOr(left, right *VirtualRegister, s
 	result := z.vrAlloc.Allocate(size)
 
 	if size == 8 {
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_OR_R, vrA, right))
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
@@ -185,7 +185,7 @@ func (z *instructionSelectorZ80) SelectBitwiseXor(left, right *VirtualRegister, 
 	result := z.vrAlloc.Allocate(size)
 
 	if size == 8 {
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_XOR_R, vrA, right))
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
@@ -202,7 +202,7 @@ func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister, size
 
 	if size == 8 {
 		// CPL instruction complements A
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, operand))
 		z.emit(newInstructionZ80Imm8(Z80_XOR_N, vrA, 0xFF))
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
@@ -217,8 +217,8 @@ func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister, size
 func (z *instructionSelectorZ80) SelectShiftLeft(value, amount *VirtualRegister, size int) (*VirtualRegister, error) {
 	// For variable shifts, call runtime helper
 	// Constant shifts could be optimized later
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, value))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, amount))
@@ -229,7 +229,7 @@ func (z *instructionSelectorZ80) SelectShiftLeft(value, amount *VirtualRegister,
 		z.emit(newCallZ80("__shl16"))
 	}
 
-	result := z.vrAlloc.AllocateConstrained(size, []*Register{&RegHL}, RegisterClassIndex)
+	result := z.vrAlloc.AllocateConstrained(size, []*Register{&RegHL})
 
 	return result, nil
 }
@@ -238,8 +238,8 @@ func (z *instructionSelectorZ80) SelectShiftLeft(value, amount *VirtualRegister,
 func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount *VirtualRegister, size int) (*VirtualRegister, error) {
 	// For variable shifts, call runtime helper
 	// Constant shifts could be optimized later
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, value))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, amount))
@@ -250,7 +250,7 @@ func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount
 		z.emit(newCallZ80("__shr16"))
 	}
 
-	result := z.vrAlloc.AllocateConstrained(size, []*Register{&RegHL}, RegisterClassIndex)
+	result := z.vrAlloc.AllocateConstrained(size, []*Register{&RegHL})
 
 	return result, nil
 }
@@ -260,14 +260,14 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(left, right *VirtualRegister) 
 	// For logical AND, we need short-circuit evaluation which requires CFG support
 	// For now, use runtime helper that evaluates both operands
 	// TODO: Handle short-circuit evaluation at CFG level
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
 	z.emit(newCallZ80("__logical_and"))
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
@@ -277,14 +277,14 @@ func (z *instructionSelectorZ80) SelectLogicalOr(left, right *VirtualRegister) (
 	// For logical OR, we need short-circuit evaluation which requires CFG support
 	// For now, use runtime helper that evaluates both operands
 	// TODO: Handle short-circuit evaluation at CFG level
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
 	z.emit(newCallZ80("__logical_or"))
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
@@ -292,11 +292,11 @@ func (z *instructionSelectorZ80) SelectLogicalOr(left, right *VirtualRegister) (
 // SelectLogicalNot generates instructions for logical NOT (!a)
 func (z *instructionSelectorZ80) SelectLogicalNot(operand *VirtualRegister) (*VirtualRegister, error) {
 	// Use runtime helper to convert operand != 0 to boolean, then invert
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, operand))
 	z.emit(newCallZ80("__logical_not"))
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
@@ -311,7 +311,7 @@ func (z *instructionSelectorZ80) SelectEqual(left, right *VirtualRegister, size 
 
 	if size == 8 {
 		// CP sets flags, then check Z flag
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_CP_R, vrA, right))
 		// TODO: Convert flags to 0/1 value
@@ -324,8 +324,8 @@ func (z *instructionSelectorZ80) SelectEqual(left, right *VirtualRegister, size 
 func (z *instructionSelectorZ80) SelectNotEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
 	// For comparison operations that return boolean, use runtime helper
 	// Converting flags to 0/1 values requires control flow or special instructions
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
@@ -336,15 +336,15 @@ func (z *instructionSelectorZ80) SelectNotEqual(left, right *VirtualRegister, si
 		z.emit(newCallZ80("__cmp_ne16"))
 	}
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
 
 // SelectLessThan generates instructions for less-than comparison (a < b)
 func (z *instructionSelectorZ80) SelectLessThan(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
@@ -355,15 +355,15 @@ func (z *instructionSelectorZ80) SelectLessThan(left, right *VirtualRegister, si
 		z.emit(newCallZ80("__cmp_lt16"))
 	}
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
 
 // SelectLessEqual generates instructions for less-or-equal comparison (a <= b)
 func (z *instructionSelectorZ80) SelectLessEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
@@ -374,15 +374,15 @@ func (z *instructionSelectorZ80) SelectLessEqual(left, right *VirtualRegister, s
 		z.emit(newCallZ80("__cmp_le16"))
 	}
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
 
 // SelectGreaterThan generates instructions for greater-than comparison (a > b)
 func (z *instructionSelectorZ80) SelectGreaterThan(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
@@ -393,15 +393,15 @@ func (z *instructionSelectorZ80) SelectGreaterThan(left, right *VirtualRegister,
 		z.emit(newCallZ80("__cmp_gt16"))
 	}
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
 
 // SelectGreaterEqual generates instructions for greater-or-equal comparison (a >= b)
 func (z *instructionSelectorZ80) SelectGreaterEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error) {
-	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
-	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE}, RegisterClassIndex)
+	vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	vrDE := z.vrAlloc.AllocateConstrained(16, []*Register{&RegDE})
 
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
 	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
@@ -412,7 +412,7 @@ func (z *instructionSelectorZ80) SelectGreaterEqual(left, right *VirtualRegister
 		z.emit(newCallZ80("__cmp_ge16"))
 	}
 
-	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
+	result := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
 
 	return result, nil
 }
@@ -428,8 +428,8 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int
 	switch size {
 	case 8:
 		// LD A, (HL) - assumes address is in HL
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
-		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
+		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
 
 		// Load address into HL (with offset if needed)
 		if offset != 0 {
@@ -455,8 +455,8 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int
 // SelectStore generates instructions to store to memory
 func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size int) error {
 	if size == 8 {
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA}, RegisterClassAccumulator)
-		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL}, RegisterClassIndex)
+		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
+		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
 
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, value))
 
@@ -547,7 +547,7 @@ func (z *instructionSelectorZ80) SelectCall(functionName string, args []*Virtual
 	// Get return value if non-void
 	if returnSize > 0 {
 		returnReg := z.callingConvention.GetReturnValueRegister(returnSize / 8)
-		result := z.vrAlloc.AllocateConstrained(returnSize, []*Register{returnReg}, returnReg.Class)
+		result := z.vrAlloc.AllocateConstrained(returnSize, []*Register{returnReg})
 		return result, nil
 	}
 
@@ -589,8 +589,8 @@ func (z *instructionSelectorZ80) AllocateVirtual(size int) *VirtualRegister {
 }
 
 // AllocateVirtualConstrained creates a virtual register with constraints
-func (z *instructionSelectorZ80) AllocateVirtualConstrained(size int, allowedSet []*Register, requiredClass RegisterClass) *VirtualRegister {
-	return z.vrAlloc.AllocateConstrained(size, allowedSet, requiredClass)
+func (z *instructionSelectorZ80) AllocateVirtualConstrained(size int, allowedSet []*Register) *VirtualRegister {
+	return z.vrAlloc.AllocateConstrained(size, allowedSet)
 }
 
 // SetCurrentBlock sets the active block for instruction emission

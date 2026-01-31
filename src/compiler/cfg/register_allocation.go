@@ -6,32 +6,6 @@ import (
 	"zenith/compiler/zsm"
 )
 
-// RegisterClass represents the class/category of a register
-type RegisterClass int
-
-const (
-	RegisterClassGeneral RegisterClass = iota
-	RegisterClassAccumulator
-	RegisterClassIndex
-	RegisterClassFlags
-	RegisterClassStackPointer
-)
-
-func (rc RegisterClass) String() string {
-	switch rc {
-	case RegisterClassGeneral:
-		return "general"
-	case RegisterClassAccumulator:
-		return "accumulator"
-	case RegisterClassIndex:
-		return "index"
-	case RegisterClassStackPointer:
-		return "stack pointer"
-	default:
-		return "unknown"
-	}
-}
-
 // SymbolInfo provides information needed for register allocation
 type SymbolInfo interface {
 	// GetTypeSize returns the size of the symbol's type in bits (8 or 16)
@@ -45,7 +19,6 @@ type SymbolInfo interface {
 type Register struct {
 	Name        string
 	Size        int // 8 or 16 bits
-	Class       RegisterClass
 	Composition []*Register // For multi-byte registers (typical Intel and Zilog)
 	RegisterId  int         // the register id for encoding
 }

@@ -178,7 +178,7 @@ type InstructionSelector interface {
 	AllocateVirtual(size int) *VirtualRegister
 
 	// AllocateVirtualConstrained creates a virtual register with specific constraints
-	AllocateVirtualConstrained(size int, allowedSet []*Register, requiredClass RegisterClass) *VirtualRegister
+	AllocateVirtualConstrained(size int, allowedSet []*Register) *VirtualRegister
 
 	// EmitInstruction adds an instruction to the current block
 	EmitInstruction(block *BasicBlock, instr MachineInstruction)
@@ -240,10 +240,6 @@ type VirtualRegister struct {
 	// If nil or empty, any register of the correct size and class can be used
 	AllowedSet []*Register
 
-	// RequiredClass restricts allocation by register class (general, accumulator, index, etc.)
-	// If 0, no class restriction
-	RequiredClass RegisterClass
-
 	// PhysicalReg is set after register allocation
 	PhysicalReg *Register
 
@@ -285,12 +281,11 @@ func (vra *VirtualRegisterAllocator) Allocate(size int) *VirtualRegister {
 }
 
 // AllocateConstrained creates a virtual register with specific constraints
-func (vra *VirtualRegisterAllocator) AllocateConstrained(size int, allowedSet []*Register, requiredClass RegisterClass) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateConstrained(size int, allowedSet []*Register) *VirtualRegister {
 	vr := &VirtualRegister{
-		ID:            vra.nextID,
-		Size:          size,
-		AllowedSet:    allowedSet,
-		RequiredClass: requiredClass,
+		ID:         vra.nextID,
+		Size:       size,
+		AllowedSet: allowedSet,
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++

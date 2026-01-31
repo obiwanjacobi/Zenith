@@ -11,9 +11,9 @@ func Test_RegisterPreference_ArithmeticPreference(t *testing.T) {
 	usage := zsm.VarInitConstant
 	usage.AddFlag(zsm.VarUsedArithmetic)
 
-	regA := Register{Name: "A", Size: 8, Class: RegisterClassAccumulator}
-	regB := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
-	regH := Register{Name: "H", Size: 8, Class: RegisterClassIndex}
+	regA := Register{Name: "A", Size: 8}
+	regB := Register{Name: "B", Size: 8}
+	regH := Register{Name: "H", Size: 8}
 
 	cap := &Z80RegisterCapabilities{}
 	scoreA := calculateRegisterPreference(&regA, usage, 8, cap)
@@ -33,10 +33,10 @@ func Test_RegisterPreference_PointerPreference8Bit(t *testing.T) {
 	usage := zsm.VarInitPointer
 	usage.AddFlag(zsm.VarUsedPointer)
 
-	regA := Register{Name: "A", Size: 8, Class: RegisterClassAccumulator}
-	regH := Register{Name: "H", Size: 8, Class: RegisterClassIndex}
-	regL := Register{Name: "L", Size: 8, Class: RegisterClassIndex}
-	regD := Register{Name: "D", Size: 8, Class: RegisterClassGeneral}
+	regA := Register{Name: "A", Size: 8}
+	regH := Register{Name: "H", Size: 8}
+	regL := Register{Name: "L", Size: 8}
+	regD := Register{Name: "D", Size: 8}
 
 	cap := &Z80RegisterCapabilities{}
 	scoreA := calculateRegisterPreference(&regA, usage, 8, cap)
@@ -57,9 +57,9 @@ func Test_RegisterPreference_PointerPreference16Bit(t *testing.T) {
 	usage := zsm.VarInitPointer
 	usage.AddFlag(zsm.VarUsedPointer)
 
-	regHL := Register{Name: "HL", Size: 16, Class: RegisterClassIndex}
-	regDE := Register{Name: "DE", Size: 16, Class: RegisterClassGeneral}
-	regBC := Register{Name: "BC", Size: 16, Class: RegisterClassGeneral}
+	regHL := Register{Name: "HL", Size: 16}
+	regDE := Register{Name: "DE", Size: 16}
+	regBC := Register{Name: "BC", Size: 16}
 
 	cap := &Z80RegisterCapabilities{}
 	scoreHL := calculateRegisterPreference(&regHL, usage, 16, cap)
@@ -79,10 +79,10 @@ func Test_RegisterPreference_CounterPreference(t *testing.T) {
 	usage := zsm.VarInitCounter
 	usage.AddFlag(zsm.VarUsedCounter)
 
-	regA := Register{Name: "A", Size: 8, Class: RegisterClassAccumulator}
-	regB := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
-	regC := Register{Name: "C", Size: 8, Class: RegisterClassGeneral}
-	regD := Register{Name: "D", Size: 8, Class: RegisterClassGeneral}
+	regA := Register{Name: "A", Size: 8}
+	regB := Register{Name: "B", Size: 8}
+	regC := Register{Name: "C", Size: 8}
+	regD := Register{Name: "D", Size: 8}
 
 	cap := &Z80RegisterCapabilities{}
 	scoreA := calculateRegisterPreference(&regA, usage, 8, cap)
@@ -102,8 +102,8 @@ func Test_RegisterPreference_SizeMatching(t *testing.T) {
 	// Test that register size matching is prioritized
 	usage := zsm.VarInitConstant // No special usage
 
-	reg8 := Register{Name: "B", Size: 8, Class: RegisterClassGeneral}
-	reg16 := Register{Name: "BC", Size: 16, Class: RegisterClassGeneral}
+	reg8 := Register{Name: "B", Size: 8}
+	reg16 := Register{Name: "BC", Size: 16}
 
 	cap := &Z80RegisterCapabilities{}
 	// 8-bit variable should strongly prefer 8-bit register

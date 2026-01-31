@@ -78,7 +78,7 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 				// generate loads when the value is actually used in a physical register.
 			} else {
 				// Parameter is in a register - allocate VirtualRegister with constraint
-				vr := ctx.vrAlloc.AllocateConstrained(size, []*Register{reg}, reg.Class)
+				vr := ctx.vrAlloc.AllocateConstrained(size, []*Register{reg})
 				vr.Name = param.Name
 				ctx.symbolToVReg[param] = vr
 			}
@@ -303,7 +303,7 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 
 		// Move value to the return register
 		size := returnSize * 8
-		returnVR := ctx.vrAlloc.AllocateConstrained(size, []*Register{returnReg}, returnReg.Class)
+		returnVR := ctx.vrAlloc.AllocateConstrained(size, []*Register{returnReg})
 		if err := ctx.selector.SelectMove(returnVR, valueVR, size); err != nil {
 			return err
 		}
