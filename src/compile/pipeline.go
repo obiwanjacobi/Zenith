@@ -317,16 +317,22 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
 	}
 
-	// Run instruction selection on the IR
-	cfgs, err := cfg.SelectInstructions(semCompilationUnit, instructionSelector)
+	// Collect CFGs from result.FunctionCFGs map into a slice
+	cfgs := make([]*cfg.CFG, 0, len(result.FunctionCFGs))
+	for _, funcCFG := range result.FunctionCFGs {
+		cfgs = append(cfgs, funcCFG)
+	}
+
+	// Run instruction selection on the CFGs (modifies CFGs in-place)
+	_, err := cfg.SelectInstructions(cfgs, instructionSelector)
 	if err != nil {
 		result.CodeGenErrors = append(result.CodeGenErrors, err)
 		return result, fmt.Errorf("instruction selection failed: %w", err)
 	}
 
-	// Extract instructions from each function's CFG
+	// Extract instructions from each function's CFG (now populated with machine instructions)
 	allInstructions := []cfg.MachineInstruction{}
-	for _, funcCFG := range cfgs {
+	for _, funcCFG := range result.FunctionCFGs {
 		funcInstructions := funcCFG.GetAllInstructions()
 		result.Instructions[funcCFG.FunctionName] = funcInstructions
 		allInstructions = append(allInstructions, funcInstructions...)

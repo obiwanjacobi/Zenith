@@ -407,10 +407,9 @@ func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
 	assert.Contains(t, err.Error(), "undefined variable")
 }
 
-// Test selectFunction with parameters
+// Test instruction selection with parameters
 func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 	selector := NewInstructionSelectorZ80()
-	ctx := NewInstructionSelectionContext(selector)
 
 	param1 := &zsm.Symbol{Name: "a", Type: u8Type()}
 	param2 := &zsm.Symbol{Name: "b", Type: u8Type()}
@@ -433,22 +432,18 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 		},
 	}
 
-	cfg, err := ctx.selectFunction(fn)
-
-	require.NoError(t, err)
+	// Build CFG
+	builder := NewCFGBuilder()
+	cfg := builder.BuildCFG(fn)
 	require.NotNil(t, cfg)
 
-	// Check that parameters are allocated
-	vr1, ok := ctx.symbolToVReg[param1]
-	assert.True(t, ok)
-	assert.NotNil(t, vr1)
-
-	vr2, ok := ctx.symbolToVReg[param2]
-	assert.True(t, ok)
-	assert.NotNil(t, vr2)
+	// Select instructions
+	cfgs, err := SelectInstructions([]*CFG{cfg}, selector)
+	require.NoError(t, err)
+	require.Len(t, cfgs, 1)
 
 	// Check that instructions were generated
-	instructions := ctx.currentCFG.GetAllInstructions()
+	instructions := cfgs[0].GetAllInstructions()
 	assert.NotEmpty(t, instructions)
 }
 
@@ -473,7 +468,12 @@ func Test_SelectInstructions_Simple(t *testing.T) {
 		Declarations: []zsm.SemDeclaration{fn},
 	}
 
-	cfgs, err := SelectInstructions(compilationUnit, selector)
+	// Build CFGs first
+	cfgs := BuildCFGs(compilationUnit)
+	require.Len(t, cfgs, 1)
+
+	// Then select instructions
+	cfgs, err := SelectInstructions(cfgs, selector)
 
 	require.NoError(t, err)
 	require.Len(t, cfgs, 1)

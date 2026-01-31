@@ -38,69 +38,61 @@ func NewInstructionSelectionContext(selector InstructionSelector) *InstructionSe
 	}
 }
 
-// SelectInstructions walks the IR and generates machine instructions
-// It first builds a CFG for each function, then generates instructions for each block
-// Returns a slice of CFGs containing the generated instructions
-func SelectInstructions(compilationUnit *zsm.SemCompilationUnit, selector InstructionSelector) ([]*CFG, error) {
+// SelectInstructions generates machine instructions for pre-built CFGs
+// Takes a slice of CFGs and populates their MachineInstructions fields
+// Returns the same CFGs with machine instructions added
+func SelectInstructions(cfgs []*CFG, selector InstructionSelector) ([]*CFG, error) {
 	ctx := NewInstructionSelectionContext(selector)
-	var cfgs []*CFG
 
-	// Process each function
-	for _, decl := range compilationUnit.Declarations {
-		if funcDecl, ok := decl.(*zsm.SemFunctionDecl); ok {
-			cfg, err := ctx.selectFunction(funcDecl)
-			if err != nil {
-				return nil, fmt.Errorf("selecting instructions for function %s: %w", funcDecl.Name, err)
-			}
-			cfgs = append(cfgs, cfg)
+	// Process each CFG
+	for _, cfg := range cfgs {
+		if err := ctx.selectCFG(cfg); err != nil {
+			return nil, fmt.Errorf("selecting instructions for function %s: %w", cfg.FunctionName, err)
 		}
 	}
 
 	return cfgs, nil
 }
 
-// selectFunction processes a single function
-func (ctx *InstructionSelectionContext) selectFunction(fn *zsm.SemFunctionDecl) (*CFG, error) {
-	ctx.currentFunction = fn
-
-	// Build CFG for this function
-	builder := NewCFGBuilder()
-	cfg := builder.BuildCFG(fn)
+// selectCFG processes a single CFG and generates instructions for all its blocks
+func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 	ctx.currentCFG = cfg
 
 	// Allocate VirtualRegisters for parameters based on calling convention
-	for i, param := range fn.Parameters {
-		size := param.Type.Size() * 8 // Convert bytes to bits
-		sizeBytes := param.Type.Size()
+	if cfg.FunctionDecl != nil {
+		for i, param := range cfg.FunctionDecl.Parameters {
+			size := param.Type.Size() * 8 // Convert bytes to bits
+			sizeBytes := param.Type.Size()
 
-		// Ask calling convention where this parameter should be
-		reg, stackOffset, useStack := ctx.callingConvention.GetParameterLocation(i, sizeBytes)
+			// Ask calling convention where this parameter should be
+			reg, stackOffset, useStack := ctx.callingConvention.GetParameterLocation(i, sizeBytes)
 
-		if useStack {
-			// Parameter is on the stack - allocate VirtualRegister with stack home
-			// The register allocator can use this stack location for spilling
-			vr := ctx.vrAlloc.AllocateWithStackHome(param.Name, size, stackOffset)
-			ctx.symbolToVReg[param] = vr
+			if useStack {
+				// Parameter is on the stack - allocate VirtualRegister with stack home
+				// The register allocator can use this stack location for spilling
+				vr := ctx.vrAlloc.AllocateWithStackHome(param.Name, size, stackOffset)
+				ctx.symbolToVReg[param] = vr
 
-			// Note: We don't eagerly load from stack here. The VirtualRegister
-			// represents the parameter value, and the register allocator will
-			// generate loads when the value is actually used in a physical register.
-		} else {
-			// Parameter is in a register - allocate VirtualRegister with constraint
-			vr := ctx.vrAlloc.AllocateConstrained(size, []*Register{reg}, reg.Class)
-			vr.Name = param.Name
-			ctx.symbolToVReg[param] = vr
+				// Note: We don't eagerly load from stack here. The VirtualRegister
+				// represents the parameter value, and the register allocator will
+				// generate loads when the value is actually used in a physical register.
+			} else {
+				// Parameter is in a register - allocate VirtualRegister with constraint
+				vr := ctx.vrAlloc.AllocateConstrained(size, []*Register{reg}, reg.Class)
+				vr.Name = param.Name
+				ctx.symbolToVReg[param] = vr
+			}
 		}
 	}
 
 	// Process each basic block in the CFG
 	for _, block := range cfg.Blocks {
 		if err := ctx.selectBasicBlock(block); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return cfg, nil
+	return nil
 }
 
 // selectBasicBlock processes a single basic block
