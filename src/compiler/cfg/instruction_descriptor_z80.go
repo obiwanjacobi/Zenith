@@ -226,10 +226,20 @@ type InstrDescriptor struct {
 	// Timing (in T-states/cycles) (includes prefixes)
 	Cycles      uint8 // Mandatory cycle count (for non-branching or branch-not-taken)
 	CyclesTaken uint8 // Additional cycles if branch is taken (0 for non-branch instructions)
+	Size        uint8 // Instruction size in bytes (including prefixes)
 
 	// TODO: these might be constant over the complete range of instructions?
 	EncodingReg1SL uint8 // Shift left of operand register-id #1 in opcode encoding
 	EncodingReg2SL uint8 // Shift left of operand register-id #2 in opcode encoding
 	Prefix1        uint8 // Instruction prefix #1 byte (0 if none)
 	Prefix2        uint8 // Instruction prefix #2 byte (0 if none)
+}
+
+func HasDependency(deps []InstrDependency, operandType OperandType) bool {
+	for _, dep := range deps {
+		if dep.Type == operandType {
+			return true
+		}
+	}
+	return false
 }

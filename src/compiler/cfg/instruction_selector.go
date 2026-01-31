@@ -193,6 +193,11 @@ type InstructionSelector interface {
 	GetTargetRegisters() []*Register
 }
 
+type InstructionCost struct {
+	Cycles uint8 // Estimated execution cycles
+	Size   uint8 // Instruction size in bytes
+}
+
 // MachineInstruction represents a single target-specific instruction
 // This interface exposes only what optimizers and register allocators need
 type MachineInstruction interface {
@@ -221,11 +226,8 @@ type MachineInstruction interface {
 	// Returns n blocks for multi-way branches (select/case/else - in order, else always last)
 	GetTargetBlocks() []*BasicBlock
 
-	// GetComment returns a human-readable comment (for debugging/disassembly)
-	GetComment() string
-
-	// String returns a string representation of the instruction
-	String() string
+	// returns the cost metrics for this instruction
+	GetCost() InstructionCost
 }
 
 // VirtualRegister represents a register before physical allocation

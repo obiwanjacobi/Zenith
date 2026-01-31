@@ -455,8 +455,10 @@ func dumpInstructions(instructions []cfg.MachineInstruction) {
 		for j, op := range operands {
 			operandStrs[j] = op.Name
 		}
-		fmt.Printf("  [%4d] %s (result=%s, operands=%v)\n",
-			i, instr.String(), resultStr, operandStrs)
+		// fmt.Printf("  [%4d] %s (result=%s, operands=%v)\n",
+		// 	i, instr.String(), resultStr, operandStrs)
+		fmt.Printf("  [%4d] <instr> (result=%s, operands=%v)\n",
+			i, resultStr, operandStrs)
 	}
 	fmt.Println()
 }

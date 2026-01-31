@@ -10,7 +10,6 @@ type instructionSelectorZ80 struct {
 	vrAlloc           *VirtualRegisterAllocator
 	currentBlock      *BasicBlock // Current block for instruction emission
 	callingConvention CallingConvention
-	labelCounter      int
 }
 
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
@@ -18,7 +17,6 @@ func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSel
 	return &instructionSelectorZ80{
 		vrAlloc:           vrAlloc,
 		callingConvention: NewCallingConventionZ80(),
-		labelCounter:      0,
 	}
 }
 
@@ -630,8 +628,7 @@ type machineInstructionZ80 struct {
 	operands      []*VirtualRegister
 	imm8          uint8
 	imm16         uint16
-	targetBlock   *BasicBlock
-	branchTargets [2]*BasicBlock
+	branchTargets []*BasicBlock
 	functionName  string
 	comment       string
 }
@@ -643,9 +640,10 @@ func newInstructionZ80(opcode Z80Opcode, result, operand *VirtualRegister) *mach
 		operands = append(operands, operand)
 	}
 	return &machineInstructionZ80{
-		opcode:   opcode,
-		result:   result,
-		operands: operands,
+		opcode:        opcode,
+		result:        result,
+		operands:      operands,
+		branchTargets: make([]*BasicBlock, 0),
 	}
 }
 
@@ -672,15 +670,15 @@ func newBranchZ80(opcode Z80Opcode, condition *VirtualRegister, trueBlock, false
 	return &machineInstructionZ80{
 		opcode:        opcode,
 		operands:      []*VirtualRegister{condition},
-		branchTargets: [2]*BasicBlock{trueBlock, falseBlock},
+		branchTargets: []*BasicBlock{trueBlock, falseBlock},
 	}
 }
 
 // newJumpZ80 creates an unconditional jump
 func newJumpZ80(opcode Z80Opcode, target *BasicBlock) *machineInstructionZ80 {
 	return &machineInstructionZ80{
-		opcode:      opcode,
-		targetBlock: target,
+		opcode:        opcode,
+		branchTargets: []*BasicBlock{target},
 	}
 }
 
@@ -734,30 +732,19 @@ func (z *machineInstructionZ80) GetAddressingMode() AddressingMode {
 	return 0
 }
 
+// nil for non-branch instructions
+// [1] for jump target
+// branch [1] true target, [2] false target
 func (z *machineInstructionZ80) GetTargetBlocks() []*BasicBlock {
-	// Unconditional jump/call
-	if z.targetBlock != nil {
-		return []*BasicBlock{z.targetBlock}
-	}
-
-	// Conditional branch (true/false)
-	if z.branchTargets[0] != nil || z.branchTargets[1] != nil {
-		return z.branchTargets[:]
-	}
-
-	// No control flow
-	return nil
+	return z.branchTargets
 }
 
-func (z *machineInstructionZ80) GetComment() string {
-	return z.comment
-}
-
-func (z *machineInstructionZ80) String() string {
+func (z *machineInstructionZ80) GetCost() InstructionCost {
 	if desc, ok := Z80InstrDescriptors[z.opcode]; ok {
-		// TODO format with operands
-		return fmt.Sprintf("%d", desc.Opcode)
+		return InstructionCost{
+			Cycles: desc.Cycles,
+			Size:   desc.Size,
+		}
 	}
-
-	return fmt.Sprintf("%d", z.opcode)
+	return InstructionCost{255, 255} // Unknown cost
 }
