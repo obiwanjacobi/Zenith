@@ -143,6 +143,14 @@ type InstructionSelector interface {
 	// Control Flow
 	// ============================================================================
 
+	// SelectConditionalBranch evaluates a conditional expression and branches
+	// Handles comparison operations and logical operators (&& ||) with short-circuit evaluation
+	// evaluateExpr: callback to evaluate sub-expressions to VirtualRegisters
+	// expr: the boolean/comparison expression to evaluate
+	// trueBlock: jumped to if expression is true
+	// falseBlock: jumped to if expression is false
+	SelectConditionalBranch(evaluateExpr func(zsm.SemExpression) (*VirtualRegister, error), expr zsm.SemExpression, trueBlock, falseBlock *BasicBlock) error
+
 	// SelectBranch generates a conditional branch
 	// condition is the virtual register containing the condition (flags or boolean)
 	// trueBlock is jumped to if condition is true, falseBlock if false

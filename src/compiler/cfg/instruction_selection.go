@@ -131,40 +131,25 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 		case *zsm.SemIf:
 			// The SemIf is stored in the condition block
 			// Evaluate condition and branch to successors
-			condVR, err := ctx.selectExpression(stmt.Condition)
-			if err != nil {
-				return err
-			}
-
 			// Successors: [0] = then, [1] = else/merge
 			if len(block.Successors) >= 2 {
-				err = ctx.selector.SelectBranch(condVR, block.Successors[0], block.Successors[1])
+				err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
 				return err
 			}
 
 		case *zsm.SemElsif:
 			// Similar to SemIf
-			condVR, err := ctx.selectExpression(stmt.Condition)
-			if err != nil {
-				return err
-			}
-
 			if len(block.Successors) >= 2 {
-				err = ctx.selector.SelectBranch(condVR, block.Successors[0], block.Successors[1])
+				err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
 				return err
 			}
 
 		case *zsm.SemFor:
 			// For loop condition
 			if stmt.Condition != nil {
-				condVR, err := ctx.selectExpression(stmt.Condition)
-				if err != nil {
-					return err
-				}
-
 				// Successors: [0] = body, [1] = exit
 				if len(block.Successors) >= 2 {
-					err = ctx.selector.SelectBranch(condVR, block.Successors[0], block.Successors[1])
+					err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
 					return err
 				}
 			} else {
@@ -177,26 +162,19 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 
 		case *zsm.SemSelect:
 			// Select statement - generate comparison and branches for each case
-			exprVR, err := ctx.selectExpression(stmt.Expression)
-			if err != nil {
-				return err
-			}
-
-			size := stmt.Expression.Type().Size() * 8
+			// Note: stmt.Expression will be re-evaluated for each case comparison
+			// TODO: Optimize by evaluating once and passing VR to comparison
 			for i, caseStmt := range stmt.Cases {
-				caseValueVR, err := ctx.selectExpression(caseStmt.Value)
-				if err != nil {
-					return err
-				}
-
-				cmpVR, err := ctx.selector.SelectEqual(exprVR, caseValueVR, size)
-				if err != nil {
-					return err
+				// Create a comparison expression for this case
+				cmpExpr := &zsm.SemBinaryOp{
+					Op:    zsm.OpEqual,
+					Left:  stmt.Expression,
+					Right: caseStmt.Value,
 				}
 
 				// Branch to case block or next comparison
 				if i < len(block.Successors)-1 {
-					err = ctx.selector.SelectBranch(cmpVR, block.Successors[i], block.Successors[i+1])
+					err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, cmpExpr, block.Successors[i], block.Successors[i+1])
 					if err != nil {
 						return err
 					}
@@ -460,7 +438,7 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(op *zsm.SemUnaryOp) (*Virt
 	case zsm.OpNegate:
 		return ctx.selector.SelectNegate(operandVR, size)
 
-	case zsm.OpNot:
+	case zsm.OpLogicalNot:
 		return ctx.selector.SelectLogicalNot(operandVR)
 
 	case zsm.OpBitwiseNot:

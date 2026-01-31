@@ -248,7 +248,7 @@ type UnaryOperator int
 
 const (
 	OpNegate UnaryOperator = iota
-	OpNot
+	OpLogicalNot
 	OpBitwiseNot
 )
 

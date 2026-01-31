@@ -169,7 +169,7 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 		op   zsm.UnaryOperator
 	}{
 		{"Negate", zsm.OpNegate},
-		{"Not", zsm.OpNot},
+		{"Not", zsm.OpLogicalNot},
 		{"BitwiseNot", zsm.OpBitwiseNot},
 	}
 
