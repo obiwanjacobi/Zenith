@@ -209,6 +209,26 @@ func (b *CFGBuilder) processStatement(stmt zsm.SemStatement, exitBlock *BasicBlo
 }
 
 // processIf processes an if statement, creating blocks for branches
+//
+//       [cond]
+//       /   \
+//      /     \
+// [then] [elsif.cond] ...
+//	  \  /    \
+//	   \/   [elsif.then]
+//	[merge]     /
+//	    \______/
+//
+// With else:
+//
+//	     [cond]
+//	     /   \
+//	    /     \
+// [then] ... [else]
+//	   \       /
+//	    \     /
+//	    [merge]
+//
 func (b *CFGBuilder) processIf(ifStmt *zsm.SemIf, exitBlock *BasicBlock) {
 	// Current block evaluates condition and branches
 	condBlock := b.currentBlock
@@ -268,6 +288,19 @@ func (b *CFGBuilder) processIf(ifStmt *zsm.SemIf, exitBlock *BasicBlock) {
 }
 
 // processFor processes a for loop, creating blocks for loop structure
+//
+//	  [init]
+//	    |
+//	    v
+//	+--[cond]--+
+//	|    |     |
+//	|    v     v
+//	| [body] [exit]
+//	|    |
+//	|    v
+//	| [inc]
+//	|    |
+//	+----+
 func (b *CFGBuilder) processFor(forStmt *zsm.SemFor, exitBlock *BasicBlock) {
 	// Process initializer in current block
 	if forStmt.Initializer != nil {
@@ -310,6 +343,15 @@ func (b *CFGBuilder) processFor(forStmt *zsm.SemFor, exitBlock *BasicBlock) {
 }
 
 // processSelect processes a select statement, creating blocks for each case
+//
+//	        [expr]
+//	       /   |  \
+//	      /    |   \
+// [case1][case2]...[else]
+//	     \   |     /
+//	      \  |   /
+//	      [merge]
+//
 func (b *CFGBuilder) processSelect(selectStmt *zsm.SemSelect, exitBlock *BasicBlock) {
 	// Current block evaluates the select expression
 	exprBlock := b.currentBlock
