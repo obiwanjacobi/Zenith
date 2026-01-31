@@ -306,7 +306,7 @@ Large interface (~40 methods) covering:
 
 - **Variables:** `SelectLoadVariable`, `SelectStoreVariable`
 
-- **Control:** `SelectBranch`, `SelectJump`, `SelectCall`, `SelectReturn`
+- **Control:** `SelectConditionalBranch`, `SelectJump`, `SelectCall`, `SelectReturn`
 
 - **Utility:** `SelectMove`, `EmitInstruction`
 
@@ -381,9 +381,9 @@ Call runtime helper for operations beyond target capabilities: `__add32`, `__mul
 
 **BasicBlocks exist, but don't create new ones. Reference existing blocks only.**
 
-✅ **SelectBranch usage:** Accept BasicBlock parameters that CFG builder already created
+✅ **SelectConditionalBranch usage:** Accept BasicBlock parameters that CFG builder already created
 
-❌ **Creating blocks in selector:** Never instantiate new BasicBlocks in selector methods
+❌ **Creating blocks:** Never instantiate new BasicBlocks in selector methods
 
 #### 4. Runtime Helpers for Complex Operations
 

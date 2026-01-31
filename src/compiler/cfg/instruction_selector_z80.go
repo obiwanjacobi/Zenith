@@ -651,15 +651,6 @@ func (z *instructionSelectorZ80) emitLabel(label string) {
 	// For now, this is a placeholder for future label support
 }
 
-// SelectBranch generates a conditional branch
-func (z *instructionSelectorZ80) SelectBranch(condition *VirtualRegister, trueBlock, falseBlock *BasicBlock) error {
-	// Test condition (should already set flags)
-	// JP NZ, trueBlock
-	// JP falseBlock
-	z.emit(newBranchZ80(Z80_JP_CC_NN, condition, trueBlock, falseBlock))
-	return nil
-}
-
 // SelectJump generates an unconditional jump
 func (z *instructionSelectorZ80) SelectJump(target *BasicBlock) error {
 	z.emit(newJumpZ80(Z80_JP_NN, target))

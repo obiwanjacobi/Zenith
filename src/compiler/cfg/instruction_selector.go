@@ -151,11 +151,6 @@ type InstructionSelector interface {
 	// falseBlock: jumped to if expression is false
 	SelectConditionalBranch(evaluateExpr func(zsm.SemExpression) (*VirtualRegister, error), expr zsm.SemExpression, trueBlock, falseBlock *BasicBlock) error
 
-	// SelectBranch generates a conditional branch
-	// condition is the virtual register containing the condition (flags or boolean)
-	// trueBlock is jumped to if condition is true, falseBlock if false
-	SelectBranch(condition *VirtualRegister, trueBlock, falseBlock *BasicBlock) error
-
 	// SelectJump generates an unconditional jump to a basic block
 	SelectJump(target *BasicBlock) error
 
