@@ -58,9 +58,10 @@ func newTestBlock() *BasicBlock {
 func Test_InstructionSelection_Constant(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	constant := &zsm.SemConstant{
@@ -83,9 +84,10 @@ func Test_InstructionSelection_Constant(t *testing.T) {
 func Test_InstructionSelection_BinaryOp_Add(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	left := &zsm.SemConstant{Value: 10, TypeInfo: u8Type()}
@@ -138,9 +140,10 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			block := newTestBlock()
 
-			selector := NewInstructionSelectorZ80()
+			vrAlloc := NewVirtualRegisterAllocator()
+			selector := NewInstructionSelectorZ80(vrAlloc)
 			selector.SetCurrentBlock(block)
-			ctx := NewInstructionSelectionContext(selector)
+			ctx := NewInstructionSelectionContext(selector, vrAlloc)
 			ctx.currentBlock = block
 
 			left := newSemConstant(10, u8Type())
@@ -174,9 +177,10 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			block := newTestBlock()
 
-			selector := NewInstructionSelectorZ80()
+			vrAlloc := NewVirtualRegisterAllocator()
+			selector := NewInstructionSelectorZ80(vrAlloc)
 			selector.SetCurrentBlock(block)
-			ctx := NewInstructionSelectionContext(selector)
+			ctx := NewInstructionSelectionContext(selector, vrAlloc)
 			ctx.currentBlock = block
 
 			operand := newSemConstant(42, u8Type())
@@ -198,9 +202,10 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 func Test_InstructionSelection_VariableDecl(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	symbol := &zsm.Symbol{
@@ -233,9 +238,10 @@ func Test_InstructionSelection_VariableDecl(t *testing.T) {
 func Test_InstructionSelection_Assignment(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	// Create a variable first
@@ -263,9 +269,10 @@ func Test_InstructionSelection_Assignment(t *testing.T) {
 func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	returnStmt := &zsm.SemReturn{
@@ -285,9 +292,10 @@ func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
 func Test_InstructionSelection_ReturnVoid(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	returnStmt := &zsm.SemReturn{
@@ -307,9 +315,10 @@ func Test_InstructionSelection_ReturnVoid(t *testing.T) {
 func Test_InstructionSelection_FunctionCall(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	funcSymbol := &zsm.Symbol{
@@ -340,9 +349,10 @@ func Test_InstructionSelection_FunctionCall(t *testing.T) {
 func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	constant := &zsm.SemConstant{Value: 42, TypeInfo: u8Type()}
@@ -366,8 +376,9 @@ func Test_InstructionSelection_ExpressionCaching(t *testing.T) {
 
 // Test selectSymbolRef
 func Test_InstructionSelection_SymbolRef(t *testing.T) {
-	selector := NewInstructionSelectorZ80()
-	ctx := NewInstructionSelectionContext(selector)
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 
 	// Create a variable
 	symbol := &zsm.Symbol{
@@ -389,8 +400,9 @@ func Test_InstructionSelection_SymbolRef(t *testing.T) {
 
 // Test selectSymbolRef with undefined variable
 func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
-	selector := NewInstructionSelectorZ80()
-	ctx := NewInstructionSelectionContext(selector)
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 
 	symbol := &zsm.Symbol{
 		Name: "undefined",
@@ -409,7 +421,7 @@ func Test_InstructionSelection_SymbolRef_Undefined(t *testing.T) {
 
 // Test instruction selection with parameters
 func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
 
 	param1 := &zsm.Symbol{Name: "a", Type: u8Type()}
 	param2 := &zsm.Symbol{Name: "b", Type: u8Type()}
@@ -438,7 +450,7 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 	require.NotNil(t, cfg)
 
 	// Select instructions
-	cfgs, err := SelectInstructions([]*CFG{cfg}, selector)
+	cfgs, err := SelectInstructions([]*CFG{cfg}, vrAlloc)
 	require.NoError(t, err)
 	require.Len(t, cfgs, 1)
 
@@ -449,7 +461,7 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 
 // Test SelectInstructions with full compilation unit
 func Test_SelectInstructions_Simple(t *testing.T) {
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
 
 	fn := &zsm.SemFunctionDecl{
 		Name:       "test",
@@ -473,7 +485,7 @@ func Test_SelectInstructions_Simple(t *testing.T) {
 	require.Len(t, cfgs, 1)
 
 	// Then select instructions
-	cfgs, err := SelectInstructions(cfgs, selector)
+	cfgs, err := SelectInstructions(cfgs, vrAlloc)
 
 	require.NoError(t, err)
 	require.Len(t, cfgs, 1)
@@ -487,9 +499,10 @@ func Test_SelectInstructions_Simple(t *testing.T) {
 func Test_InstructionSelection_ComplexExpression(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	// (10 + 20) * 30
@@ -521,9 +534,10 @@ func Test_InstructionSelection_ComplexExpression(t *testing.T) {
 func Test_InstructionSelection_MultipleVariables(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	symbol1 := &zsm.Symbol{Name: "x", Type: u8Type()}
@@ -559,8 +573,9 @@ func Test_InstructionSelection_MultipleVariables(t *testing.T) {
 
 // Test variable declaration without initializer
 func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
-	selector := NewInstructionSelectorZ80()
-	ctx := NewInstructionSelectionContext(selector)
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 
 	symbol := &zsm.Symbol{Name: "x", Type: u8Type()}
 
@@ -584,9 +599,10 @@ func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
 func Test_InstructionSelection_16BitOperations(t *testing.T) {
 	block := newTestBlock()
 
-	selector := NewInstructionSelectorZ80()
+	vrAlloc := NewVirtualRegisterAllocator()
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
-	ctx := NewInstructionSelectionContext(selector)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
 
 	binaryOp := &zsm.SemBinaryOp{

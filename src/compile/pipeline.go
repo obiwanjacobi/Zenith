@@ -307,15 +307,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		fmt.Println("==> Stage 8: Instruction Selection")
 	}
 
-	// Get architecture-specific calling convention and instruction selector
-	var instructionSelector cfg.InstructionSelector
-
-	switch opts.TargetArch {
-	case "z80":
-		instructionSelector = cfg.NewInstructionSelectorZ80()
-	default:
-		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
-	}
+	// Create virtual register allocator
+	vrAlloc := cfg.NewVirtualRegisterAllocator()
 
 	// Collect CFGs from result.FunctionCFGs map into a slice
 	cfgs := make([]*cfg.CFG, 0, len(result.FunctionCFGs))
@@ -324,7 +317,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// Run instruction selection on the CFGs (modifies CFGs in-place)
-	_, err := cfg.SelectInstructions(cfgs, instructionSelector)
+	_, err := cfg.SelectInstructions(cfgs, vrAlloc)
 	if err != nil {
 		result.CodeGenErrors = append(result.CodeGenErrors, err)
 		return result, fmt.Errorf("instruction selection failed: %w", err)

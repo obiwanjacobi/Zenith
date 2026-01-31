@@ -14,9 +14,9 @@ type instructionSelectorZ80 struct {
 }
 
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
-func NewInstructionSelectorZ80() InstructionSelector {
+func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSelector {
 	return &instructionSelectorZ80{
-		vrAlloc:           NewVirtualRegisterAllocator(),
+		vrAlloc:           vrAlloc,
 		callingConvention: NewCallingConventionZ80(),
 		labelCounter:      0,
 	}

@@ -28,10 +28,10 @@ type InstructionSelectionContext struct {
 }
 
 // NewInstructionSelectionContext creates a new context for instruction selection
-func NewInstructionSelectionContext(selector InstructionSelector) *InstructionSelectionContext {
+func NewInstructionSelectionContext(selector InstructionSelector, vrAlloc *VirtualRegisterAllocator) *InstructionSelectionContext {
 	return &InstructionSelectionContext{
 		selector:          selector,
-		vrAlloc:           NewVirtualRegisterAllocator(),
+		vrAlloc:           vrAlloc,
 		callingConvention: selector.GetCallingConvention(),
 		symbolToVReg:      make(map[*zsm.Symbol]*VirtualRegister),
 		exprToVReg:        make(map[zsm.SemExpression]*VirtualRegister),
@@ -41,11 +41,12 @@ func NewInstructionSelectionContext(selector InstructionSelector) *InstructionSe
 // SelectInstructions generates machine instructions for pre-built CFGs
 // Takes a slice of CFGs and populates their MachineInstructions fields
 // Returns the same CFGs with machine instructions added
-func SelectInstructions(cfgs []*CFG, selector InstructionSelector) ([]*CFG, error) {
-	ctx := NewInstructionSelectionContext(selector)
-
-	// Process each CFG
+func SelectInstructions(cfgs []*CFG, vrAlloc *VirtualRegisterAllocator) ([]*CFG, error) {
+	// Process each CFG with the shared allocator
 	for _, cfg := range cfgs {
+		selector := NewInstructionSelectorZ80(vrAlloc)
+		ctx := NewInstructionSelectionContext(selector, vrAlloc)
+
 		if err := ctx.selectCFG(cfg); err != nil {
 			return nil, fmt.Errorf("selecting instructions for function %s: %w", cfg.FunctionName, err)
 		}
