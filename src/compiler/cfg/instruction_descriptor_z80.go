@@ -1,5 +1,7 @@
 package cfg
 
+import "fmt"
+
 // Z80 Instruction Descriptor Database
 // Defines properties of all Z80 instructions for instruction selection and scheduling
 
@@ -242,4 +244,238 @@ func HasDependency(deps []InstrDependency, operandType OperandType) bool {
 		}
 	}
 	return false
+}
+
+// String returns a human-readable name for the Z80 opcode
+func (op Z80Opcode) String() string {
+	switch op {
+	// 8-bit Load
+	case Z80_LD_R_R:
+		return "LD"
+	case Z80_LD_R_N:
+		return "LD"
+	case Z80_LD_R_HL:
+		return "LD"
+	case Z80_LD_HL_R:
+		return "LD"
+	case Z80_LD_HL_N:
+		return "LD"
+	case Z80_LD_A_PP:
+		return "LD"
+	case Z80_LD_A_NN:
+		return "LD"
+	case Z80_LD_PP_A:
+		return "LD"
+	case Z80_LD_NN_A:
+		return "LD"
+
+	// 16-bit Load
+	case Z80_LD_RR_NN:
+		return "LD"
+	case Z80_LD_HL_NN:
+		return "LD"
+	case Z80_LD_RR_NN_ADDR:
+		return "LD"
+	case Z80_LD_NN_HL:
+		return "LD"
+	case Z80_LD_NN_RR_ADDR:
+		return "LD"
+	case Z80_LD_SP_HL:
+		return "LD"
+
+	// 8-bit Arithmetic
+	case Z80_ADD_A_R:
+		return "ADD"
+	case Z80_ADD_A_N:
+		return "ADD"
+	case Z80_ADD_A_HL:
+		return "ADD"
+	case Z80_ADC_A_R:
+		return "ADC"
+	case Z80_ADC_A_N:
+		return "ADC"
+	case Z80_ADC_A_HL:
+		return "ADC"
+	case Z80_SUB_R:
+		return "SUB"
+	case Z80_SUB_N:
+		return "SUB"
+	case Z80_SUB_HL:
+		return "SUB"
+	case Z80_SBC_A_R:
+		return "SBC"
+	case Z80_SBC_A_N:
+		return "SBC"
+	case Z80_SBC_A_HL:
+		return "SBC"
+	case Z80_AND_R:
+		return "AND"
+	case Z80_AND_N:
+		return "AND"
+	case Z80_AND_HL:
+		return "AND"
+	case Z80_OR_R:
+		return "OR"
+	case Z80_OR_N:
+		return "OR"
+	case Z80_OR_HL:
+		return "OR"
+	case Z80_XOR_R:
+		return "XOR"
+	case Z80_XOR_N:
+		return "XOR"
+	case Z80_XOR_HL:
+		return "XOR"
+	case Z80_CP_R:
+		return "CP"
+	case Z80_CP_N:
+		return "CP"
+	case Z80_CP_HL:
+		return "CP"
+	case Z80_INC_R:
+		return "INC"
+	case Z80_INC_HL:
+		return "INC"
+	case Z80_DEC_R:
+		return "DEC"
+	case Z80_DEC_HL:
+		return "DEC"
+
+	// 16-bit Arithmetic
+	case Z80_ADD_HL_RR:
+		return "ADD"
+	case Z80_ADC_HL_RR:
+		return "ADC"
+	case Z80_SBC_HL_RR:
+		return "SBC"
+	case Z80_INC_RR:
+		return "INC"
+	case Z80_DEC_RR:
+		return "DEC"
+
+	// Control Flow
+	case Z80_JP_NN:
+		return "JP"
+	case Z80_JP_CC_NN:
+		return "JP"
+	case Z80_JP_HL:
+		return "JP"
+	case Z80_JR_E:
+		return "JR"
+	case Z80_JR_CC_E:
+		return "JR"
+	case Z80_CALL_NN:
+		return "CALL"
+	case Z80_CALL_CC_NN:
+		return "CALL"
+	case Z80_RET:
+		return "RET"
+	case Z80_RET_CC:
+		return "RET"
+	// case Z80_RST:
+	// 	return "RST"
+
+	// Stack
+	case Z80_PUSH_QQ:
+		return "PUSH"
+	case Z80_POP_QQ:
+		return "POP"
+
+	// Bit Operations
+	case Z80_BIT_B_R:
+		return "BIT"
+	// case Z80_BIT_B_HL:
+	// 	return "BIT"
+	case Z80_SET_B_R:
+		return "SET"
+	// case Z80_SET_B_HL:
+	// 	return "SET"
+	case Z80_RES_B_R:
+		return "RES"
+	// case Z80_RES_B_HL:
+	// 	return "RES"
+
+	// Rotate/Shift
+	// case Z80_RLCA:
+	// 	return "RLCA"
+	// case Z80_RLA:
+	// 	return "RLA"
+	// case Z80_RRCA:
+	// 	return "RRCA"
+	// case Z80_RRA:
+	// 	return "RRA"
+	case Z80_RLC_R:
+		return "RLC"
+	// case Z80_RLC_HL:
+	// 	return "RLC"
+	case Z80_RL_R:
+		return "RL"
+	// case Z80_RL_HL:
+	// 	return "RL"
+	case Z80_RRC_R:
+		return "RRC"
+	// case Z80_RRC_HL:
+	// 	return "RRC"
+	case Z80_RR_R:
+		return "RR"
+	// case Z80_RR_HL:
+	// 	return "RR"
+	case Z80_SLA_R:
+		return "SLA"
+	// case Z80_SLA_HL:
+	// 	return "SLA"
+	case Z80_SRA_R:
+		return "SRA"
+	// case Z80_SRA_HL:
+	// 	return "SRA"
+	case Z80_SRL_R:
+		return "SRL"
+	// case Z80_SRL_HL:
+	// 	return "SRL"
+
+	// Misc
+	case Z80_NOP:
+		return "NOP"
+	case Z80_HALT:
+		return "HALT"
+	case Z80_DI:
+		return "DI"
+	case Z80_EI:
+		return "EI"
+	// case Z80_EX_DE_HL:
+	// 	return "EX"
+	// case Z80_EX_AF_AF:
+	// 	return "EX"
+	// case Z80_EXX:
+	// 	return "EXX"
+	// case Z80_EX_SP_HL:
+	// 	return "EX"
+
+	default:
+		return fmt.Sprintf("UNKNOWN_OP_%04X", uint16(op))
+	}
+}
+
+// String returns a human-readable name for the condition code
+func (cc ConditionCode) String() string {
+	switch cc {
+	case Cond_NZ:
+		return "NZ"
+	case Cond_Z:
+		return "Z"
+	case Cond_NC:
+		return "NC"
+	case Cond_C:
+		return "C"
+	case Cond_PO:
+		return "PO"
+	case Cond_PE:
+		return "PE"
+	case Cond_P:
+		return "P"
+	case Cond_M:
+		return "M"
+	default:
+		return fmt.Sprintf("UNKNOWN_COND_%d", uint8(cc))
+	}
 }

@@ -25,7 +25,7 @@ type CompilationResult struct {
 	FunctionCFGs     map[string]*cfg.CFG
 	LivenessInfo     map[string]*cfg.LivenessInfo
 	InterferenceInfo map[string]*cfg.InterferenceGraph
-	AllocationInfo   map[string]*cfg.AllocationResult
+	// Note: Register allocation results are stored in VirtualRegister.PhysicalReg
 
 	// Machine code
 	Instructions map[string][]cfg.MachineInstruction
@@ -50,12 +50,14 @@ type PipelineOptions struct {
 	TargetArch string // "z80", etc.
 
 	// Pipeline control flags
-	StopAfterLex      bool
-	StopAfterParse    bool
-	StopAfterSemantic bool
-	StopAfterCFG      bool
-	StopAfterLiveness bool
-	StopAfterRegAlloc bool
+	StopAfterLex                  bool
+	StopAfterParse                bool
+	StopAfterSemantic             bool
+	StopAfterCFG                  bool
+	StopAfterInstructionSelection bool
+	StopAfterLiveness             bool
+	StopAfterInterference         bool
+	StopAfterRegAlloc             bool
 
 	// Optimization flags
 	EnableOptimizations bool
@@ -90,7 +92,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		FunctionCFGs:     make(map[string]*cfg.CFG),
 		LivenessInfo:     make(map[string]*cfg.LivenessInfo),
 		InterferenceInfo: make(map[string]*cfg.InterferenceGraph),
-		AllocationInfo:   make(map[string]*cfg.AllocationResult),
 		Instructions:     make(map[string][]cfg.MachineInstruction),
 		Success:          false,
 	}
@@ -234,10 +235,57 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// ==========================================================================
-	// Stage 5: Liveness Analysis
+	// Stage 5: Instruction Selection
 	// ==========================================================================
 	if opts.Verbose {
-		fmt.Println("==> Stage 5: Liveness Analysis")
+		fmt.Println("==> Stage 5: Instruction Selection")
+	}
+
+	// Create virtual register allocator (shared across all functions)
+	vrAlloc := cfg.NewVirtualRegisterAllocator()
+
+	// Collect CFGs from result.FunctionCFGs map into a slice
+	cfgs := make([]*cfg.CFG, 0, len(result.FunctionCFGs))
+	for _, funcCFG := range result.FunctionCFGs {
+		cfgs = append(cfgs, funcCFG)
+	}
+
+	// TODO: Allow different selectors based on target architecture
+	selector := cfg.NewInstructionSelectorZ80(vrAlloc)
+
+	// Run instruction selection on the CFGs (modifies CFGs in-place, adds MachineInstructions)
+	err := cfg.SelectInstructions(cfgs, vrAlloc, selector)
+	if err != nil {
+		result.CodeGenErrors = append(result.CodeGenErrors, err)
+		return result, fmt.Errorf("instruction selection failed: %w", err)
+	}
+
+	if opts.Verbose {
+		totalInstrs := 0
+		for _, funcCFG := range result.FunctionCFGs {
+			totalInstrs += len(funcCFG.GetAllInstructions())
+		}
+		fmt.Printf("  Generated %d machine instructions with virtual registers\n", totalInstrs)
+	}
+
+	if opts.DumpInstructions {
+		allInstructions := []cfg.MachineInstruction{}
+		for _, funcCFG := range result.FunctionCFGs {
+			allInstructions = append(allInstructions, funcCFG.GetAllInstructions()...)
+		}
+		dumpInstructions(allInstructions)
+	}
+
+	if opts.StopAfterInstructionSelection {
+		result.Success = true
+		return result, nil
+	}
+
+	// ==========================================================================
+	// Stage 6: Liveness Analysis
+	// ==========================================================================
+	if opts.Verbose {
+		fmt.Println("==> Stage 6: Liveness Analysis")
 	}
 
 	for fnName, fnCFG := range result.FunctionCFGs {
@@ -261,10 +309,10 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// ==========================================================================
-	// Stage 6: Interference Graph Construction
+	// Stage 7: Interference Graph Construction
 	// ==========================================================================
 	if opts.Verbose {
-		fmt.Println("==> Stage 6: Interference Graph Construction")
+		fmt.Println("==> Stage 7: Interference Graph Construction")
 	}
 
 	for fnName, liveness := range result.LivenessInfo {
@@ -290,40 +338,59 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		}
 	}
 
+	if opts.StopAfterInterference {
+		result.Success = true
+		return result, nil
+	}
+
 	// ==========================================================================
-	// Stage 7: Register Allocation
+	// Stage 8: Register Allocation
 	// ==========================================================================
-	// Note: Register allocation happens during instruction selection using
-	// virtual registers and the register allocator
+	if opts.Verbose {
+		fmt.Println("==> Stage 8: Register Allocation")
+	}
+
+	// Create register allocator with target registers
+	allocator := cfg.NewRegisterAllocator(selector.GetTargetRegisters())
+
+	for fnName, fnCFG := range result.FunctionCFGs {
+		interference := result.InterferenceInfo[fnName]
+
+		// Run register allocation (assigns PhysicalReg to each VirtualRegister)
+		err := allocator.Allocate(fnCFG, interference, vrAlloc)
+		if err != nil {
+			result.CodeGenErrors = append(result.CodeGenErrors, err)
+			return result, fmt.Errorf("register allocation failed for %s: %w", fnName, err)
+		}
+
+		if opts.Verbose {
+			allocated := 0
+			spilled := 0
+			for _, vr := range vrAlloc.GetAll() {
+				switch vr.Type {
+				case cfg.AllocatedRegister:
+					allocated++
+				case cfg.StackLocation:
+					spilled++
+				}
+			}
+			fmt.Printf("  Allocated %d registers, spilled %d for function '%s'\n", allocated, spilled, fnName)
+		}
+	}
+
+	if opts.DumpAllocation {
+		dumpAllocation("all functions", vrAlloc)
+	}
+
 	if opts.StopAfterRegAlloc {
 		result.Success = true
 		return result, nil
 	}
 
 	// ==========================================================================
-	// Stage 8: Instruction Selection
+	// Stage 9: Code Generation (emit final instructions)
 	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 8: Instruction Selection")
-	}
-
-	// Create virtual register allocator
-	vrAlloc := cfg.NewVirtualRegisterAllocator()
-
-	// Collect CFGs from result.FunctionCFGs map into a slice
-	cfgs := make([]*cfg.CFG, 0, len(result.FunctionCFGs))
-	for _, funcCFG := range result.FunctionCFGs {
-		cfgs = append(cfgs, funcCFG)
-	}
-
-	// Run instruction selection on the CFGs (modifies CFGs in-place)
-	_, err := cfg.SelectInstructions(cfgs, vrAlloc)
-	if err != nil {
-		result.CodeGenErrors = append(result.CodeGenErrors, err)
-		return result, fmt.Errorf("instruction selection failed: %w", err)
-	}
-
-	// Extract instructions from each function's CFG (now populated with machine instructions)
+	// Extract instructions from each function's CFG with physical registers assigned
 	allInstructions := []cfg.MachineInstruction{}
 	for _, funcCFG := range result.FunctionCFGs {
 		funcInstructions := funcCFG.GetAllInstructions()
@@ -331,14 +398,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		allInstructions = append(allInstructions, funcInstructions...)
 	}
 	result.Instructions["<all>"] = allInstructions
-
-	if opts.Verbose {
-		fmt.Printf("  Generated %d machine instructions\n", len(allInstructions))
-	}
-
-	if opts.DumpInstructions {
-		dumpInstructions(allInstructions)
-	}
 
 	// ==========================================================================
 	// Pipeline Complete
@@ -426,19 +485,27 @@ func dumpInterference(fnName string, interference *cfg.InterferenceGraph) {
 	edgeCount /= 2 // Each edge counted twice
 	fmt.Printf("Nodes: %d\n", len(nodes))
 	fmt.Printf("Edges: %d\n", edgeCount)
-	for _, varName := range nodes {
-		neighbors := interference.GetNeighbors(varName)
+	for _, vrID := range nodes {
+		neighbors := interference.GetNeighbors(vrID)
 		if len(neighbors) > 0 {
-			fmt.Printf("  %s interferes with: %v\n", varName, neighbors)
+			fmt.Printf("  VR%d interferes with: %v\n", vrID, neighbors)
 		}
 	}
 	fmt.Println()
 }
 
-func dumpAllocation(fnName string, allocation *cfg.AllocationResult) {
+func dumpAllocation(fnName string, vrAlloc *cfg.VirtualRegisterAllocator) {
 	fmt.Printf("========== ALLOCATION: %s ==========\n", fnName)
-	fmt.Printf("Register allocation complete\n")
-	// Note: AllocationResult fields are not exported
+	fmt.Printf("Register allocation results:\n")
+	for _, vr := range vrAlloc.GetAll() {
+		if vr.Type == cfg.AllocatedRegister && vr.PhysicalReg != nil {
+			fmt.Printf("  VR%d -> %s\n", vr.ID, vr.PhysicalReg.Name)
+		} else if vr.Type == cfg.StackLocation {
+			fmt.Printf("  VR%d -> stack[%d]\n", vr.ID, vr.Value)
+		} else if vr.Type == cfg.ImmediateValue {
+			fmt.Printf("  VR%d -> immediate(%d)\n", vr.ID, vr.Value)
+		}
+	}
 	fmt.Println()
 }
 
@@ -455,17 +522,15 @@ func dumpInstructions(instructions []cfg.MachineInstruction) {
 		for j, op := range operands {
 			operandStrs[j] = op.Name
 		}
-		// fmt.Printf("  [%4d] %s (result=%s, operands=%v)\n",
-		// 	i, instr.String(), resultStr, operandStrs)
-		fmt.Printf("  [%4d] <instr> (result=%s, operands=%v)\n",
-			i, resultStr, operandStrs)
+		fmt.Printf("  [%4d] %s (result=%s, operands=%v)\n",
+			i, instr.String(), resultStr, operandStrs)
 	}
 	fmt.Println()
 }
 
-// Helper function to convert map[string]bool to []string
-func setToSlice(set map[string]bool) []string {
-	result := make([]string, 0, len(set))
+// Helper function to convert map[int]bool (VR IDs) to []int
+func setToSlice(set map[int]bool) []int {
+	result := make([]int, 0, len(set))
 	for key := range set {
 		result = append(result, key)
 	}

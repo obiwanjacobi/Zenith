@@ -2,6 +2,7 @@ package cfg
 
 import (
 	"fmt"
+	"strings"
 	"zenith/compiler/zsm"
 )
 
@@ -870,4 +871,61 @@ func (z *machineInstructionZ80) GetCost() InstructionCost {
 		}
 	}
 	return InstructionCost{255, 255} // Unknown cost
+}
+
+func (z *machineInstructionZ80) String() string {
+	opName := z.opcode.String()
+
+	// Handle different instruction formats
+	switch {
+	case z.opcode == Z80_CALL_NN && z.functionName != "":
+		return fmt.Sprintf("CALL %s", z.functionName)
+
+	case z.opcode == Z80_RET:
+		return "RET"
+
+	case z.opcode == Z80_JP_CC_NN:
+		condName := z.conditionCode.String()
+		if len(z.branchTargets) > 0 {
+			return fmt.Sprintf("JP %s, L%d", condName, z.branchTargets[0].ID)
+		}
+		return fmt.Sprintf("JP %s, ???", condName)
+
+	case len(z.branchTargets) > 0:
+		// Branch instruction
+		if len(z.branchTargets) == 1 {
+			return fmt.Sprintf("%s L%d", opName, z.branchTargets[0].ID)
+		} else if len(z.branchTargets) == 2 {
+			return fmt.Sprintf("%s L%d, L%d", opName, z.branchTargets[0].ID, z.branchTargets[1].ID)
+		}
+
+	case z.immediateValue != 0:
+		// Immediate value instruction
+		if z.result != nil {
+			return fmt.Sprintf("%s VR%d, %d", opName, z.result.ID, z.immediateValue)
+		}
+		return fmt.Sprintf("%s %d", opName, z.immediateValue)
+
+	case z.result != nil && len(z.operands) > 0:
+		// Result and operands
+		operandStrs := make([]string, len(z.operands))
+		for i, op := range z.operands {
+			operandStrs[i] = fmt.Sprintf("VR%d", op.ID)
+		}
+		return fmt.Sprintf("%s VR%d, %s", opName, z.result.ID, strings.Join(operandStrs, ", "))
+
+	case z.result != nil:
+		// Result only
+		return fmt.Sprintf("%s VR%d", opName, z.result.ID)
+
+	case len(z.operands) > 0:
+		// Operands only
+		operandStrs := make([]string, len(z.operands))
+		for i, op := range z.operands {
+			operandStrs[i] = fmt.Sprintf("VR%d", op.ID)
+		}
+		return fmt.Sprintf("%s %s", opName, strings.Join(operandStrs, ", "))
+	}
+
+	return opName
 }

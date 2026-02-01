@@ -218,6 +218,9 @@ type MachineInstruction interface {
 
 	// returns the cost metrics for this instruction
 	GetCost() InstructionCost
+
+	// String returns a human-readable representation of the instruction
+	String() string
 }
 
 type RegisterSize uint8

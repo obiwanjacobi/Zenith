@@ -449,13 +449,12 @@ func Test_InstructionSelection_Function_WithParameters(t *testing.T) {
 	cfg := builder.BuildCFG(fn)
 	require.NotNil(t, cfg)
 
-	// Select instructions
-	cfgs, err := SelectInstructions([]*CFG{cfg}, vrAlloc)
+	selector := NewInstructionSelectorZ80(vrAlloc)
+	err := SelectInstructions([]*CFG{cfg}, vrAlloc, selector)
 	require.NoError(t, err)
-	require.Len(t, cfgs, 1)
 
 	// Check that instructions were generated
-	instructions := cfgs[0].GetAllInstructions()
+	instructions := cfg.GetAllInstructions()
 	assert.NotEmpty(t, instructions)
 }
 
@@ -485,8 +484,8 @@ func Test_SelectInstructions_Simple(t *testing.T) {
 	require.Len(t, cfgs, 1)
 
 	// Then select instructions
-	cfgs, err := SelectInstructions(cfgs, vrAlloc)
-
+	selector := NewInstructionSelectorZ80(vrAlloc)
+	err := SelectInstructions(cfgs, vrAlloc, selector)
 	require.NoError(t, err)
 	require.Len(t, cfgs, 1)
 

@@ -2,18 +2,7 @@ package cfg
 
 import (
 	"fmt"
-
-	"zenith/compiler/zsm"
 )
-
-// SymbolInfo provides information needed for register allocation
-type SymbolInfo interface {
-	// GetTypeSize returns the size of the symbol's type in bits (8 or 16)
-	GetTypeSize(qualifiedName string) int
-
-	// GetUsage returns the usage pattern of the symbol
-	GetUsage(qualifiedName string) zsm.VariableUsage
-}
 
 // Register represents a physical register
 type Register struct {
@@ -23,22 +12,7 @@ type Register struct {
 	RegisterId  int         // the register id for encoding
 }
 
-// AllocationResult contains the register allocation mapping
-type AllocationResult struct {
-	// Variable name to assigned register
-	Allocation map[string]string
-
-	// Variables that need to be spilled to memory
-	Spilled map[string]bool
-
-	// Variable usage patterns (from symbol table, used for preference-based allocation)
-	VariableUsages map[string]zsm.VariableUsage
-
-	// Variable type sizes in bits (8 or 16) - needed to match register width
-	VariableSizes map[string]int
-}
-
-// RegisterAllocator performs graph coloring register allocation
+// RegisterAllocator performs graph coloring register allocation on VirtualRegisters
 type RegisterAllocator struct {
 	availableRegisters []*Register
 	numColors          int
@@ -66,205 +40,120 @@ func (ra *RegisterAllocator) SetCapabilities(cap RegisterCapabilities) {
 	ra.capabilities = cap
 }
 
-// Allocate performs graph coloring on the interference graph
-// symbolInfo provides type sizes and usage patterns for variables
-func (ra *RegisterAllocator) Allocate(ig *InterferenceGraph, symbolInfo SymbolInfo) *AllocationResult {
-	return ra.AllocateWithPrecoloring(ig, symbolInfo, nil)
-}
+// Allocate performs graph coloring register allocation on a CFG
+// Assigns physical registers to VirtualRegisters based on interference graph
+func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, vrAlloc *VirtualRegisterAllocator) error {
+	// Get all VirtualRegisters
+	allVRs := vrAlloc.GetAll()
 
-// AllocateWithPrecoloring performs register allocation with pre-colored variables
-// precolored maps variable names to their required registers (e.g., function parameters)
-func (ra *RegisterAllocator) AllocateWithPrecoloring(ig *InterferenceGraph, symbolInfo SymbolInfo, precolored map[string]string) *AllocationResult {
-	result := &AllocationResult{
-		Allocation:     make(map[string]string),
-		Spilled:        make(map[string]bool),
-		VariableUsages: make(map[string]zsm.VariableUsage),
-		VariableSizes:  make(map[string]int),
-	}
-
-	// Get all nodes (variables)
-	nodes := ig.GetNodes()
-	if len(nodes) == 0 {
-		return result
-	}
-
-	// Populate variable sizes and usage patterns from symbol info
-	if symbolInfo != nil {
-		for _, node := range nodes {
-			result.VariableSizes[node] = symbolInfo.GetTypeSize(node)
-			result.VariableUsages[node] = symbolInfo.GetUsage(node)
-		}
-	} else {
-		// Fallback: assume all variables are 8-bit
-		for _, node := range nodes {
-			result.VariableSizes[node] = 8
+	// Filter to only CandidateRegisters that need allocation
+	candidateVRs := make(map[int]*VirtualRegister)
+	for _, vr := range allVRs {
+		if vr.Type == CandidateRegister {
+			candidateVRs[vr.ID] = vr
 		}
 	}
 
-	// Apply pre-coloring (e.g., function parameters)
-	for varName, regName := range precolored {
-		result.Allocation[varName] = regName
+	// Graph coloring with simplification
+	stack := []int{}
+	remaining := make(map[int]bool)
+	for vrID := range candidateVRs {
+		remaining[vrID] = true
 	}
 
-	// Graph coloring algorithm with simplification
-	stack := []string{}
-	remaining := make(map[string]bool)
-	for _, node := range nodes {
-		// Skip pre-colored nodes - they're already allocated
-		if precolored != nil && precolored[node] != "" {
-			continue
-		}
-		remaining[node] = true
-	}
-
-	// Phase 1: Simplification
-	// Remove nodes with degree < K and push onto stack
+	// Phase 1: Simplification - remove nodes with degree < k
 	for len(remaining) > 0 {
+		// Find a node with degree < numColors (in the remaining subgraph)
 		found := false
-
-		// Try to find a node with degree < K
-		for node := range remaining {
-			degree := ra.getDegreeInRemaining(ig, node, remaining)
+		for vrID := range remaining {
+			degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
 			if degree < ra.numColors {
-				// This node can definitely be colored
-				stack = append(stack, node)
-				delete(remaining, node)
+				stack = append(stack, vrID)
+				delete(remaining, vrID)
 				found = true
 				break
 			}
 		}
 
-		// If no node found with degree < K, pick one to potentially spill
+		// If no such node found, pick the node with highest degree (potential spill)
 		if !found {
-			// Pick node with highest degree (heuristic: spill least used)
-			var maxDegreeNode string
 			maxDegree := -1
-
-			for node := range remaining {
-				degree := ra.getDegreeInRemaining(ig, node, remaining)
+			var spillCandidate int
+			for vrID := range remaining {
+				degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
 				if degree > maxDegree {
 					maxDegree = degree
-					maxDegreeNode = node
+					spillCandidate = vrID
 				}
 			}
-
-			if maxDegreeNode != "" {
-				stack = append(stack, maxDegreeNode)
-				delete(remaining, maxDegreeNode)
-			} else {
-				break
-			}
+			stack = append(stack, spillCandidate)
+			delete(remaining, spillCandidate)
 		}
 	}
 
-	// Phase 2: Coloring (pop from stack and assign colors)
-	for len(stack) > 0 {
-		// Pop node from stack
-		node := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
+	// Phase 2: Selection - assign registers in reverse order
+	for i := len(stack) - 1; i >= 0; i-- {
+		vrID := stack[i]
+		vr := candidateVRs[vrID]
 
-		// Find available colors (registers)
-		usedColors := make(map[int]bool)
-
-		// Check what colors neighbors have
-		neighbors := ig.GetNeighbors(node)
-		for _, neighbor := range neighbors {
-			if reg, ok := result.Allocation[neighbor]; ok {
-				// Find the color index of this register
-				for i, r := range ra.availableRegisters {
-					if r.Name == reg {
-						usedColors[i] = true
-						break
-					}
-				}
-			}
-		}
-
-		// Select best register based on variable usage and size
-		// Use preference-based selection if usage info is available
-		var colorIdx int
-		if result.VariableUsages[node] != 0 && result.VariableSizes[node] != 0 {
-			// Use preference-based selection
-			colorIdx = selectBestRegister(
-				node,
-				result.VariableUsages[node],
-				result.VariableSizes[node],
-				ra.availableRegisters,
-				usedColors,
-				ra.capabilities,
-			)
+		// Find an available register
+		reg := ra.selectRegister(vr, ig, candidateVRs)
+		if reg != nil {
+			vr.PhysicalReg = reg
+			vr.Type = AllocatedRegister
 		} else {
-			// Fallback: pick first available
-			colorIdx = -1
-			for i := 0; i < ra.numColors; i++ {
-				if !usedColors[i] {
-					colorIdx = i
-					break
-				}
-			}
-		}
-
-		// Assign the selected register
-		if colorIdx >= 0 {
-			result.Allocation[node] = ra.availableRegisters[colorIdx].Name
-		} else {
-			// No color available, mark for spilling
-			result.Spilled[node] = true
+			// Spill to stack - mark as StackLocation
+			vr.Type = StackLocation
+			// TODO: Assign stack offset
+			return fmt.Errorf("register spilling not yet implemented for VR%d", vrID)
 		}
 	}
 
-	return result
+	return nil
 }
 
-// getDegreeInRemaining counts how many neighbors of a node are still in the remaining set
-func (ra *RegisterAllocator) getDegreeInRemaining(ig *InterferenceGraph, node string, remaining map[string]bool) int {
+// getDegreeInSubgraph counts how many neighbors of a VR are in the remaining subgraph
+func (ra *RegisterAllocator) getDegreeInSubgraph(vrID int, ig *InterferenceGraph, remaining map[int]bool) int {
 	degree := 0
-	neighbors := ig.GetNeighbors(node)
-	for _, neighbor := range neighbors {
-		if remaining[neighbor] {
+	neighbors := ig.GetNeighbors(vrID)
+	for _, neighborID := range neighbors {
+		if remaining[neighborID] {
 			degree++
 		}
 	}
 	return degree
 }
 
-// BuildParameterPrecoloring creates a pre-coloring map for function parameters
-// based on the calling convention. Returns map of qualified param name -> register name
-func (ra *RegisterAllocator) BuildParameterPrecoloring(functionName string, paramNames []string, paramSizes []int) map[string]string {
-	if ra.callingConvention == nil {
-		return nil
-	}
-
-	precolored := make(map[string]string)
-	for i, paramName := range paramNames {
-		paramSize := RegisterSize(8) // default
-		if i < len(paramSizes) {
-			paramSize = RegisterSize(paramSizes[i])
-		}
-
-		reg, _, useStack := ra.callingConvention.GetParameterLocation(i, paramSize)
-		if !useStack && reg != nil {
-			// Qualify the parameter name with function scope
-			qualifiedName := functionName + "." + paramName
-			precolored[qualifiedName] = reg.Name
-		}
-		// Stack parameters are not pre-colored (they're already in memory)
-	}
-
-	return precolored
-}
-
-// String returns a string representation of the allocation result
-func (ar *AllocationResult) String() string {
-	result := "Register Allocation:\n"
-	for variable, register := range ar.Allocation {
-		result += fmt.Sprintf("  %s -> %s\n", variable, register)
-	}
-	if len(ar.Spilled) > 0 {
-		result += "Spilled variables:\n"
-		for variable := range ar.Spilled {
-			result += fmt.Sprintf("  %s (needs memory)\n", variable)
+// selectRegister chooses the best physical register for a VirtualRegister
+// considering size constraints, AllowedSet, and neighbor assignments
+func (ra *RegisterAllocator) selectRegister(vr *VirtualRegister, ig *InterferenceGraph, allVRs map[int]*VirtualRegister) *Register {
+	// Find which registers are already used by neighbors
+	usedRegs := make(map[*Register]bool)
+	neighbors := ig.GetNeighbors(vr.ID)
+	for _, neighborID := range neighbors {
+		if neighborVR, exists := allVRs[neighborID]; exists {
+			if neighborVR.PhysicalReg != nil {
+				usedRegs[neighborVR.PhysicalReg] = true
+			}
 		}
 	}
-	return result
+
+	// Filter available registers by size and AllowedSet
+	var candidates []*Register
+	if len(vr.AllowedSet) > 0 {
+		// VR has constraints - only consider AllowedSet
+		candidates = vr.AllowedSet
+	} else {
+		// Consider all registers of matching size
+		candidates = ra.availableRegisters
+	}
+
+	// Find first available register with matching size
+	for _, reg := range candidates {
+		if reg.Size == int(vr.Size) && !usedRegs[reg] {
+			return reg
+		}
+	}
+
+	return nil // No register available (needs spilling)
 }
