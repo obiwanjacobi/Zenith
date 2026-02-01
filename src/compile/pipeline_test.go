@@ -3,6 +3,9 @@ package compile
 import (
 	"fmt"
 	"testing"
+	"zenith/compiler/cfg"
+	"zenith/compiler/lexer"
+	"zenith/compiler/zsm"
 )
 
 // Example demonstrating the full compilation pipeline
@@ -52,8 +55,8 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 	if result.AST == nil {
 		t.Error("AST was not generated")
 	}
-	if result.IR == nil {
-		t.Error("IR was not generated")
+	if result.SemCU == nil {
+		t.Error("Semantic compilation unit was not generated")
 	}
 	if len(result.FunctionCFGs) == 0 {
 		t.Error("CFG was not generated")
@@ -92,8 +95,8 @@ func Test_Pipeline_StopAfterParse(t *testing.T) {
 		t.Error("AST should be present")
 	}
 
-	if result.IR != nil {
-		t.Error("IR should not be present when stopping after parse")
+	if result.SemCU != nil {
+		t.Error("Semantic compilation unit should not be present when stopping after parse")
 	}
 }
 
@@ -112,8 +115,6 @@ func Test_Pipeline_VerboseOutput(t *testing.T) {
 	opts.SourceCode = sourceCode
 	opts.TargetArch = "z80"
 	opts.Verbose = true
-	opts.DumpIR = true
-	opts.DumpCFG = true
 
 	result, err := Pipeline(opts)
 
@@ -121,11 +122,17 @@ func Test_Pipeline_VerboseOutput(t *testing.T) {
 		t.Logf("Compilation note: %s", err)
 	}
 
-	if result.IR != nil {
-		t.Logf("IR has %d declarations", len(result.IR.Declarations))
+	if result.SemCU != nil {
+		t.Logf("SemCU has %d declarations", len(result.SemCU.Declarations))
 	}
 	if len(result.FunctionCFGs) > 0 {
 		t.Logf("CFG generated for %d functions", len(result.FunctionCFGs))
+	}
+
+	zsm.DumpSemanticModel(result.SemCU)
+
+	for fnName, funcCFG := range result.FunctionCFGs {
+		cfg.DumpCFG(fnName, funcCFG)
 	}
 }
 
@@ -144,18 +151,28 @@ func Test_Pipeline_AllDumps(t *testing.T) {
 	opts := DefaultPipelineOptions()
 	opts.SourceCode = sourceCode
 	opts.TargetArch = "z80"
-	opts.DumpTokens = true
-	opts.DumpAST = true
-	opts.DumpIR = true
-	opts.DumpCFG = true
-	opts.DumpLiveness = true
-	opts.DumpInterference = true
-	opts.DumpAllocation = true
-	opts.DumpInstructions = true
 
-	_, err := Pipeline(opts)
+	result, err := Pipeline(opts)
 
 	if err != nil {
 		t.Logf("Pipeline encountered: %s", err)
 	}
+
+	lexer.DumpTokens(result.Tokens)
+
+	allInstructions := []cfg.MachineInstruction{}
+	for _, funcCFG := range result.FunctionCFGs {
+		allInstructions = append(allInstructions, funcCFG.GetAllInstructions()...)
+	}
+	cfg.DumpInstructions(allInstructions)
+
+	for fnName, liveness := range result.LivenessInfo {
+		cfg.DumpLiveness(fnName, liveness)
+	}
+
+	for fnName, interference := range result.InterferenceInfo {
+		cfg.DumpInterference(fnName, interference)
+	}
+
+	cfg.DumpAllocation("all functions", result.VRAllocator)
 }

@@ -154,3 +154,18 @@ func (ra *RegisterAllocator) selectRegister(vr *VirtualRegister, ig *Interferenc
 
 	return nil // No register available (needs spilling)
 }
+
+func DumpAllocation(fnName string, vrAlloc *VirtualRegisterAllocator) {
+	fmt.Printf("========== Allocation: %s ==========\n", fnName)
+	fmt.Printf("Register allocation results:\n")
+	for _, vr := range vrAlloc.GetAll() {
+		if vr.Type == AllocatedRegister && vr.PhysicalReg != nil {
+			fmt.Printf("  VR%d -> %s\n", vr.ID, vr.PhysicalReg.Name)
+		} else if vr.Type == StackLocation {
+			fmt.Printf("  VR%d -> stack[%d]\n", vr.ID, vr.Value)
+		} else if vr.Type == ImmediateValue {
+			fmt.Printf("  VR%d -> immediate(%d)\n", vr.ID, vr.Value)
+		}
+	}
+	fmt.Println()
+}

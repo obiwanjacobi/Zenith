@@ -164,3 +164,12 @@ func Parse(source string, tokens lexer.TokenStream) (ParserNode, []ParserError) 
 	}
 	return nil, ctx.errors
 }
+
+func DumpAST(ast CompilationUnit) {
+	fmt.Println("========== AST ==========")
+	fmt.Printf("Compilation Unit with %d declarations\n", len(ast.Declarations()))
+	for i, decl := range ast.Declarations() {
+		fmt.Printf("  [%d] %T\n", i, decl)
+	}
+	fmt.Println()
+}

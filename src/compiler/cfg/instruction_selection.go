@@ -506,3 +506,22 @@ func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zsm.SemTypeI
 
 	return structVR, nil
 }
+
+func DumpInstructions(instructions []MachineInstruction) {
+	fmt.Println("========== INSTRUCTIONS ==========")
+	for i, instr := range instructions {
+		result := instr.GetResult()
+		operands := instr.GetOperands()
+		resultStr := "<none>"
+		if result != nil {
+			resultStr = result.Name
+		}
+		operandStrs := make([]string, len(operands))
+		for j, op := range operands {
+			operandStrs[j] = op.Name
+		}
+		fmt.Printf("  [%4d] %s (result=%s, operands=%v)\n",
+			i, instr.String(), resultStr, operandStrs)
+	}
+	fmt.Println()
+}

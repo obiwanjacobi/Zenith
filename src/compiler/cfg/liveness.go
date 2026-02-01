@@ -1,5 +1,7 @@
 package cfg
 
+import "fmt"
+
 // LivenessInfo contains liveness analysis results for a CFG
 // Works with VirtualRegister IDs instead of variable names
 type LivenessInfo struct {
@@ -162,4 +164,23 @@ func (info *LivenessInfo) IsLiveAt(vrID int, blockID int) bool {
 // IsLiveOutOf checks if a VirtualRegister is live at the exit of a block
 func (info *LivenessInfo) IsLiveOutOf(vrID int, blockID int) bool {
 	return info.LiveOut[blockID][vrID]
+}
+
+func DumpLiveness(fnName string, liveness *LivenessInfo) {
+	fmt.Printf("========== Liveness: %s ==========\n", fnName)
+	for blockID, liveIn := range liveness.LiveIn {
+		fmt.Printf("  Block %d:\n", blockID)
+		fmt.Printf("    LiveIn:  %v\n", setToSlice(liveIn))
+		fmt.Printf("    LiveOut: %v\n", setToSlice(liveness.LiveOut[blockID]))
+	}
+	fmt.Println()
+}
+
+// Helper function to convert map[int]bool (VR IDs) to []int
+func setToSlice(set map[int]bool) []int {
+	result := make([]int, 0, len(set))
+	for key := range set {
+		result = append(result, key)
+	}
+	return result
 }

@@ -200,3 +200,19 @@ func NewTokenStream(tokens <-chan Token, bufferSize int) TokenStream {
 		buffer_pos: -1,
 	}
 }
+
+func DumpTokens(tokens TokenStream) {
+	fmt.Println("========== TOKENS ==========")
+	mark := tokens.Mark()
+	tokens.GotoMark(TokenStreamMark{0})
+	for {
+		tok := tokens.Peek()
+		if tok == nil || tok.Id() == TokenEOF {
+			break
+		}
+		tokens.Read()
+		fmt.Printf("  %v: %s\n", tok.Id(), tok.Text())
+	}
+	tokens.GotoMark(mark)
+	fmt.Println()
+}

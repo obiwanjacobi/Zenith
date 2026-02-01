@@ -19,7 +19,7 @@ type CompilationResult struct {
 	// Intermediate representations
 	Tokens lexer.TokenStream
 	AST    parser.ParserNode
-	IR     *zsm.SemCompilationUnit
+	SemCU  *zsm.SemCompilationUnit
 
 	// Per-function CFG and analysis results
 	FunctionCFGs     map[string]*cfg.CFG
@@ -38,6 +38,10 @@ type CompilationResult struct {
 
 	// Success flag
 	Success bool
+
+	// internals
+	VRAllocator       *cfg.VirtualRegisterAllocator
+	SelectorForTarget cfg.InstructionSelector
 }
 
 // PipelineOptions configures the compilation pipeline
@@ -59,29 +63,15 @@ type PipelineOptions struct {
 	StopAfterInterference         bool
 	StopAfterRegAlloc             bool
 
-	// Optimization flags
-	EnableOptimizations bool
-	OptimizationLevel   int
-
 	// Debug output
-	DumpTokens       bool
-	DumpAST          bool
-	DumpIR           bool
-	DumpCFG          bool
-	DumpLiveness     bool
-	DumpInterference bool
-	DumpAllocation   bool
-	DumpInstructions bool
-	Verbose          bool
+	Verbose bool
 }
 
 // DefaultPipelineOptions returns default pipeline options
 func DefaultPipelineOptions() *PipelineOptions {
 	return &PipelineOptions{
-		TargetArch:          "z80",
-		EnableOptimizations: false,
-		OptimizationLevel:   0,
-		Verbose:             false,
+		TargetArch: "z80",
+		Verbose:    false,
 	}
 }
 
@@ -123,10 +113,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	tokenChan := tokenizer.Tokens()
 	result.Tokens = lexer.NewTokenStream(tokenChan, 100)
 
-	if opts.DumpTokens {
-		dumpTokens(result.Tokens)
-	}
-
 	if opts.StopAfterLex {
 		result.Success = true
 		return result, nil
@@ -164,10 +150,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		return result, fmt.Errorf("parser did not return CompilationUnit")
 	}
 
-	if opts.DumpAST {
-		dumpAST(compilationUnit)
-	}
-
 	if opts.StopAfterParse {
 		result.Success = true
 		return result, nil
@@ -182,7 +164,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	analyzer := zsm.NewSemanticAnalyzer()
 	semCompilationUnit, semanticErrors := analyzer.Analyze(compilationUnit)
-	result.IR = semCompilationUnit
+	result.SemCU = semCompilationUnit
 	result.SemanticErrors = semanticErrors
 
 	if len(semanticErrors) > 0 {
@@ -193,10 +175,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 			}
 		}
 		return result, fmt.Errorf("semantic analysis failed with %d errors", len(semanticErrors))
-	}
-
-	if opts.DumpIR {
-		dumpIR(semCompilationUnit)
 	}
 
 	if opts.StopAfterSemantic {
@@ -223,12 +201,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		}
 	}
 
-	if opts.DumpCFG {
-		for fnName, fnCFG := range result.FunctionCFGs {
-			dumpCFG(fnName, fnCFG)
-		}
-	}
-
 	if opts.StopAfterCFG {
 		result.Success = true
 		return result, nil
@@ -243,6 +215,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	// Create virtual register allocator (shared across all functions)
 	vrAlloc := cfg.NewVirtualRegisterAllocator()
+	result.VRAllocator = vrAlloc
 
 	// Collect CFGs from result.FunctionCFGs map into a slice
 	cfgs := make([]*cfg.CFG, 0, len(result.FunctionCFGs))
@@ -251,8 +224,11 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// TODO: Allow different selectors based on target architecture
+	if opts.TargetArch != "z80" {
+		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
+	}
 	selector := cfg.NewInstructionSelectorZ80(vrAlloc)
-
+	result.SelectorForTarget = selector
 	// Run instruction selection on the CFGs (modifies CFGs in-place, adds MachineInstructions)
 	err := cfg.SelectInstructions(cfgs, vrAlloc, selector)
 	if err != nil {
@@ -266,14 +242,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 			totalInstrs += len(funcCFG.GetAllInstructions())
 		}
 		fmt.Printf("  Generated %d machine instructions with virtual registers\n", totalInstrs)
-	}
-
-	if opts.DumpInstructions {
-		allInstructions := []cfg.MachineInstruction{}
-		for _, funcCFG := range result.FunctionCFGs {
-			allInstructions = append(allInstructions, funcCFG.GetAllInstructions()...)
-		}
-		dumpInstructions(allInstructions)
 	}
 
 	if opts.StopAfterInstructionSelection {
@@ -294,12 +262,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		if opts.Verbose {
 			fmt.Printf("  Computed liveness for function '%s'\n", fnName)
-		}
-	}
-
-	if opts.DumpLiveness {
-		for fnName, liveness := range result.LivenessInfo {
-			dumpLiveness(fnName, liveness)
 		}
 	}
 
@@ -329,12 +291,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 			edgeCount /= 2 // Each edge counted twice
 			fmt.Printf("  Built interference graph for function '%s' with %d nodes, %d edges\n",
 				fnName, len(nodes), edgeCount)
-		}
-	}
-
-	if opts.DumpInterference {
-		for fnName, interference := range result.InterferenceInfo {
-			dumpInterference(fnName, interference)
 		}
 	}
 
@@ -378,10 +334,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		}
 	}
 
-	if opts.DumpAllocation {
-		dumpAllocation("all functions", vrAlloc)
-	}
-
 	if opts.StopAfterRegAlloc {
 		result.Success = true
 		return result, nil
@@ -404,135 +356,4 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	// ==========================================================================
 	result.Success = true
 	return result, nil
-}
-
-// =============================================================================
-// Debug Dump Functions
-// =============================================================================
-
-func dumpTokens(tokens lexer.TokenStream) {
-	fmt.Println("========== TOKENS ==========")
-	mark := tokens.Mark()
-	for {
-		tok := tokens.Peek()
-		if tok == nil || tok.Id() == lexer.TokenEOF {
-			break
-		}
-		tokens.Read()
-		fmt.Printf("  %v: %s\n", tok.Id(), tok.Text())
-	}
-	tokens.GotoMark(mark)
-	fmt.Println()
-}
-
-func dumpAST(ast parser.CompilationUnit) {
-	fmt.Println("========== AST ==========")
-	fmt.Printf("Compilation Unit with %d declarations\n", len(ast.Declarations()))
-	for i, decl := range ast.Declarations() {
-		fmt.Printf("  [%d] %T\n", i, decl)
-	}
-	fmt.Println()
-}
-
-func dumpIR(ir *zsm.SemCompilationUnit) {
-	fmt.Println("========== IR ===========")
-	fmt.Printf("IR Compilation Unit with %d declarations\n", len(ir.Declarations))
-	for _, decl := range ir.Declarations {
-		switch d := decl.(type) {
-		case *zsm.SemFunctionDecl:
-			fmt.Printf("  Function: %s (params=%d)\n",
-				d.Name, len(d.Parameters))
-		case *zsm.SemVariableDecl:
-			fmt.Printf("  Variable: %s\n", d.Symbol.Name)
-		case *zsm.SemTypeDecl:
-			fmt.Printf("  Type: %s\n", d.TypeInfo.Name())
-		default:
-			fmt.Printf("  Unknown: %T\n", decl)
-		}
-	}
-	fmt.Println()
-}
-
-func dumpCFG(fnName string, fnCFG *cfg.CFG) {
-	fmt.Printf("========== CFG: %s ==========\n", fnName)
-	fmt.Printf("Entry: Block %d\n", fnCFG.Entry.ID)
-	fmt.Printf("Exit:  Block %d\n", fnCFG.Exit.ID)
-	fmt.Printf("Blocks: %d\n", len(fnCFG.Blocks))
-	for _, block := range fnCFG.Blocks {
-		fmt.Printf("  Block %d [%s]: %d instructions, %d successors\n",
-			block.ID, block.Label, len(block.Instructions), len(block.Successors))
-	}
-	fmt.Println()
-}
-
-func dumpLiveness(fnName string, liveness *cfg.LivenessInfo) {
-	fmt.Printf("========== LIVENESS: %s ==========\n", fnName)
-	for blockID, liveIn := range liveness.LiveIn {
-		fmt.Printf("  Block %d:\n", blockID)
-		fmt.Printf("    LiveIn:  %v\n", setToSlice(liveIn))
-		fmt.Printf("    LiveOut: %v\n", setToSlice(liveness.LiveOut[blockID]))
-	}
-	fmt.Println()
-}
-
-func dumpInterference(fnName string, interference *cfg.InterferenceGraph) {
-	fmt.Printf("========== INTERFERENCE: %s ==========\n", fnName)
-	nodes := interference.GetNodes()
-	edgeCount := 0
-	for _, node := range nodes {
-		edgeCount += interference.GetDegree(node)
-	}
-	edgeCount /= 2 // Each edge counted twice
-	fmt.Printf("Nodes: %d\n", len(nodes))
-	fmt.Printf("Edges: %d\n", edgeCount)
-	for _, vrID := range nodes {
-		neighbors := interference.GetNeighbors(vrID)
-		if len(neighbors) > 0 {
-			fmt.Printf("  VR%d interferes with: %v\n", vrID, neighbors)
-		}
-	}
-	fmt.Println()
-}
-
-func dumpAllocation(fnName string, vrAlloc *cfg.VirtualRegisterAllocator) {
-	fmt.Printf("========== ALLOCATION: %s ==========\n", fnName)
-	fmt.Printf("Register allocation results:\n")
-	for _, vr := range vrAlloc.GetAll() {
-		if vr.Type == cfg.AllocatedRegister && vr.PhysicalReg != nil {
-			fmt.Printf("  VR%d -> %s\n", vr.ID, vr.PhysicalReg.Name)
-		} else if vr.Type == cfg.StackLocation {
-			fmt.Printf("  VR%d -> stack[%d]\n", vr.ID, vr.Value)
-		} else if vr.Type == cfg.ImmediateValue {
-			fmt.Printf("  VR%d -> immediate(%d)\n", vr.ID, vr.Value)
-		}
-	}
-	fmt.Println()
-}
-
-func dumpInstructions(instructions []cfg.MachineInstruction) {
-	fmt.Println("========== INSTRUCTIONS ==========")
-	for i, instr := range instructions {
-		result := instr.GetResult()
-		operands := instr.GetOperands()
-		resultStr := "<none>"
-		if result != nil {
-			resultStr = result.Name
-		}
-		operandStrs := make([]string, len(operands))
-		for j, op := range operands {
-			operandStrs[j] = op.Name
-		}
-		fmt.Printf("  [%4d] %s (result=%s, operands=%v)\n",
-			i, instr.String(), resultStr, operandStrs)
-	}
-	fmt.Println()
-}
-
-// Helper function to convert map[int]bool (VR IDs) to []int
-func setToSlice(set map[int]bool) []int {
-	result := make([]int, 0, len(set))
-	for key := range set {
-		result = append(result, key)
-	}
-	return result
 }

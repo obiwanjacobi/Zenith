@@ -81,11 +81,11 @@ type BasicBlock struct {
 
 // CFG represents a control flow graph for a function
 type CFG struct {
-	Entry        *BasicBlock             // Entry block
-	Exit         *BasicBlock             // Exit block (for return statements)
-	Blocks       []*BasicBlock           // All blocks in the graph
-	FunctionName string                  // Name of the function (for qualified variable names)
-	FunctionDecl *zsm.SemFunctionDecl    // Original function declaration (for parameters, return type)
+	Entry        *BasicBlock          // Entry block
+	Exit         *BasicBlock          // Exit block (for return statements)
+	Blocks       []*BasicBlock        // All blocks in the graph
+	FunctionName string               // Name of the function (for qualified variable names)
+	FunctionDecl *zsm.SemFunctionDecl // Original function declaration (for parameters, return type)
 }
 
 // ============================================================================
@@ -437,4 +437,16 @@ func BuildCFGs(compilationUnit *zsm.SemCompilationUnit) []*CFG {
 	}
 
 	return cfgs
+}
+
+func DumpCFG(fnName string, fnCFG *CFG) {
+	fmt.Printf("========== Control Flow Graph: %s ==========\n", fnName)
+	fmt.Printf("Entry: Block %d\n", fnCFG.Entry.ID)
+	fmt.Printf("Exit:  Block %d\n", fnCFG.Exit.ID)
+	fmt.Printf("Blocks: %d\n", len(fnCFG.Blocks))
+	for _, block := range fnCFG.Blocks {
+		fmt.Printf("  Block %d [%s]: %d instructions, %d successors\n",
+			block.ID, block.Label, len(block.Instructions), len(block.Successors))
+	}
+	fmt.Println()
 }

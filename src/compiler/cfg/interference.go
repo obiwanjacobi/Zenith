@@ -151,3 +151,22 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 
 	return ig
 }
+
+func DumpInterference(fnName string, interference *InterferenceGraph) {
+	fmt.Printf("========== Interference: %s ==========\n", fnName)
+	nodes := interference.GetNodes()
+	edgeCount := 0
+	for _, node := range nodes {
+		edgeCount += interference.GetDegree(node)
+	}
+	edgeCount /= 2 // Each edge counted twice
+	fmt.Printf("Nodes: %d\n", len(nodes))
+	fmt.Printf("Edges: %d\n", edgeCount)
+	for _, vrID := range nodes {
+		neighbors := interference.GetNeighbors(vrID)
+		if len(neighbors) > 0 {
+			fmt.Printf("  VR%d interferes with: %v\n", vrID, neighbors)
+		}
+	}
+	fmt.Println()
+}

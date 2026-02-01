@@ -1,6 +1,9 @@
 package zsm
 
-import "zenith/compiler/parser"
+import (
+	"fmt"
+	"zenith/compiler/parser"
+)
 
 // SemNode is the base interface for all semantic model nodes
 type SemNode interface {
@@ -292,4 +295,23 @@ func (n *SemTypeInitializer) Type() Type                            { return n.T
 type SemFieldInit struct {
 	Field *StructField
 	Value SemExpression
+}
+
+func DumpSemanticModel(semCU *SemCompilationUnit) {
+	fmt.Println("========== Semantic Model ===========")
+	fmt.Printf("Semantic Compilation Unit with %d declarations\n", len(semCU.Declarations))
+	for _, decl := range semCU.Declarations {
+		switch d := decl.(type) {
+		case *SemFunctionDecl:
+			fmt.Printf("  Function: %s (params=%d)\n",
+				d.Name, len(d.Parameters))
+		case *SemVariableDecl:
+			fmt.Printf("  Variable: %s\n", d.Symbol.Name)
+		case *SemTypeDecl:
+			fmt.Printf("  Type: %s\n", d.TypeInfo.Name())
+		default:
+			fmt.Printf("  Unknown: %T\n", decl)
+		}
+	}
+	fmt.Println()
 }
