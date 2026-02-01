@@ -77,7 +77,7 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 				// generate loads when the value is actually used in a physical register.
 			} else {
 				// Parameter is in a register - allocate VirtualRegister with constraint
-				vr := ctx.vrAlloc.AllocateConstrained(regSize, []*Register{reg})
+				vr := ctx.vrAlloc.Allocate([]*Register{reg})
 				vr.Name = param.Name
 				ctx.symbolToVReg[param] = vr
 			}
@@ -230,7 +230,13 @@ func (ctx *InstructionSelectionContext) selectStatement(stmt zsm.SemStatement) e
 func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariableDecl) error {
 	// Allocate a VirtualRegister for this variable
 	regSize := RegisterSize(decl.TypeInfo.Size() * 8) // Convert bytes to bits
-	vr := ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regSize)
+	var regs []*Register
+	if regSize == Bits8 {
+		regs = Z80RegistersR
+	} else {
+		regs = Z80Registers16
+	}
+	vr := ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regs)
 	ctx.symbolToVReg[decl.Symbol] = vr
 
 	// If there's an initializer, evaluate it and assign
@@ -284,7 +290,7 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 		returnReg := ctx.callingConvention.GetReturnValueRegister(returnSize)
 
 		// Move value to the return register
-		returnVR := ctx.vrAlloc.AllocateConstrained(returnSize, []*Register{returnReg})
+		returnVR := ctx.vrAlloc.Allocate([]*Register{returnReg})
 		if err := ctx.selector.SelectMove(returnVR, valueVR, returnSize); err != nil {
 			return err
 		}
@@ -487,8 +493,7 @@ func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMember
 // selectTypeInitializer processes struct initialization
 func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zsm.SemTypeInitializer) (*VirtualRegister, error) {
 	// Allocate space for the struct
-	regSize := RegisterSize(init.Type().Size() * 8)
-	structVR := ctx.vrAlloc.Allocate(regSize)
+	structVR := ctx.vrAlloc.Allocate(Z80Registers16)
 
 	// Initialize each field
 	for _, fieldInit := range init.Fields {

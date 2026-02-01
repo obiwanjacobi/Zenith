@@ -77,7 +77,8 @@ func Test_InstructionSelection_Constant(t *testing.T) {
 
 	// Check that instructions were generated
 	instructions := block.MachineInstructions
-	assert.NotEmpty(t, instructions)
+	// constants are just values in the VR
+	assert.Empty(t, instructions)
 }
 
 // Test selectBinaryOp with addition
@@ -154,7 +155,12 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.NotNil(t, vr)
-			assert.Equal(t, RegisterSize(8), vr.Size)
+			// Multiply always returns 16-bit result (8x8 -> 16)
+			if tt.op == zsm.OpMultiply {
+				assert.Equal(t, RegisterSize(16), vr.Size)
+			} else {
+				assert.Equal(t, RegisterSize(8), vr.Size)
+			}
 			// Check that instructions were generated
 			instructions := block.MachineInstructions
 			assert.NotEmpty(t, instructions)
@@ -249,7 +255,7 @@ func Test_InstructionSelection_Assignment(t *testing.T) {
 		Name: "x",
 		Type: u8Type(),
 	}
-	ctx.symbolToVReg[symbol] = ctx.vrAlloc.AllocateNamed("x", 8)
+	ctx.symbolToVReg[symbol] = ctx.vrAlloc.AllocateNamed("x", Z80RegistersR)
 
 	assignment := &zsm.SemAssignment{
 		Target: symbol,
@@ -385,7 +391,7 @@ func Test_InstructionSelection_SymbolRef(t *testing.T) {
 		Name: "x",
 		Type: u8Type(),
 	}
-	expectedVR := ctx.vrAlloc.AllocateNamed("x", 8)
+	expectedVR := ctx.vrAlloc.AllocateNamed("x", Z80RegistersR)
 	ctx.symbolToVReg[symbol] = expectedVR
 
 	symbolRef := &zsm.SemSymbolRef{

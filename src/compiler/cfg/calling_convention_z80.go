@@ -24,8 +24,33 @@ var RegSP = Register{Name: "SP", Size: 16, RegisterId: 3}
 // Z80Registers defines the available registers for Z80 architecture
 // Includes both single 8-bit registers and 16-bit register pairs
 var Z80Registers = []*Register{
-	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL, &RegF,
+	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL,
 	&RegBC, &RegDE, &RegHL, &RegAF, &RegSP,
+}
+
+// the 8-bit registers that can be used for general purposes
+var Z80RegistersR = []*Register{
+	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL,
+}
+
+// the 16-bit register that can be used for general purposes
+var Z80Registers16 = []*Register{
+	&RegBC, &RegDE, &RegHL,
+}
+
+// register that can be pushed on the stack
+var Z80RegistersQQ = []*Register{
+	&RegBC, &RegDE, &RegHL, &RegAF,
+}
+
+// register that can be used for load operations
+var Z80RegistersRR = []*Register{
+	&RegBC, &RegDE, &RegHL, &RegSP,
+}
+
+// indirect alternatives to HL
+var Z80RegistersPP = []*Register{
+	&RegBC, &RegDE,
 }
 
 // callingConventionZ80 implements a standard calling convention for Z80

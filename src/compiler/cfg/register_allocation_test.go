@@ -9,8 +9,8 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
 	// Two VRs that don't interfere (sequential use)
-	vr1 := vrAlloc.AllocateNamed("temp1", Bits8)
-	vr2 := vrAlloc.AllocateNamed("temp2", Bits8)
+	vr1 := vrAlloc.AllocateNamed("temp1", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("temp2", Z80RegistersR)
 
 	// Block: temp1 = load 5, temp2 = temp1 + 10
 	block0 := &BasicBlock{
@@ -69,9 +69,9 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 func TestRegisterAllocation_WithInterference(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("x", Bits8)
-	vr2 := vrAlloc.AllocateNamed("y", Bits8)
-	vr3 := vrAlloc.AllocateNamed("z", Bits8)
+	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("y", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("z", Z80RegistersR)
 
 	// Block: z = x + y (x and y are live together)
 	block0 := &BasicBlock{
@@ -118,8 +118,8 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
 	// VR constrained to specific register (e.g., accumulator for Z80 ADD)
-	vr1 := vrAlloc.AllocateNamed("x", Bits8)
-	vr2 := vrAlloc.AllocateConstrained(Bits8, []*Register{&RegA}) // Must use A register
+	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr2 := vrAlloc.Allocate(Z80RegA) // Must use A register
 	vr2.Name = "result"
 
 	// Block: result = x (move to accumulator)
@@ -166,10 +166,10 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("a", Bits8)
-	vr2 := vrAlloc.AllocateNamed("b", Bits8)
-	vr3 := vrAlloc.AllocateNamed("c", Bits8)
-	vr4 := vrAlloc.AllocateNamed("d", Bits8)
+	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
+	vr4 := vrAlloc.AllocateNamed("d", Z80RegistersR)
 
 	// All four are live at the same time
 	block0 := &BasicBlock{
@@ -227,9 +227,9 @@ func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 func TestRegisterAllocation_Loop(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("i", Bits8)
-	vr2 := vrAlloc.AllocateNamed("sum", Bits8)
-	vr3 := vrAlloc.AllocateNamed("n", Bits8)
+	vr1 := vrAlloc.AllocateNamed("i", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("sum", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("n", Z80RegistersR)
 
 	block0 := &BasicBlock{
 		ID: 0,
@@ -323,9 +323,9 @@ func TestRegisterAllocation_Loop(t *testing.T) {
 func TestRegisterAllocation_16Bit(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("x", Bits16)
-	vr2 := vrAlloc.AllocateNamed("y", Bits16)
-	vr3 := vrAlloc.AllocateNamed("z", Bits16)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers16)
+	vr2 := vrAlloc.AllocateNamed("y", Z80Registers16)
+	vr3 := vrAlloc.AllocateNamed("z", Z80Registers16)
 
 	// Block: z = x + y (both x and y are live together, then z)
 	block0 := &BasicBlock{
@@ -377,7 +377,7 @@ func TestRegisterAllocation_16Bit(t *testing.T) {
 func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("x", Bits8)
+	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
 	vrStack := vrAlloc.AllocateWithStackHome("param", Bits8, 4)
 	vrImm := vrAlloc.AllocateImmediate(42, Bits8)
 
@@ -434,10 +434,10 @@ func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 func TestRegisterAllocation_Branching(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("a", Bits8)
-	vr2 := vrAlloc.AllocateNamed("b", Bits8)
-	vr3 := vrAlloc.AllocateNamed("c", Bits8)
-	vr4 := vrAlloc.AllocateNamed("result", Bits8)
+	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
+	vr4 := vrAlloc.AllocateNamed("result", Z80RegistersR)
 
 	block0 := &BasicBlock{
 		ID: 0,

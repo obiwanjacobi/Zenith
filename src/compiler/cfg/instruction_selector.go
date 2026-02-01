@@ -310,20 +310,10 @@ func NewVirtualRegisterAllocator() *VirtualRegisterAllocator {
 	}
 }
 
-// Allocate creates a new virtual register
-func (vra *VirtualRegisterAllocator) Allocate(size RegisterSize) *VirtualRegister {
-	vr := &VirtualRegister{
-		ID:   vra.nextID,
-		Size: size,
-		Type: CandidateRegister,
-	}
-	vra.virtRegs[vra.nextID] = vr
-	vra.nextID++
-	return vr
-}
-
 // AllocateConstrained creates a virtual register with specific constraints
-func (vra *VirtualRegisterAllocator) AllocateConstrained(size RegisterSize, allowedSet []*Register) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) Allocate(allowedSet []*Register) *VirtualRegister {
+	// TODO: check all allowed registers have the same size
+	size := RegisterSize(allowedSet[0].Size)
 	vr := &VirtualRegister{
 		ID:         vra.nextID,
 		Size:       size,
@@ -336,8 +326,8 @@ func (vra *VirtualRegisterAllocator) AllocateConstrained(size RegisterSize, allo
 }
 
 // AllocateNamed creates a named virtual register (for debugging)
-func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size RegisterSize) *VirtualRegister {
-	vr := vra.Allocate(size)
+func (vra *VirtualRegisterAllocator) AllocateNamed(name string, allowedSet []*Register) *VirtualRegister {
+	vr := vra.Allocate(allowedSet)
 	vr.Name = name
 	return vr
 }

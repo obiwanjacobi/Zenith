@@ -7,11 +7,11 @@ import (
 // Test basic interference graph construction
 func TestInterference_SimpleLinearFlow(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	
+
 	// Create virtual registers
-	vr1 := vrAlloc.AllocateNamed("x", Bits8)
-	vr2 := vrAlloc.AllocateNamed("y", Bits8)
-	vr3 := vrAlloc.AllocateNamed("z", Bits8)
+	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("y", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("z", Z80RegistersR)
 
 	// Block 0: z = x + y (x and y are live together, z doesn't interfere with them)
 	block0 := &BasicBlock{
@@ -61,10 +61,10 @@ func TestInterference_SimpleLinearFlow(t *testing.T) {
 // Test interference with live ranges that overlap
 func TestInterference_OverlappingLiveRanges(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	
-	vr1 := vrAlloc.AllocateNamed("a", Bits8)
-	vr2 := vrAlloc.AllocateNamed("b", Bits8)
-	vr3 := vrAlloc.AllocateNamed("c", Bits8)
+
+	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
 
 	// Block 0:
 	//   a = load 1
@@ -119,11 +119,11 @@ func TestInterference_OverlappingLiveRanges(t *testing.T) {
 // Test interference in branching control flow
 func TestInterference_Branching(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	
-	vr1 := vrAlloc.AllocateNamed("a", Bits8)
-	vr2 := vrAlloc.AllocateNamed("b", Bits8)
-	vr3 := vrAlloc.AllocateNamed("c", Bits8)
-	vr4 := vrAlloc.AllocateNamed("result", Bits8)
+
+	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
+	vr4 := vrAlloc.AllocateNamed("result", Z80RegistersR)
 
 	// Block 0: a, b, c are all live
 	block0 := &BasicBlock{
@@ -211,10 +211,10 @@ func TestInterference_Branching(t *testing.T) {
 // Test interference in a loop (variables live across iterations)
 func TestInterference_Loop(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	
-	vr1 := vrAlloc.AllocateNamed("i", Bits8)    // loop counter
-	vr2 := vrAlloc.AllocateNamed("sum", Bits8)  // accumulator
-	vr3 := vrAlloc.AllocateNamed("n", Bits8)    // loop bound
+
+	vr1 := vrAlloc.AllocateNamed("i", Z80RegistersR)   // loop counter
+	vr2 := vrAlloc.AllocateNamed("sum", Z80RegistersR) // accumulator
+	vr3 := vrAlloc.AllocateNamed("n", Z80RegistersR)   // loop bound
 
 	// Block 0: Entry - initialize
 	block0 := &BasicBlock{
@@ -310,9 +310,9 @@ func TestInterference_Loop(t *testing.T) {
 // Test that immediately reused registers interfere
 func TestInterference_ImmediateReuse(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	
-	vr1 := vrAlloc.AllocateNamed("temp1", Bits8)
-	vr2 := vrAlloc.AllocateNamed("temp2", Bits8)
+
+	vr1 := vrAlloc.AllocateNamed("temp1", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("temp2", Z80RegistersR)
 
 	// Block 0:
 	//   temp1 = load 5
@@ -358,10 +358,10 @@ func TestInterference_ImmediateReuse(t *testing.T) {
 // Test GetNeighbors functionality
 func TestInterference_GetNeighbors(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	
-	vr1 := vrAlloc.AllocateNamed("a", Bits8)
-	vr2 := vrAlloc.AllocateNamed("b", Bits8)
-	vr3 := vrAlloc.AllocateNamed("c", Bits8)
+
+	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
+	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
 
 	// Create a scenario where all three are live at the same time
 	block0 := &BasicBlock{
@@ -413,9 +413,9 @@ func TestInterference_GetNeighbors(t *testing.T) {
 // Test that the graph correctly handles self-loops (should not add them)
 func TestInterference_NoSelfLoops(t *testing.T) {
 	ig := NewInterferenceGraph()
-	
+
 	vrAlloc := NewVirtualRegisterAllocator()
-	vr1 := vrAlloc.AllocateNamed("x", Bits8)
+	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
 
 	ig.AddNode(vr1.ID)
 	ig.AddEdge(vr1.ID, vr1.ID) // Try to add self-loop
@@ -441,8 +441,8 @@ func TestInterference_EmptyGraph(t *testing.T) {
 	}
 
 	vrAlloc := NewVirtualRegisterAllocator()
-	vr1 := vrAlloc.AllocateNamed("x", Bits8)
-	vr2 := vrAlloc.AllocateNamed("y", Bits8)
+	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr2 := vrAlloc.AllocateNamed("y", Z80RegistersR)
 
 	if ig.Interferes(vr1.ID, vr2.ID) {
 		t.Error("Empty graph should not report any interferences")
@@ -456,8 +456,8 @@ func TestInterference_EmptyGraph(t *testing.T) {
 // Test that immediate values are not added to interference graph
 func TestInterference_IgnoresImmediates(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	
-	vr1 := vrAlloc.AllocateNamed("x", Bits8)
+
+	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
 	vrImm := vrAlloc.AllocateImmediate(42, Bits8)
 
 	block0 := &BasicBlock{
