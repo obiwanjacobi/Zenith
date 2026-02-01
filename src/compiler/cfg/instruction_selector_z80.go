@@ -423,53 +423,61 @@ func (z *instructionSelectorZ80) SelectGreaterEqual(left, right *VirtualRegister
 func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int, size RegisterSize) (*VirtualRegister, error) {
 	result := z.vrAlloc.Allocate(size)
 
-	switch size {
-	case 8:
-		// LD A, (HL) - assumes address is in HL
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
-		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	switch address.Type {
+	case CandidateRegister:
+		switch size {
+		case 8:
+			// LD A, (HL) - assumes address is in HL
+			vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
+			vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
 
-		// Load address into HL (with offset if needed)
-		if offset != 0 {
-			// Add offset to address
-			vrOffset := z.vrAlloc.Allocate(16)
-			z.emit(newInstructionZ80Imm16(Z80_LD_RR_NN, vrOffset, uint16(offset)))
-			z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
-			z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffset))
-		} else {
-			z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
+			// Load address into HL (with offset if needed)
+			if offset != 0 {
+				// Add offset to address
+				vrOffset := z.vrAlloc.Allocate(16)
+				z.emit(newInstructionZ80Imm16(Z80_LD_RR_NN, vrOffset, uint16(offset)))
+				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
+				z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffset))
+			} else {
+				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
+			}
+
+			z.emit(newInstructionZ80(Z80_LD_R_HL, vrA, vrHL))
+			z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
+		case 16:
+			// Load 16-bit value
+			return nil, fmt.Errorf("16-bit load not yet implemented")
 		}
-
-		z.emit(newInstructionZ80(Z80_LD_R_HL, vrA, vrHL))
-		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
-	case 16:
-		// Load 16-bit value
-		return nil, fmt.Errorf("16-bit load not yet implemented")
+	default:
+		return nil, fmt.Errorf("unsupported address type for load")
 	}
-
 	return result, nil
 }
 
 // SelectStore generates instructions to store to memory
 func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error {
-	if size == 8 {
-		vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
-		vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
+	switch address.Type {
+	case CandidateRegister:
+		if size == 8 {
+			vrA := z.vrAlloc.AllocateConstrained(8, []*Register{&RegA})
+			vrHL := z.vrAlloc.AllocateConstrained(16, []*Register{&RegHL})
 
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, value))
+			z.emit(newInstructionZ80(Z80_LD_R_R, vrA, value))
 
-		if offset != 0 {
-			vrOffset := z.vrAlloc.Allocate(16)
-			z.emit(newInstructionZ80Imm16(Z80_LD_RR_NN, vrOffset, uint16(offset)))
-			z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
-			z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffset))
-		} else {
-			z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
+			if offset != 0 {
+				vrOffset := z.vrAlloc.Allocate(16)
+				z.emit(newInstructionZ80Imm16(Z80_LD_RR_NN, vrOffset, uint16(offset)))
+				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
+				z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffset))
+			} else {
+				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
+			}
+
+			z.emit(newInstructionZ80(Z80_LD_HL_R, vrHL, vrA))
 		}
-
-		z.emit(newInstructionZ80(Z80_LD_HL_R, vrHL, vrA))
+	default:
+		return fmt.Errorf("unsupported address type for store")
 	}
-
 	return nil
 }
 
@@ -520,9 +528,9 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 // Control Flow
 // ============================================================================
 
-// SelectConditionalBranch evaluates a conditional expression and generates branch
+// SelectBranch evaluates a conditional expression and generates branch
 // Handles comparison operations and logical operators with short-circuit evaluation
-func (z *instructionSelectorZ80) SelectConditionalBranch(evaluateExpr func(zsm.SemExpression) (*VirtualRegister, error), expr zsm.SemExpression, trueBlock, falseBlock *BasicBlock) error {
+func (z *instructionSelectorZ80) SelectBranch(evaluateExpr func(zsm.SemExpression) (*VirtualRegister, error), expr zsm.SemExpression, trueBlock, falseBlock *BasicBlock) error {
 	switch e := expr.(type) {
 	case *zsm.SemBinaryOp:
 		switch e.Op {
@@ -541,7 +549,7 @@ func (z *instructionSelectorZ80) SelectConditionalBranch(evaluateExpr func(zsm.S
 
 			// continueLabel: left was true, evaluate right
 			z.emitLabel(continueLabel)
-			return z.SelectConditionalBranch(evaluateExpr, e.Right, trueBlock, falseBlock)
+			return z.SelectBranch(evaluateExpr, e.Right, trueBlock, falseBlock)
 
 		case zsm.OpLogicalOr:
 			// For: a || b
@@ -555,7 +563,7 @@ func (z *instructionSelectorZ80) SelectConditionalBranch(evaluateExpr func(zsm.S
 
 			// continueLabel: left was false, evaluate right
 			z.emitLabel(continueLabel)
-			return z.SelectConditionalBranch(evaluateExpr, e.Right, trueBlock, falseBlock)
+			return z.SelectBranch(evaluateExpr, e.Right, trueBlock, falseBlock)
 
 		case zsm.OpEqual:
 			// Generate: CP + JP Z for equality test
@@ -586,7 +594,7 @@ func (z *instructionSelectorZ80) SelectConditionalBranch(evaluateExpr func(zsm.S
 	case *zsm.SemUnaryOp:
 		if e.Op == zsm.OpLogicalNot {
 			// For: !a, swap true and false blocks
-			return z.SelectConditionalBranch(evaluateExpr, e.Operand, falseBlock, trueBlock)
+			return z.SelectBranch(evaluateExpr, e.Operand, falseBlock, trueBlock)
 		}
 	}
 
@@ -703,30 +711,14 @@ func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl)
 // Utility
 // ============================================================================
 
-// AllocateVirtual creates a new virtual register
-// func (z *instructionSelectorZ80) AllocateVirtual(size RegisterSize) *VirtualRegister {
-// 	return z.vrAlloc.Allocate(size)
-// }
-
-// AllocateVirtualConstrained creates a virtual register with constraints
-// func (z *instructionSelectorZ80) AllocateVirtualConstrained(size RegisterSize, allowedSet []*Register) *VirtualRegister {
-// 	return z.vrAlloc.AllocateConstrained(size, allowedSet)
-// }
-
 // SetCurrentBlock sets the active block for instruction emission
 func (z *instructionSelectorZ80) SetCurrentBlock(block *BasicBlock) {
 	z.currentBlock = block
 }
 
-// EmitInstruction adds an instruction to the specified block
-func (z *instructionSelectorZ80) EmitInstruction(block *BasicBlock, instr MachineInstruction) {
-	block.MachineInstructions = append(block.MachineInstructions, instr)
-
-}
-
 // emit is a helper that emits to the current block
 func (z *instructionSelectorZ80) emit(instr MachineInstruction) {
-	z.EmitInstruction(z.currentBlock, instr)
+	z.currentBlock.MachineInstructions = append(z.currentBlock.MachineInstructions, instr)
 }
 
 // GetCallingConvention returns the calling convention
@@ -745,15 +737,14 @@ func (z *instructionSelectorZ80) GetTargetRegisters() []*Register {
 
 // machineInstructionZ80 represents a concrete Z80 instruction
 type machineInstructionZ80 struct {
-	opcode        Z80Opcode
-	result        *VirtualRegister
-	operands      []*VirtualRegister
-	conditionCode ConditionCode
-	imm8          uint8
-	imm16         uint16
-	branchTargets []*BasicBlock
-	functionName  string
-	comment       string
+	opcode         Z80Opcode
+	result         *VirtualRegister
+	operands       []*VirtualRegister
+	conditionCode  ConditionCode
+	immediateValue uint16
+	branchTargets  []*BasicBlock
+	functionName   string
+	comment        string
 }
 
 // newInstructionZ80 creates a new Z80 instruction
@@ -773,18 +764,18 @@ func newInstructionZ80(opcode Z80Opcode, result, operand *VirtualRegister) *mach
 // newInstructionZ80Imm8 creates an instruction with 8-bit immediate
 func newInstructionZ80Imm8(opcode Z80Opcode, result *VirtualRegister, imm uint8) *machineInstructionZ80 {
 	return &machineInstructionZ80{
-		opcode: opcode,
-		result: result,
-		imm8:   imm,
+		opcode:         opcode,
+		result:         result,
+		immediateValue: uint16(imm),
 	}
 }
 
 // newInstructionZ80Imm16 creates an instruction with 16-bit immediate
 func newInstructionZ80Imm16(opcode Z80Opcode, result *VirtualRegister, imm uint16) *machineInstructionZ80 {
 	return &machineInstructionZ80{
-		opcode: opcode,
-		result: result,
-		imm16:  imm,
+		opcode:         opcode,
+		result:         result,
+		immediateValue: imm,
 	}
 }
 

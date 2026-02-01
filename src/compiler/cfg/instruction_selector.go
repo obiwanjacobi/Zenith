@@ -139,13 +139,13 @@ type InstructionSelector interface {
 	// Control Flow
 	// ============================================================================
 
-	// SelectConditionalBranch evaluates a conditional expression and branches
+	// SelectBranch evaluates a conditional expression and branches
 	// Handles comparison operations and logical operators (&& ||) with short-circuit evaluation
 	// evaluateExpr: callback to evaluate sub-expressions to VirtualRegisters
 	// expr: the boolean/comparison expression to evaluate
 	// trueBlock: jumped to if expression is true
 	// falseBlock: jumped to if expression is false
-	SelectConditionalBranch(evaluateExpr func(zsm.SemExpression) (*VirtualRegister, error), expr zsm.SemExpression, trueBlock, falseBlock *BasicBlock) error
+	SelectBranch(evaluateExpr func(zsm.SemExpression) (*VirtualRegister, error), expr zsm.SemExpression, trueBlock, falseBlock *BasicBlock) error
 
 	// SelectJump generates an unconditional jump to a basic block
 	SelectJump(target *BasicBlock) error
@@ -172,15 +172,6 @@ type InstructionSelector interface {
 	// ============================================================================
 	// Utility
 	// ============================================================================
-
-	// AllocateVirtual creates a new virtual register
-	// AllocateVirtual(size RegisterSize) *VirtualRegister
-
-	// AllocateVirtualConstrained creates a virtual register with specific constraints
-	// AllocateVirtualConstrained(size RegisterSize, allowedSet []*Register) *VirtualRegister
-
-	// EmitInstruction adds an instruction to the current block
-	EmitInstruction(block *BasicBlock, instr MachineInstruction)
 
 	// SetCurrentBlock sets the active block for instruction emission
 	SetCurrentBlock(block *BasicBlock)

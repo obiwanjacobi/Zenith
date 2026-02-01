@@ -62,7 +62,7 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 	// Allocate VirtualRegisters for parameters based on calling convention
 	if cfg.FunctionDecl != nil {
 		for i, param := range cfg.FunctionDecl.Parameters {
-			var regSize RegisterSize = RegisterSize(param.Type.Size() * 8) // Convert bytes to bits
+			regSize := RegisterSize(param.Type.Size() * 8) // Convert bytes to bits
 
 			// Ask calling convention where this parameter should be
 			reg, stackOffset, useStack := ctx.callingConvention.GetParameterLocation(i, regSize)
@@ -85,12 +85,17 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 		}
 	}
 
+	// TODO: would probably need access to the symbolToVReg map and the CFG
+	ctx.selector.SelectFunctionPrologue(cfg.FunctionDecl)
+
 	// Process each basic block in the CFG
 	for _, block := range cfg.Blocks {
 		if err := ctx.selectBasicBlock(block); err != nil {
 			return err
 		}
 	}
+
+	ctx.selector.SelectFunctionEpilogue(cfg.FunctionDecl)
 
 	return nil
 }
@@ -132,14 +137,14 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 			// Evaluate condition and branch to successors
 			// Successors: [0] = then, [1] = else/merge
 			if len(block.Successors) >= 2 {
-				err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
+				err := ctx.selector.SelectBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
 				return err
 			}
 
 		case *zsm.SemElsif:
 			// Similar to SemIf
 			if len(block.Successors) >= 2 {
-				err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
+				err := ctx.selector.SelectBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
 				return err
 			}
 
@@ -148,7 +153,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 			if stmt.Condition != nil {
 				// Successors: [0] = body, [1] = exit
 				if len(block.Successors) >= 2 {
-					err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
+					err := ctx.selector.SelectBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
 					return err
 				}
 			} else {
@@ -173,7 +178,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 
 				// Branch to case block or next comparison
 				if i < len(block.Successors)-1 {
-					err := ctx.selector.SelectConditionalBranch(ctx.selectExpression, cmpExpr, block.Successors[i], block.Successors[i+1])
+					err := ctx.selector.SelectBranch(ctx.selectExpression, cmpExpr, block.Successors[i], block.Successors[i+1])
 					if err != nil {
 						return err
 					}
