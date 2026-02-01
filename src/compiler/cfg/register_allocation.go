@@ -16,8 +16,6 @@ type Register struct {
 type RegisterAllocator struct {
 	availableRegisters []*Register
 	numColors          int
-	callingConvention  CallingConvention
-	capabilities       RegisterCapabilities
 }
 
 // NewRegisterAllocator creates a new register allocator
@@ -25,19 +23,7 @@ func NewRegisterAllocator(registers []*Register) *RegisterAllocator {
 	return &RegisterAllocator{
 		availableRegisters: registers,
 		numColors:          len(registers),
-		callingConvention:  nil, // Optional, set via SetCallingConvention
-		capabilities:       nil, // Optional, set via SetCapabilities
 	}
-}
-
-// SetCallingConvention sets the calling convention for this allocator
-func (ra *RegisterAllocator) SetCallingConvention(cc CallingConvention) {
-	ra.callingConvention = cc
-}
-
-// SetCapabilities sets the register capabilities for architecture-specific scoring
-func (ra *RegisterAllocator) SetCapabilities(cap RegisterCapabilities) {
-	ra.capabilities = cap
 }
 
 // Allocate performs graph coloring register allocation on a CFG
