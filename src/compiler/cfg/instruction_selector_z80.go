@@ -910,7 +910,7 @@ func (z *machineInstructionZ80) String() string {
 		// Result and operands
 		operandStrs := make([]string, len(z.operands))
 		for i, op := range z.operands {
-			operandStrs[i] = fmt.Sprintf("VR%d", op.ID)
+			operandStrs[i] = op.String()
 		}
 		return fmt.Sprintf("%s %s, %s", opName, z.result.String(), strings.Join(operandStrs, ", "))
 

@@ -75,6 +75,7 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []
 	}
 
 	// Phase 2: Selection - assign registers in reverse order
+	spillCount := 0
 	for i := len(stack) - 1; i >= 0; i-- {
 		vrID := stack[i]
 		vr := candidateVRs[vrID]
@@ -87,8 +88,8 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []
 		} else {
 			// Spill to stack - mark as StackLocation
 			vr.Type = StackLocation
-			// TODO: Assign stack offset
-			return fmt.Errorf("register spilling not yet implemented for VR%d", vrID)
+			vr.Value = uint32(spillCount) // Stack offset
+			spillCount++
 		}
 	}
 

@@ -274,19 +274,19 @@ func (vr *VirtualRegister) String() string {
 	} else {
 		name = fmt.Sprintf("%s %d", name, vr.ID)
 	}
+	candidates := ""
+	for i, reg := range vr.AllowedSet {
+		if i > 0 {
+			candidates += "|"
+		}
+		candidates += reg.Name
+	}
 
 	switch vr.Type {
 	case AllocatedRegister:
-		return fmt.Sprintf("%s = %s", name, vr.PhysicalReg.Name)
+		return fmt.Sprintf("%s = %s {%s}", name, vr.PhysicalReg.Name, candidates)
 	case CandidateRegister:
-		candidates := ""
-		for i, reg := range vr.AllowedSet {
-			if i > 0 {
-				candidates += "|"
-			}
-			candidates += reg.Name
-		}
-		return fmt.Sprintf("%s = %s", name, candidates)
+		return fmt.Sprintf("%s = {%s}", name, candidates)
 	case ImmediateValue:
 		return fmt.Sprintf("%s = #%d", name, vr.Value)
 	case StackLocation:
