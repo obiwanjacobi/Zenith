@@ -5,7 +5,6 @@ import (
 	"testing"
 	"zenith/compiler/cfg"
 	"zenith/compiler/lexer"
-	"zenith/compiler/zsm"
 )
 
 // Example demonstrating the full compilation pipeline
@@ -129,11 +128,13 @@ func Test_Pipeline_VerboseOutput(t *testing.T) {
 		t.Logf("CFG generated for %d functions", len(result.FunctionCFGs))
 	}
 
-	zsm.DumpSemanticModel(result.SemCU)
+	// zsm.DumpSemanticModel(result.SemCU)
 
 	for fnName, funcCFG := range result.FunctionCFGs {
-		cfg.DumpCFG(fnName, funcCFG)
+		cfg.DumpCFG(fnName, funcCFG, cfg.DumpInstructions)
 	}
+
+	cfg.DumpAllocation(result.VRAllocator)
 }
 
 // Test pipeline with all debug dumps enabled
@@ -174,5 +175,5 @@ func Test_Pipeline_AllDumps(t *testing.T) {
 		cfg.DumpInterference(fnName, interference)
 	}
 
-	cfg.DumpAllocation("all functions", result.VRAllocator)
+	cfg.DumpAllocation(result.VRAllocator)
 }

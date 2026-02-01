@@ -902,7 +902,7 @@ func (z *machineInstructionZ80) String() string {
 	case z.immediateValue != 0:
 		// Immediate value instruction
 		if z.result != nil {
-			return fmt.Sprintf("%s VR%d, %d", opName, z.result.ID, z.immediateValue)
+			return fmt.Sprintf("%s %s, %d", opName, z.result.String(), z.immediateValue)
 		}
 		return fmt.Sprintf("%s %d", opName, z.immediateValue)
 
@@ -912,17 +912,16 @@ func (z *machineInstructionZ80) String() string {
 		for i, op := range z.operands {
 			operandStrs[i] = fmt.Sprintf("VR%d", op.ID)
 		}
-		return fmt.Sprintf("%s VR%d, %s", opName, z.result.ID, strings.Join(operandStrs, ", "))
+		return fmt.Sprintf("%s %s, %s", opName, z.result.String(), strings.Join(operandStrs, ", "))
 
 	case z.result != nil:
 		// Result only
-		return fmt.Sprintf("%s VR%d", opName, z.result.ID)
-
+		return fmt.Sprintf("%s %s", opName, z.result.String())
 	case len(z.operands) > 0:
 		// Operands only
 		operandStrs := make([]string, len(z.operands))
 		for i, op := range z.operands {
-			operandStrs[i] = fmt.Sprintf("VR%d", op.ID)
+			operandStrs[i] = op.String()
 		}
 		return fmt.Sprintf("%s %s", opName, strings.Join(operandStrs, ", "))
 	}

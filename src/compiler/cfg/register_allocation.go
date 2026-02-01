@@ -141,17 +141,56 @@ func (ra *RegisterAllocator) selectRegister(vr *VirtualRegister, ig *Interferenc
 	return nil // No register available (needs spilling)
 }
 
-func DumpAllocation(fnName string, vrAlloc *VirtualRegisterAllocator) {
-	fmt.Printf("========== Allocation: %s ==========\n", fnName)
-	fmt.Printf("Register allocation results:\n")
+func DumpAllocation(vrAlloc *VirtualRegisterAllocator) {
+	fmt.Println("========== REGISTER ALLOCATION ==========")
+
+	// Collect VRs by type
+	allocated := []*VirtualRegister{}
+	spilled := []*VirtualRegister{}
+	immediates := []*VirtualRegister{}
+	candidates := []*VirtualRegister{}
+
 	for _, vr := range vrAlloc.GetAll() {
-		if vr.Type == AllocatedRegister && vr.PhysicalReg != nil {
-			fmt.Printf("  VR%d -> %s\n", vr.ID, vr.PhysicalReg.Name)
-		} else if vr.Type == StackLocation {
-			fmt.Printf("  VR%d -> stack[%d]\n", vr.ID, vr.Value)
-		} else if vr.Type == ImmediateValue {
-			fmt.Printf("  VR%d -> immediate(%d)\n", vr.ID, vr.Value)
+		switch vr.Type {
+		case AllocatedRegister:
+			allocated = append(allocated, vr)
+		case StackLocation:
+			spilled = append(spilled, vr)
+		case ImmediateValue:
+			immediates = append(immediates, vr)
+		case CandidateRegister:
+			candidates = append(candidates, vr)
 		}
 	}
-	fmt.Println()
+
+	if len(allocated) > 0 {
+		fmt.Printf("Allocated (%d):\n", len(allocated))
+		for _, vr := range allocated {
+			fmt.Println(vr.String())
+		}
+	}
+
+	if len(spilled) > 0 {
+		fmt.Printf("\nSpilled to stack (%d):\n", len(spilled))
+		for _, vr := range spilled {
+			fmt.Println(vr.String())
+		}
+	}
+
+	if len(immediates) > 0 {
+		fmt.Printf("\nImmediates (%d):\n", len(immediates))
+		for _, vr := range immediates {
+			fmt.Println(vr.String())
+		}
+	}
+
+	if len(candidates) > 0 {
+		fmt.Printf("\nUnallocated candidates (%d):\n", len(candidates))
+		for _, vr := range candidates {
+			fmt.Println(vr.String())
+		}
+	}
+
+	fmt.Printf("\nTotal: %d VRs (%d allocated, %d spilled, %d immediate, %d unallocated)\n\n",
+		len(vrAlloc.GetAll()), len(allocated), len(spilled), len(immediates), len(candidates))
 }

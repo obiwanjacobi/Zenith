@@ -1,6 +1,9 @@
 package cfg
 
-import "zenith/compiler/zsm"
+import (
+	"fmt"
+	"zenith/compiler/zsm"
+)
 
 // ============================================================================
 // Instruction Categories
@@ -264,6 +267,35 @@ type VirtualRegister struct {
 	Value uint32
 }
 
+func (vr *VirtualRegister) String() string {
+	name := vr.Name
+	if name == "" {
+		name = fmt.Sprintf("VR%d", vr.ID)
+	} else {
+		name = fmt.Sprintf("%s %d", name, vr.ID)
+	}
+
+	switch vr.Type {
+	case AllocatedRegister:
+		return fmt.Sprintf("%s = %s", name, vr.PhysicalReg.Name)
+	case CandidateRegister:
+		candidates := ""
+		for i, reg := range vr.AllowedSet {
+			if i > 0 {
+				candidates += "|"
+			}
+			candidates += reg.Name
+		}
+		return fmt.Sprintf("%s = %s", name, candidates)
+	case ImmediateValue:
+		return fmt.Sprintf("%s = #%d", name, vr.Value)
+	case StackLocation:
+		return fmt.Sprintf("%s = [SP+%d]", name, vr.Value)
+	}
+
+	return name
+}
+
 // VirtualRegisterAllocator manages virtual register creation
 type VirtualRegisterAllocator struct {
 	nextID   int
@@ -283,6 +315,7 @@ func (vra *VirtualRegisterAllocator) Allocate(size RegisterSize) *VirtualRegiste
 	vr := &VirtualRegister{
 		ID:   vra.nextID,
 		Size: size,
+		Type: CandidateRegister,
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++
@@ -294,6 +327,7 @@ func (vra *VirtualRegisterAllocator) AllocateConstrained(size RegisterSize, allo
 	vr := &VirtualRegister{
 		ID:         vra.nextID,
 		Size:       size,
+		Type:       CandidateRegister,
 		AllowedSet: allowedSet,
 	}
 	vra.virtRegs[vra.nextID] = vr

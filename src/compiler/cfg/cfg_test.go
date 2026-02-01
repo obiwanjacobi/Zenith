@@ -658,3 +658,122 @@ func Test_CFG_PredecessorsSuccessorsConsistent(t *testing.T) {
 		}
 	}
 }
+
+// Test CFG structure issues: multiple entry blocks
+func Test_CFG_MultipleEntryBlocksProblem(t *testing.T) {
+	sourceCode := `
+		factorial: (n: u8) u8 {
+			if n <= 1 {
+				ret 1
+			}
+			ret n * factorial(n - 1)
+		}
+	`
+
+	cfg := buildCFGFromCode(t, sourceCode)
+
+	t.Logf("\n========== CFG Structure Analysis ==========")
+	t.Logf("Total blocks: %d", len(cfg.Blocks))
+	t.Logf("Entry block: %d", cfg.Entry.ID)
+	t.Logf("Exit block: %d", cfg.Exit.ID)
+
+	// Count blocks by label type
+	labelCounts := make(map[BlockLabel]int)
+	entryBlocks := []int{}
+
+	for _, block := range cfg.Blocks {
+		labelCounts[block.Label]++
+		if block.Label == LabelEntry {
+			entryBlocks = append(entryBlocks, block.ID)
+		}
+
+		t.Logf("Block %d [%s]: %d stmts, %d predecessors, %d successors",
+			block.ID, block.Label.String(),
+			len(block.Instructions),
+			len(block.Predecessors),
+			len(block.Successors))
+	}
+
+	t.Logf("\nLabel counts:")
+	for label, count := range labelCounts {
+		t.Logf("  %s: %d", label.String(), count)
+	}
+
+	// PROBLEM: Should only have ONE entry block
+	if labelCounts[LabelEntry] > 1 {
+		t.Errorf("PROBLEM: CFG has %d blocks labeled as 'entry': %v",
+			labelCounts[LabelEntry], entryBlocks)
+		t.Error("Only cfg.Entry should be labeled as 'entry'")
+
+		// Show details about each "entry" block
+		for _, block := range cfg.Blocks {
+			if block.Label == LabelEntry {
+				t.Logf("\nEntry block %d:", block.ID)
+				t.Logf("  Instructions: %d", len(block.Instructions))
+				t.Logf("  Predecessors: %v", blockIDs(block.Predecessors))
+				t.Logf("  Successors: %v", blockIDs(block.Successors))
+			}
+		}
+	}
+
+	// Should only have ONE exit block
+	if labelCounts[LabelExit] > 1 {
+		t.Errorf("PROBLEM: CFG has %d exit blocks, should have 1", labelCounts[LabelExit])
+	}
+
+	// Entry should have no predecessors
+	if len(cfg.Entry.Predecessors) > 0 {
+		t.Errorf("Entry block should have 0 predecessors, has %d", len(cfg.Entry.Predecessors))
+	}
+
+	// Exit should have no successors
+	if len(cfg.Exit.Successors) > 0 {
+		t.Errorf("Exit block should have 0 successors, has %d", len(cfg.Exit.Successors))
+	}
+
+	// Check for unreachable blocks
+	reachable := make(map[int]bool)
+	var visit func(*BasicBlock)
+	visit = func(b *BasicBlock) {
+		if reachable[b.ID] {
+			return
+		}
+		reachable[b.ID] = true
+		for _, succ := range b.Successors {
+			visit(succ)
+		}
+	}
+	visit(cfg.Entry)
+
+	unreachable := []int{}
+	for _, block := range cfg.Blocks {
+		if !reachable[block.ID] && block != cfg.Exit {
+			unreachable = append(unreachable, block.ID)
+		}
+	}
+
+	if len(unreachable) > 0 {
+		t.Logf("WARNING: Found %d unreachable blocks: %v", len(unreachable), unreachable)
+		for _, id := range unreachable {
+			for _, block := range cfg.Blocks {
+				if block.ID == id {
+					t.Logf("  Unreachable block %d [%s] has %d instructions",
+						id, block.Label.String(), len(block.Instructions))
+				}
+			}
+		}
+	}
+
+	// Dump the full CFG
+	t.Log("\n========== Full CFG Dump ==========")
+	DumpCFG("factorial", cfg, nil)
+}
+
+// Helper to extract block IDs from slice
+func blockIDs(blocks []*BasicBlock) []int {
+	ids := make([]int, len(blocks))
+	for i, b := range blocks {
+		ids[i] = b.ID
+	}
+	return ids
+}

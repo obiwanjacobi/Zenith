@@ -30,6 +30,7 @@ const (
 	LabelSelectCase
 	LabelSelectElse
 	LabelSelectMerge
+	LabelUnreachable
 )
 
 // String returns the string representation of a BlockLabel
@@ -63,6 +64,8 @@ func (l BlockLabel) String() string {
 		return "select.else"
 	case LabelSelectMerge:
 		return "select.merge"
+	case LabelUnreachable:
+		return "unreachable"
 	default:
 		return "unknown"
 	}
@@ -135,6 +138,16 @@ func (b *CFGBuilder) BuildCFG(funcDecl *zsm.SemFunctionDecl) *CFG {
 	}
 }
 
+// blockTerminates checks if a block ends with a return statement
+func (b *CFGBuilder) blockTerminates(block *BasicBlock) bool {
+	if len(block.Instructions) == 0 {
+		return false
+	}
+	lastInstr := block.Instructions[len(block.Instructions)-1]
+	_, isReturn := lastInstr.(*zsm.SemReturn)
+	return isReturn
+}
+
 // newBlock creates a new basic block
 // If referenceID >= 0, stores it as LabelID for uniqueness
 func (b *CFGBuilder) newBlock(label BlockLabel, referenceID int) *BasicBlock {
@@ -192,8 +205,7 @@ func (b *CFGBuilder) processStatement(stmt zsm.SemStatement, exitBlock *BasicBlo
 		// Return statement - add to current block and connect to exit
 		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
 		b.addEdge(b.currentBlock, exitBlock)
-		// Create a new block for any statements after return (unreachable code)
-		b.currentBlock = b.newBlock(LabelEntry, 0) // Use generic label for continuation
+		// Note: currentBlock now terminates, don't create a new block
 
 	case *zsm.SemIf:
 		b.processIf(s, exitBlock)
@@ -276,12 +288,16 @@ func (b *CFGBuilder) processIf(ifStmt *zsm.SemIf, exitBlock *BasicBlock) {
 		b.addEdge(prevCondBlock, mergeBlock)
 	}
 
-	// Connect all exit blocks to merge block
-	b.addEdge(thenExitBlock, mergeBlock)
-	for _, elsifExit := range elsifExitBlocks {
-		b.addEdge(elsifExit, mergeBlock)
+	// Connect all exit blocks to merge block (only if they don't already terminate)
+	if !b.blockTerminates(thenExitBlock) {
+		b.addEdge(thenExitBlock, mergeBlock)
 	}
-	if elseExitBlock != nil {
+	for _, elsifExit := range elsifExitBlocks {
+		if !b.blockTerminates(elsifExit) {
+			b.addEdge(elsifExit, mergeBlock)
+		}
+	}
+	if elseExitBlock != nil && !b.blockTerminates(elseExitBlock) {
 		b.addEdge(elseExitBlock, mergeBlock)
 	}
 
@@ -439,7 +455,7 @@ func BuildCFGs(compilationUnit *zsm.SemCompilationUnit) []*CFG {
 	return cfgs
 }
 
-func DumpCFG(fnName string, fnCFG *CFG) {
+func DumpCFG(fnName string, fnCFG *CFG, dumpInstructions func([]MachineInstruction)) {
 	fmt.Printf("========== Control Flow Graph: %s ==========\n", fnName)
 	fmt.Printf("Entry: Block %d\n", fnCFG.Entry.ID)
 	fmt.Printf("Exit:  Block %d\n", fnCFG.Exit.ID)
@@ -447,6 +463,12 @@ func DumpCFG(fnName string, fnCFG *CFG) {
 	for _, block := range fnCFG.Blocks {
 		fmt.Printf("  Block %d [%s]: %d instructions, %d successors\n",
 			block.ID, block.Label, len(block.Instructions), len(block.Successors))
+		for _, succ := range block.Successors {
+			fmt.Printf("    -> Block %d [%s]\n", succ.ID, succ.Label)
+		}
+		if dumpInstructions != nil {
+			dumpInstructions(block.MachineInstructions)
+		}
 	}
 	fmt.Println()
 }
