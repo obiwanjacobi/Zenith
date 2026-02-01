@@ -357,7 +357,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		interference := result.InterferenceInfo[fnName]
 
 		// Run register allocation (assigns PhysicalReg to each VirtualRegister)
-		err := allocator.Allocate(fnCFG, interference, vrAlloc)
+		err := allocator.Allocate(fnCFG, interference, vrAlloc.GetAll())
 		if err != nil {
 			result.CodeGenErrors = append(result.CodeGenErrors, err)
 			return result, fmt.Errorf("register allocation failed for %s: %w", fnName, err)

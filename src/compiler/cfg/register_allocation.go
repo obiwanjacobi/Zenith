@@ -42,10 +42,7 @@ func (ra *RegisterAllocator) SetCapabilities(cap RegisterCapabilities) {
 
 // Allocate performs graph coloring register allocation on a CFG
 // Assigns physical registers to VirtualRegisters based on interference graph
-func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, vrAlloc *VirtualRegisterAllocator) error {
-	// Get all VirtualRegisters
-	allVRs := vrAlloc.GetAll()
-
+func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []*VirtualRegister) error {
 	// Filter to only CandidateRegisters that need allocation
 	candidateVRs := make(map[int]*VirtualRegister)
 	for _, vr := range allVRs {
