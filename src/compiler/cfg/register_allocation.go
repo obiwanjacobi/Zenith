@@ -18,7 +18,7 @@ type SymbolInfo interface {
 // Register represents a physical register
 type Register struct {
 	Name        string
-	Size        int // 8 or 16 bits
+	Size        int         // 8 or 16 bits
 	Composition []*Register // For multi-byte registers (typical Intel and Zilog)
 	RegisterId  int         // the register id for encoding
 }
@@ -237,9 +237,9 @@ func (ra *RegisterAllocator) BuildParameterPrecoloring(functionName string, para
 
 	precolored := make(map[string]string)
 	for i, paramName := range paramNames {
-		paramSize := 8 // default
+		paramSize := RegisterSize(8) // default
 		if i < len(paramSizes) {
-			paramSize = paramSizes[i]
+			paramSize = RegisterSize(paramSizes[i])
 		}
 
 		reg, _, useStack := ra.callingConvention.GetParameterLocation(i, paramSize)

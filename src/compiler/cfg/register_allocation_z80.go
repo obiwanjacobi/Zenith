@@ -52,7 +52,7 @@ func NewCallingConventionZ80() CallingConvention {
 	}
 }
 
-func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize int) (register *Register, stackOffset int, useStack bool) {
+func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize RegisterSize) (register *Register, stackOffset int, useStack bool) {
 	// Map parameter indices to register pairs
 	// For 8-bit params, use the low byte of the pair
 	var regName string
@@ -97,7 +97,7 @@ func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize i
 	return nil, 2 + paramIndex*2, true
 }
 
-func (cc *callingConventionZ80) GetReturnValueRegister(returnSize int) *Register {
+func (cc *callingConventionZ80) GetReturnValueRegister(returnSize RegisterSize) *Register {
 	var regName string
 	if returnSize == 8 {
 		regName = "A"

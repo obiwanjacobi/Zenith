@@ -46,41 +46,39 @@ type InstructionSelector interface {
 	// ============================================================================
 
 	// SelectAdd generates instructions for addition (a + b)
-	SelectAdd(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectAdd(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectSubtract generates instructions for subtraction (a - b)
-	SelectSubtract(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectSubtract(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectMultiply generates instructions for multiplication (a * b)
-	SelectMultiply(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectMultiply(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectDivide generates instructions for division (a / b)
-	SelectDivide(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectDivide(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectNegate generates instructions for negation (-a)
-	SelectNegate(operand *VirtualRegister, size int) (*VirtualRegister, error)
-
+	SelectNegate(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 	// ============================================================================
 	// Bitwise Operations
 	// ============================================================================
 
 	// SelectBitwiseAnd generates instructions for bitwise AND (a & b)
-	SelectBitwiseAnd(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectBitwiseAnd(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectBitwiseOr generates instructions for bitwise OR (a | b)
-	SelectBitwiseOr(left, right *VirtualRegister, size int) (*VirtualRegister, error)
-
+	SelectBitwiseOr(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 	// SelectBitwiseXor generates instructions for bitwise XOR (a ^ b)
-	SelectBitwiseXor(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectBitwiseXor(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectBitwiseNot generates instructions for bitwise NOT (~a)
-	SelectBitwiseNot(operand *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectBitwiseNot(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectShiftLeft generates instructions for left shift (a << b)
-	SelectShiftLeft(value, amount *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectShiftLeft(value, amount *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectShiftRight generates instructions for right shift (a >> b)
-	SelectShiftRight(value, amount *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectShiftRight(value, amount *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLogicalAnd generates instructions for logical AND (a && b)
 	// Includes short-circuit evaluation
@@ -99,22 +97,21 @@ type InstructionSelector interface {
 
 	// SelectEqual generates instructions for equality comparison (a == b)
 	// Returns a virtual register containing boolean result (0 or 1)
-	SelectEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectNotEqual generates instructions for inequality comparison (a != b)
-	SelectNotEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectNotEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLessThan generates instructions for less-than comparison (a < b)
-	SelectLessThan(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectLessThan(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLessEqual generates instructions for less-or-equal comparison (a <= b)
-	SelectLessEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error)
-
+	SelectLessEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 	// SelectGreaterThan generates instructions for greater-than comparison (a > b)
-	SelectGreaterThan(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectGreaterThan(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectGreaterEqual generates instructions for greater-or-equal comparison (a >= b)
-	SelectGreaterEqual(left, right *VirtualRegister, size int) (*VirtualRegister, error)
+	SelectGreaterEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// ============================================================================
 	// Memory Operations
@@ -122,13 +119,13 @@ type InstructionSelector interface {
 
 	// SelectLoad generates instructions to load from memory
 	// address is the base address, offset is optional byte offset
-	SelectLoad(address *VirtualRegister, offset int, size int) (*VirtualRegister, error)
+	SelectLoad(address *VirtualRegister, offset int, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectStore generates instructions to store to memory
-	SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size int) error
+	SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error
 
 	// SelectLoadConstant generates instructions to load an immediate value
-	SelectLoadConstant(value interface{}, size int) (*VirtualRegister, error)
+	SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLoadVariable generates instructions to load a variable's value
 	SelectLoadVariable(symbol *zsm.Symbol) (*VirtualRegister, error)
@@ -137,8 +134,7 @@ type InstructionSelector interface {
 	SelectStoreVariable(symbol *zsm.Symbol, value *VirtualRegister) error
 
 	// Move register value -of size- from source to target
-	SelectMove(target *VirtualRegister, source *VirtualRegister, size int) error
-
+	SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error
 	// ============================================================================
 	// Control Flow
 	// ============================================================================
@@ -157,7 +153,7 @@ type InstructionSelector interface {
 	// SelectCall generates a function call
 	// returnSize is the size of the return value in bits (0 for void functions)
 	// Returns the virtual register containing the return value (nil if void)
-	SelectCall(functionName string, args []*VirtualRegister, returnSize int) (*VirtualRegister, error)
+	SelectCall(functionName string, args []*VirtualRegister, returnSize RegisterSize) (*VirtualRegister, error)
 
 	// SelectReturn generates a return statement
 	// value is nil for void functions
@@ -178,10 +174,10 @@ type InstructionSelector interface {
 	// ============================================================================
 
 	// AllocateVirtual creates a new virtual register
-	AllocateVirtual(size int) *VirtualRegister
+	// AllocateVirtual(size RegisterSize) *VirtualRegister
 
 	// AllocateVirtualConstrained creates a virtual register with specific constraints
-	AllocateVirtualConstrained(size int, allowedSet []*Register) *VirtualRegister
+	// AllocateVirtualConstrained(size RegisterSize, allowedSet []*Register) *VirtualRegister
 
 	// EmitInstruction adds an instruction to the current block
 	EmitInstruction(block *BasicBlock, instr MachineInstruction)
@@ -233,13 +229,32 @@ type MachineInstruction interface {
 	GetCost() InstructionCost
 }
 
+type RegisterSize uint8
+
+const (
+	Bits8  RegisterSize = 8
+	Bits16 RegisterSize = 16
+)
+
+type VirtualRegisterType uint8
+
+const (
+	CandidateRegister VirtualRegisterType = iota // General-purpose virtual register
+	StackLocation                                // Stack location (for parameters/locals)
+	ImmediateValue                               // Immediate/literal value
+	AllocatedRegister                            // Physical register assigned after allocation
+)
+
 // VirtualRegister represents a register before physical allocation
 type VirtualRegister struct {
 	// ID uniquely identifies this virtual register
 	ID int
 
-	// Size in bits (8, 16, 32, 64, etc.) - determines which physical registers are compatible
-	Size int
+	// Size in bits - determines which physical registers are compatible
+	Size RegisterSize
+
+	// Type of virtual register
+	Type VirtualRegisterType
 
 	// AllowedSet restricts allocation to specific registers (e.g., [A] for Z80 ADD result)
 	// If nil or empty, any register of the correct size and class can be used
@@ -252,12 +267,11 @@ type VirtualRegister struct {
 	Name string
 
 	// StackOffset is the offset from stack pointer for stack-based parameters/locals
-	// -1 if this VirtualRegister is not backed by a stack location
+	// Used when Type is StackLocation
 	StackOffset int
 
-	// HasStackHome indicates this VirtualRegister has a permanent home on the stack
-	// If true, the register allocator can spill to StackOffset instead of allocating a new slot
-	HasStackHome bool
+	// Value holds the immediate value when Type is ImmediateValue
+	Value int32
 }
 
 // VirtualRegisterAllocator manages virtual register creation
@@ -275,7 +289,7 @@ func NewVirtualRegisterAllocator() *VirtualRegisterAllocator {
 }
 
 // Allocate creates a new virtual register
-func (vra *VirtualRegisterAllocator) Allocate(size int) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) Allocate(size RegisterSize) *VirtualRegister {
 	vr := &VirtualRegister{
 		ID:   vra.nextID,
 		Size: size,
@@ -286,7 +300,7 @@ func (vra *VirtualRegisterAllocator) Allocate(size int) *VirtualRegister {
 }
 
 // AllocateConstrained creates a virtual register with specific constraints
-func (vra *VirtualRegisterAllocator) AllocateConstrained(size int, allowedSet []*Register) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateConstrained(size RegisterSize, allowedSet []*Register) *VirtualRegister {
 	vr := &VirtualRegister{
 		ID:         vra.nextID,
 		Size:       size,
@@ -298,7 +312,7 @@ func (vra *VirtualRegisterAllocator) AllocateConstrained(size int, allowedSet []
 }
 
 // AllocateNamed creates a named virtual register (for debugging)
-func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size int) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size RegisterSize) *VirtualRegister {
 	vr := vra.Allocate(size)
 	vr.Name = name
 	return vr
@@ -306,13 +320,27 @@ func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size int) *Virtu
 
 // AllocateWithStackHome creates a virtual register backed by a stack location
 // This is used for parameters and locals that have a permanent stack home
-func (vra *VirtualRegisterAllocator) AllocateWithStackHome(name string, size int, stackOffset int) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateWithStackHome(name string, size RegisterSize, stackOffset int) *VirtualRegister {
 	vr := &VirtualRegister{
-		ID:           vra.nextID,
-		Size:         size,
-		Name:         name,
-		StackOffset:  stackOffset,
-		HasStackHome: true,
+		ID:          vra.nextID,
+		Size:        size,
+		Type:        StackLocation,
+		Name:        name,
+		StackOffset: stackOffset,
+	}
+	vra.virtRegs[vra.nextID] = vr
+	vra.nextID++
+	return vr
+}
+
+// AllocateImmediate creates a virtual register representing a constant immediate value
+// This is used for constant values that don't need physical register allocation
+func (vra *VirtualRegisterAllocator) AllocateImmediate(value int32, size RegisterSize) *VirtualRegister {
+	vr := &VirtualRegister{
+		ID:    vra.nextID,
+		Size:  size,
+		Type:  ImmediateValue,
+		Value: value,
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++

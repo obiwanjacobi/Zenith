@@ -420,7 +420,9 @@ All directives start with a `#`.
 | Directive          | Description                            |
 | ------------------ | -------------------------------------- |
 | #if <const>        | Conditional compilation                |
+| #ifn <const>       | Conditional compilation                |
 | #elsif <const>     | Conditional compilation                |
+| #elsifn <const>    | Conditional compilation                |
 | #else              | Conditional compilation                |
 | #end               | Ends a compilation block               |
 | #asm               | Inline assembly block (#end)           |
@@ -437,9 +439,7 @@ All intrinsics start with a `@`.
 | @findmem(src, f, u/d, r)   | CPI/CPIR/CPD/CPDR               |
 | @carry(false/true/not)     | Clear, set or toggle carry flag |
 
-- BCD/DAA?
-
-- Provide prolog 'macros' for working with the calling conventions for custom asm code.
+- Provide prolog/epilog 'macros' for working with the calling conventions for custom asm code.
 
 ### Configuration
 

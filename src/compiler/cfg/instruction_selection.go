@@ -62,16 +62,15 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 	// Allocate VirtualRegisters for parameters based on calling convention
 	if cfg.FunctionDecl != nil {
 		for i, param := range cfg.FunctionDecl.Parameters {
-			size := param.Type.Size() * 8 // Convert bytes to bits
-			sizeBytes := param.Type.Size()
+			var regSize RegisterSize = RegisterSize(param.Type.Size() * 8) // Convert bytes to bits
 
 			// Ask calling convention where this parameter should be
-			reg, stackOffset, useStack := ctx.callingConvention.GetParameterLocation(i, sizeBytes)
+			reg, stackOffset, useStack := ctx.callingConvention.GetParameterLocation(i, regSize)
 
 			if useStack {
 				// Parameter is on the stack - allocate VirtualRegister with stack home
 				// The register allocator can use this stack location for spilling
-				vr := ctx.vrAlloc.AllocateWithStackHome(param.Name, size, stackOffset)
+				vr := ctx.vrAlloc.AllocateWithStackHome(param.Name, regSize, stackOffset)
 				ctx.symbolToVReg[param] = vr
 
 				// Note: We don't eagerly load from stack here. The VirtualRegister
@@ -79,7 +78,7 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 				// generate loads when the value is actually used in a physical register.
 			} else {
 				// Parameter is in a register - allocate VirtualRegister with constraint
-				vr := ctx.vrAlloc.AllocateConstrained(size, []*Register{reg})
+				vr := ctx.vrAlloc.AllocateConstrained(regSize, []*Register{reg})
 				vr.Name = param.Name
 				ctx.symbolToVReg[param] = vr
 			}
@@ -226,8 +225,8 @@ func (ctx *InstructionSelectionContext) selectStatement(stmt zsm.SemStatement) e
 // selectVariableDecl processes a variable declaration
 func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariableDecl) error {
 	// Allocate a VirtualRegister for this variable
-	size := decl.TypeInfo.Size() * 8 // Convert bytes to bits
-	vr := ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, size)
+	regSize := RegisterSize(decl.TypeInfo.Size() * 8) // Convert bytes to bits
+	vr := ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regSize)
 	ctx.symbolToVReg[decl.Symbol] = vr
 
 	// If there's an initializer, evaluate it and assign
@@ -238,7 +237,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 		}
 
 		// Generate move instruction
-		err = ctx.selector.SelectMove(vr, initVR, size)
+		err = ctx.selector.SelectMove(vr, initVR, regSize)
 		if err != nil {
 			return err
 		}
@@ -262,8 +261,8 @@ func (ctx *InstructionSelectionContext) selectAssignment(assign *zsm.SemAssignme
 	}
 
 	// Generate move instruction
-	size := assign.Target.Type.Size() * 8
-	err = ctx.selector.SelectMove(targetVR, valueVR, size)
+	regSize := RegisterSize(assign.Target.Type.Size() * 8)
+	err = ctx.selector.SelectMove(targetVR, valueVR, regSize)
 	return err
 }
 
@@ -277,13 +276,12 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 		}
 
 		// Get the return register from calling convention
-		returnSize := ret.Value.Type().Size()
+		returnSize := RegisterSize(ret.Value.Type().Size() * 8)
 		returnReg := ctx.callingConvention.GetReturnValueRegister(returnSize)
 
 		// Move value to the return register
-		size := returnSize * 8
-		returnVR := ctx.vrAlloc.AllocateConstrained(size, []*Register{returnReg})
-		if err := ctx.selector.SelectMove(returnVR, valueVR, size); err != nil {
+		returnVR := ctx.vrAlloc.AllocateConstrained(returnSize, []*Register{returnReg})
+		if err := ctx.selector.SelectMove(returnVR, valueVR, returnSize); err != nil {
 			return err
 		}
 
@@ -342,8 +340,8 @@ func (ctx *InstructionSelectionContext) selectExpression(expr zsm.SemExpression)
 
 // selectConstant loads a constant value
 func (ctx *InstructionSelectionContext) selectConstant(constant *zsm.SemConstant) (*VirtualRegister, error) {
-	size := constant.Type().Size() * 8
-	return ctx.selector.SelectLoadConstant(constant.Value, size)
+	regSize := RegisterSize(constant.Type().Size() * 8)
+	return ctx.selector.SelectLoadConstant(constant.Value, regSize)
 }
 
 // selectSymbolRef loads a variable value
@@ -369,48 +367,46 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp) (*Vi
 		return nil, err
 	}
 
-	size := op.Type().Size() * 8
+	regSize := RegisterSize(op.Type().Size() * 8)
 
 	// Dispatch to appropriate selector method
 	switch op.Op {
 	case zsm.OpAdd:
-		return ctx.selector.SelectAdd(leftVR, rightVR, size)
+		return ctx.selector.SelectAdd(leftVR, rightVR, regSize)
 
 	case zsm.OpSubtract:
-		return ctx.selector.SelectSubtract(leftVR, rightVR, size)
+		return ctx.selector.SelectSubtract(leftVR, rightVR, regSize)
 
 	case zsm.OpMultiply:
-		return ctx.selector.SelectMultiply(leftVR, rightVR, size)
+		return ctx.selector.SelectMultiply(leftVR, rightVR, regSize)
 
 	case zsm.OpDivide:
-		return ctx.selector.SelectDivide(leftVR, rightVR, size)
+		return ctx.selector.SelectDivide(leftVR, rightVR, regSize)
 
 	case zsm.OpBitwiseAnd:
-		return ctx.selector.SelectBitwiseAnd(leftVR, rightVR, size)
-
+		return ctx.selector.SelectBitwiseAnd(leftVR, rightVR, regSize)
 	case zsm.OpBitwiseOr:
-		return ctx.selector.SelectBitwiseOr(leftVR, rightVR, size)
+		return ctx.selector.SelectBitwiseOr(leftVR, rightVR, regSize)
 
 	case zsm.OpBitwiseXor:
-		return ctx.selector.SelectBitwiseXor(leftVR, rightVR, size)
+		return ctx.selector.SelectBitwiseXor(leftVR, rightVR, regSize)
 
 	case zsm.OpEqual:
-		return ctx.selector.SelectEqual(leftVR, rightVR, size)
+		return ctx.selector.SelectEqual(leftVR, rightVR, regSize)
 
 	case zsm.OpNotEqual:
-		return ctx.selector.SelectNotEqual(leftVR, rightVR, size)
+		return ctx.selector.SelectNotEqual(leftVR, rightVR, regSize)
 
 	case zsm.OpLessThan:
-		return ctx.selector.SelectLessThan(leftVR, rightVR, size)
+		return ctx.selector.SelectLessThan(leftVR, rightVR, regSize)
 
 	case zsm.OpLessEqual:
-		return ctx.selector.SelectLessEqual(leftVR, rightVR, size)
-
+		return ctx.selector.SelectLessEqual(leftVR, rightVR, regSize)
 	case zsm.OpGreaterThan:
-		return ctx.selector.SelectGreaterThan(leftVR, rightVR, size)
+		return ctx.selector.SelectGreaterThan(leftVR, rightVR, regSize)
 
 	case zsm.OpGreaterEqual:
-		return ctx.selector.SelectGreaterEqual(leftVR, rightVR, size)
+		return ctx.selector.SelectGreaterEqual(leftVR, rightVR, regSize)
 
 	case zsm.OpLogicalAnd:
 		return ctx.selector.SelectLogicalAnd(leftVR, rightVR)
@@ -431,19 +427,18 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(op *zsm.SemUnaryOp) (*Virt
 		return nil, err
 	}
 
-	size := op.Type().Size() * 8
+	regSize := RegisterSize(op.Type().Size() * 8)
 
 	// Dispatch to appropriate selector method
 	switch op.Op {
 	case zsm.OpNegate:
-		return ctx.selector.SelectNegate(operandVR, size)
+		return ctx.selector.SelectNegate(operandVR, regSize)
 
 	case zsm.OpLogicalNot:
 		return ctx.selector.SelectLogicalNot(operandVR)
 
 	case zsm.OpBitwiseNot:
-		return ctx.selector.SelectBitwiseNot(operandVR, size)
-
+		return ctx.selector.SelectBitwiseNot(operandVR, regSize)
 	default:
 		return nil, fmt.Errorf("unknown unary operator: %v", op.Op)
 	}
@@ -462,9 +457,9 @@ func (ctx *InstructionSelectionContext) selectFunctionCall(call *zsm.SemFunction
 	}
 
 	// Get return size
-	returnSize := 0
+	returnSize := RegisterSize(0)
 	if call.Type() != nil {
-		returnSize = call.Type().Size() * 8
+		returnSize = RegisterSize(call.Type().Size() * 8)
 	}
 
 	// Generate call
@@ -481,15 +476,15 @@ func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMember
 
 	// Load member at offset
 	offset := access.Field.Offset
-	size := access.Type().Size() * 8
-	return ctx.selector.SelectLoad(objectVR, offset, size)
+	regSize := RegisterSize(access.Type().Size() * 8)
+	return ctx.selector.SelectLoad(objectVR, offset, regSize)
 }
 
 // selectTypeInitializer processes struct initialization
 func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zsm.SemTypeInitializer) (*VirtualRegister, error) {
 	// Allocate space for the struct
-	size := init.Type().Size() * 8
-	structVR := ctx.vrAlloc.Allocate(size)
+	regSize := RegisterSize(init.Type().Size() * 8)
+	structVR := ctx.vrAlloc.Allocate(regSize)
 
 	// Initialize each field
 	for _, fieldInit := range init.Fields {
@@ -499,8 +494,8 @@ func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zsm.SemTypeI
 		}
 
 		offset := fieldInit.Field.Offset
-		fieldSize := fieldInit.Field.Type.Size() * 8
-		if err := ctx.selector.SelectStore(structVR, valueVR, offset, fieldSize); err != nil {
+		fieldRegSize := RegisterSize(fieldInit.Field.Type.Size() * 8)
+		if err := ctx.selector.SelectStore(structVR, valueVR, offset, fieldRegSize); err != nil {
 			return nil, err
 		}
 	}

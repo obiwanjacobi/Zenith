@@ -73,7 +73,7 @@ func Test_InstructionSelection_Constant(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, vr)
-	assert.Equal(t, 8, vr.Size)
+	assert.Equal(t, RegisterSize(8), vr.Size)
 
 	// Check that instructions were generated
 	instructions := block.MachineInstructions
@@ -104,7 +104,7 @@ func Test_InstructionSelection_BinaryOp_Add(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, vr)
-	assert.Equal(t, 8, vr.Size)
+	assert.Equal(t, RegisterSize(8), vr.Size)
 
 	// Check that instructions were generated
 	instructions := block.MachineInstructions
@@ -154,7 +154,7 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.NotNil(t, vr)
-
+			assert.Equal(t, RegisterSize(8), vr.Size)
 			// Check that instructions were generated
 			instructions := block.MachineInstructions
 			assert.NotEmpty(t, instructions)
@@ -190,7 +190,7 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.NotNil(t, vr)
-
+			assert.Equal(t, RegisterSize(8), vr.Size)
 			// Check that instructions were generated
 			instructions := block.MachineInstructions
 			assert.NotEmpty(t, instructions)
@@ -228,7 +228,7 @@ func Test_InstructionSelection_VariableDecl(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, vr)
 	assert.Equal(t, "x", vr.Name)
-
+	assert.Equal(t, RegisterSize(8), vr.Size)
 	// Check that instructions were generated
 	instructions := block.MachineInstructions
 	assert.NotEmpty(t, instructions)
@@ -616,7 +616,7 @@ func Test_InstructionSelection_16BitOperations(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, vr)
-	assert.Equal(t, 16, vr.Size)
+	assert.Equal(t, RegisterSize(16), vr.Size)
 
 	// Check that instructions were generated
 	instructions := block.MachineInstructions
