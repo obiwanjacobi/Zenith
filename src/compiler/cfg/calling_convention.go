@@ -6,7 +6,7 @@ type CallingConvention interface {
 	// Returns (register, stackOffset, useStack)
 	// If useStack is true, parameter is at [SP + stackOffset]
 	// If useStack is false, parameter is in the returned register
-	GetParameterLocation(paramIndex int, paramSize RegisterSize) (register *Register, stackOffset int, useStack bool)
+	GetParameterLocation(paramIndex int, paramSize RegisterSize) (register *Register, stackOffset uint8, useStack bool)
 
 	// GetReturnValueRegister returns the register used for return values
 	// For multi-value returns or large types, may need extension

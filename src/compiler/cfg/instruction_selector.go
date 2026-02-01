@@ -257,12 +257,8 @@ type VirtualRegister struct {
 	// Name for debugging (optional, e.g., variable name)
 	Name string
 
-	// StackOffset is the offset from stack pointer for stack-based parameters/locals
-	// Used when Type is StackLocation
-	StackOffset int
-
-	// Value holds the immediate value when Type is ImmediateValue
-	Value int32
+	// Value holds the value when Type is not CandidateRegister or AllocatedRegister
+	Value uint32
 }
 
 // VirtualRegisterAllocator manages virtual register creation
@@ -311,13 +307,13 @@ func (vra *VirtualRegisterAllocator) AllocateNamed(name string, size RegisterSiz
 
 // AllocateWithStackHome creates a virtual register backed by a stack location
 // This is used for parameters and locals that have a permanent stack home
-func (vra *VirtualRegisterAllocator) AllocateWithStackHome(name string, size RegisterSize, stackOffset int) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateWithStackHome(name string, size RegisterSize, stackOffset uint8) *VirtualRegister {
 	vr := &VirtualRegister{
-		ID:          vra.nextID,
-		Size:        size,
-		Type:        StackLocation,
-		Name:        name,
-		StackOffset: stackOffset,
+		ID:    vra.nextID,
+		Size:  size,
+		Type:  StackLocation,
+		Name:  name,
+		Value: uint32(stackOffset),
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++
@@ -331,7 +327,7 @@ func (vra *VirtualRegisterAllocator) AllocateImmediate(value int32, size Registe
 		ID:    vra.nextID,
 		Size:  size,
 		Type:  ImmediateValue,
-		Value: value,
+		Value: uint32(value),
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++
