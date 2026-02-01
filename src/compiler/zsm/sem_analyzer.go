@@ -693,6 +693,19 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 	// TODO: Implement proper type inference/coercion
 	resultType := left.Type()
 
+	// Special case: multiplication of two u8 values produces u16 to avoid overflow
+	if op == OpMultiply {
+		if leftPrim, ok := left.Type().(*PrimitiveType); ok {
+			if rightPrim, ok := right.Type().(*PrimitiveType); ok {
+				if leftPrim == U8Type && rightPrim == U8Type {
+					resultType = U16Type
+				} else if leftPrim == I8Type && rightPrim == I8Type {
+					resultType = I16Type
+				}
+			}
+		}
+	}
+
 	return &SemBinaryOp{
 		Op:       op,
 		Left:     left,
