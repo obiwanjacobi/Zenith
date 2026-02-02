@@ -267,12 +267,23 @@ type VirtualRegister struct {
 	Value uint32
 }
 
+func (vr *VirtualRegister) IsRegister(register *Register) bool {
+	switch vr.Type {
+	case AllocatedRegister:
+		return vr.PhysicalReg == register
+	case CandidateRegister:
+		return len(vr.AllowedSet) == 1 && vr.AllowedSet[0] == register
+	default:
+		return false
+	}
+}
+
 func (vr *VirtualRegister) String() string {
 	name := vr.Name
 	if name == "" {
 		name = fmt.Sprintf("VR%d", vr.ID)
 	} else {
-		name = fmt.Sprintf("%s %d", name, vr.ID)
+		name = fmt.Sprintf("'%s' %d", name, vr.ID)
 	}
 	candidates := ""
 	for i, reg := range vr.AllowedSet {

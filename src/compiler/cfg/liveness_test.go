@@ -9,9 +9,9 @@ func TestLiveness_SimpleLinearFlow(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
 	// Create virtual registers
-	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("y", Z80RegistersR)
-	vr3 := vrAlloc.AllocateNamed("z", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("y", Z80Registers8)
+	vr3 := vrAlloc.AllocateNamed("z", Z80Registers8)
 
 	// Block 0: z = x + y
 	block0 := &BasicBlock{
@@ -69,10 +69,10 @@ func TestLiveness_SimpleLinearFlow(t *testing.T) {
 func TestLiveness_ConditionalBranch(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
-	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
-	vr4 := vrAlloc.AllocateNamed("result", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("a", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("b", Z80Registers8)
+	vr3 := vrAlloc.AllocateNamed("c", Z80Registers8)
+	vr4 := vrAlloc.AllocateNamed("result", Z80Registers8)
 
 	// Block 0: condition = a < b
 	block0 := &BasicBlock{
@@ -179,9 +179,9 @@ func TestLiveness_ConditionalBranch(t *testing.T) {
 func TestLiveness_Loop(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("i", Z80RegistersR)   // loop counter
-	vr2 := vrAlloc.AllocateNamed("sum", Z80RegistersR) // accumulator
-	vr3 := vrAlloc.AllocateNamed("n", Z80RegistersR)   // loop bound
+	vr1 := vrAlloc.AllocateNamed("i", Z80Registers8)   // loop counter
+	vr2 := vrAlloc.AllocateNamed("sum", Z80Registers8) // accumulator
+	vr3 := vrAlloc.AllocateNamed("n", Z80Registers8)   // loop bound
 
 	// Block 0: Entry - initialize sum = 0, i = 0
 	block0 := &BasicBlock{
@@ -292,8 +292,8 @@ func TestLiveness_Loop(t *testing.T) {
 func TestLiveness_GetLiveRanges(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("y", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("y", Z80Registers8)
 
 	// Block 0: defines vr1
 	block0 := &BasicBlock{
@@ -367,7 +367,7 @@ func TestLiveness_GetLiveRanges(t *testing.T) {
 // Test IsLiveAt helper function
 func TestLiveness_IsLiveAt(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
-	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
 
 	block0 := &BasicBlock{
 		ID: 0,
@@ -399,7 +399,7 @@ func TestLiveness_IsLiveAt(t *testing.T) {
 func TestLiveness_IgnoresImmediates(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
 	vrImm := vrAlloc.AllocateImmediate(42, Bits8)
 
 	block0 := &BasicBlock{

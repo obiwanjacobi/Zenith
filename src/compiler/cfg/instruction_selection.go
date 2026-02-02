@@ -232,7 +232,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 	regSize := RegisterSize(decl.TypeInfo.Size() * 8) // Convert bytes to bits
 	var regs []*Register
 	if regSize == Bits8 {
-		regs = Z80RegistersR
+		regs = Z80Registers8
 	} else {
 		regs = Z80Registers16
 	}

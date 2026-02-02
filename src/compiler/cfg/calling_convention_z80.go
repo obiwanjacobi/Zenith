@@ -12,13 +12,13 @@ var RegF = Register{Name: "F", Size: 8, RegisterId: 6}
 
 // 16-bit register pairs
 var RegBC = Register{Name: "BC", Size: 16,
-	Composition: []*Register{&RegB, &RegC}, RegisterId: 0}
+	Composition: []*Register{&RegC, &RegB}, RegisterId: 0}
 var RegDE = Register{Name: "DE", Size: 16,
-	Composition: []*Register{&RegD, &RegE}, RegisterId: 1}
+	Composition: []*Register{&RegE, &RegD}, RegisterId: 1}
 var RegHL = Register{Name: "HL", Size: 16,
-	Composition: []*Register{&RegH, &RegL}, RegisterId: 2}
+	Composition: []*Register{&RegL, &RegH}, RegisterId: 2}
 var RegAF = Register{Name: "AF", Size: 16,
-	Composition: []*Register{&RegA, &RegF}, RegisterId: 3}
+	Composition: []*Register{&RegF, &RegA}, RegisterId: 3}
 var RegSP = Register{Name: "SP", Size: 16, RegisterId: 3}
 
 // Z80Registers defines the available registers for Z80 architecture
@@ -29,7 +29,7 @@ var Z80Registers = []*Register{
 }
 
 // the 8-bit registers that can be used for general purposes
-var Z80RegistersR = []*Register{
+var Z80Registers8 = []*Register{
 	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL,
 }
 
@@ -51,6 +51,19 @@ var Z80RegistersRR = []*Register{
 // indirect alternatives to HL
 var Z80RegistersPP = []*Register{
 	&RegBC, &RegDE,
+}
+
+// AsPairs splits a 16-bit register into its low and high byte registers
+// if the register is not a pair, returns the register itself as low and nil as high
+func (reg *Register) AsPairs() (lowReg *Register, highReg *Register) {
+	if len(reg.Composition) == 2 {
+		lowReg = reg.Composition[0]
+		highReg = reg.Composition[1]
+	} else {
+		lowReg = reg
+		highReg = nil
+	}
+	return lowReg, highReg
 }
 
 // callingConventionZ80 implements a standard calling convention for Z80

@@ -9,8 +9,8 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
 	// Two VRs that don't interfere (sequential use)
-	vr1 := vrAlloc.AllocateNamed("temp1", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("temp2", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("temp1", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("temp2", Z80Registers8)
 
 	// Block: temp1 = load 5, temp2 = temp1 + 10
 	block0 := &BasicBlock{
@@ -69,9 +69,9 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 func TestRegisterAllocation_WithInterference(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("y", Z80RegistersR)
-	vr3 := vrAlloc.AllocateNamed("z", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("y", Z80Registers8)
+	vr3 := vrAlloc.AllocateNamed("z", Z80Registers8)
 
 	// Block: z = x + y (x and y are live together)
 	block0 := &BasicBlock{
@@ -118,7 +118,7 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
 	// VR constrained to specific register (e.g., accumulator for Z80 ADD)
-	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
 	vr2 := vrAlloc.Allocate(Z80RegA) // Must use A register
 	vr2.Name = "result"
 
@@ -166,10 +166,10 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
-	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
-	vr4 := vrAlloc.AllocateNamed("d", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("a", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("b", Z80Registers8)
+	vr3 := vrAlloc.AllocateNamed("c", Z80Registers8)
+	vr4 := vrAlloc.AllocateNamed("d", Z80Registers8)
 
 	// All four are live at the same time
 	block0 := &BasicBlock{
@@ -227,9 +227,9 @@ func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 func TestRegisterAllocation_Loop(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("i", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("sum", Z80RegistersR)
-	vr3 := vrAlloc.AllocateNamed("n", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("i", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("sum", Z80Registers8)
+	vr3 := vrAlloc.AllocateNamed("n", Z80Registers8)
 
 	block0 := &BasicBlock{
 		ID: 0,
@@ -377,7 +377,7 @@ func TestRegisterAllocation_16Bit(t *testing.T) {
 func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("x", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
 	vrStack := vrAlloc.AllocateWithStackHome("param", Bits8, 4)
 	vrImm := vrAlloc.AllocateImmediate(42, Bits8)
 
@@ -434,10 +434,10 @@ func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 func TestRegisterAllocation_Branching(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
-	vr1 := vrAlloc.AllocateNamed("a", Z80RegistersR)
-	vr2 := vrAlloc.AllocateNamed("b", Z80RegistersR)
-	vr3 := vrAlloc.AllocateNamed("c", Z80RegistersR)
-	vr4 := vrAlloc.AllocateNamed("result", Z80RegistersR)
+	vr1 := vrAlloc.AllocateNamed("a", Z80Registers8)
+	vr2 := vrAlloc.AllocateNamed("b", Z80Registers8)
+	vr3 := vrAlloc.AllocateNamed("c", Z80Registers8)
+	vr4 := vrAlloc.AllocateNamed("result", Z80Registers8)
 
 	block0 := &BasicBlock{
 		ID: 0,

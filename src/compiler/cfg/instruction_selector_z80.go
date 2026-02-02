@@ -39,7 +39,7 @@ func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size Re
 		// LD A, left
 		// ADD A, right
 		// LD result, A
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_ADD_A_R, vrA, right))
@@ -65,7 +65,7 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, si
 	vrA := z.vrAlloc.Allocate(Z80RegA)
 	switch size {
 	case 8:
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		// 8-bit subtract: SUB uses A register implicitly
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_SUB_R, vrA, right))
@@ -121,7 +121,7 @@ func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size
 
 	var result *VirtualRegister
 	if size == 8 {
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		z.emit(newCallZ80("__div8"))
 	} else {
 		result = z.vrAlloc.Allocate(Z80Registers16)
@@ -139,7 +139,7 @@ func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size Reg
 	if size == 8 {
 		// TODO: NEG instruction?
 		// Two's complement: XOR 0xFF, INC
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, operand))
 		z.emit(newInstructionZ80Imm8(Z80_XOR_N, vrA, 0xFF))
@@ -161,7 +161,7 @@ func (z *instructionSelectorZ80) SelectBitwiseAnd(left, right *VirtualRegister, 
 	var result *VirtualRegister
 
 	if size == 8 {
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_AND_R, vrA, right))
@@ -179,7 +179,7 @@ func (z *instructionSelectorZ80) SelectBitwiseOr(left, right *VirtualRegister, s
 	var result *VirtualRegister
 
 	if size == 8 {
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_OR_R, vrA, right))
@@ -196,7 +196,7 @@ func (z *instructionSelectorZ80) SelectBitwiseXor(left, right *VirtualRegister, 
 	var result *VirtualRegister
 
 	if size == 8 {
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
 		z.emit(newInstructionZ80(Z80_XOR_R, vrA, right))
@@ -214,7 +214,7 @@ func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister, size
 
 	if size == 8 {
 		// CPL instruction complements A
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, operand))
 		z.emit(newInstructionZ80Imm8(Z80_XOR_N, vrA, 0xFF))
@@ -322,11 +322,22 @@ func (z *instructionSelectorZ80) SelectEqual(left, right *VirtualRegister, size 
 	var result *VirtualRegister
 
 	if size == 8 {
-		// CP sets flags, then check Z flag
-		result = z.vrAlloc.Allocate(Z80RegistersR)
+		var opcode Z80Opcode
+		if right.Type == ImmediateValue {
+			opcode = Z80_CP_N
+		} else {
+			opcode = Z80_CP_R
+		}
+
+		// CP A, r - requires left operand in A, right in any register
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
-		z.emit(newInstructionZ80(Z80_CP_R, vrA, right))
+
+		_, rightVR := z.allocateForInstruction(opcode, right)
+		z.emit(newInstructionZ80(opcode, vrA, rightVR))
+
+		// Result will be in flags - would need flag-to-boolean conversion
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		// TODO: Convert flags to 0/1 value
 	}
 
@@ -433,60 +444,36 @@ func (z *instructionSelectorZ80) SelectGreaterEqual(left, right *VirtualRegister
 func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int, size RegisterSize) (*VirtualRegister, error) {
 	var result *VirtualRegister
 
-	switch address.Type {
-	case CandidateRegister:
-		switch size {
-		case 8:
-			// LD A, (HL) - assumes address is in HL
-			vrA := z.vrAlloc.Allocate(Z80RegA)
-			vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	switch size {
+	case 8:
+		vrHL := z.emitLoadIntoReg16(address, &RegHL)
+		z.emitAddOffsetToHL(vrHL, int32(offset))
 
-			// Load address into HL (with offset if needed)
-			if offset != 0 {
-				// Add offset to address
-				vrOffset := z.vrAlloc.AllocateImmediate(int32(offset), Bits8)
-				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
-				z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffset))
-			} else {
-				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
-			}
-
-			z.emit(newInstructionZ80(Z80_LD_R_HL, vrA, vrHL))
-			z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
-		case 16:
-			// Load 16-bit value
-			return nil, fmt.Errorf("16-bit load not yet implemented")
-		}
-	default:
-		return nil, fmt.Errorf("unsupported address type for load")
+		result = z.vrAlloc.Allocate(Z80Registers8)
+		z.emit(newInstructionZ80(Z80_LD_R_HL, result, vrHL))
+	case 16:
+		// Load 16-bit value
+		return nil, fmt.Errorf("16-bit load not yet implemented")
 	}
 	return result, nil
 }
 
 // SelectStore generates instructions to store to memory
 func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error {
-	switch address.Type {
-	case CandidateRegister:
-		if size == 8 {
-			vrA := z.vrAlloc.Allocate(Z80RegA)
-			vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	switch size {
+	case 8:
+		vrHL := z.emitLoadIntoReg16(address, &RegHL)
+		z.emitAddOffsetToHL(vrHL, int32(offset))
 
-			z.emit(newInstructionZ80(Z80_LD_R_R, vrA, value))
-
-			if offset != 0 {
-				vrOffset := z.vrAlloc.AllocateImmediate(int32(offset), Bits8)
-				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
-				z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffset))
-			} else {
-				z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, address))
-			}
-
-			z.emit(newInstructionZ80(Z80_LD_HL_R, vrHL, vrA))
+		if value.Type == ImmediateValue {
+			z.emit(newInstructionZ80Imm8(Z80_LD_HL_N, vrHL, uint8(value.Value)))
+		} else {
+			z.emit(newInstructionZ80(Z80_LD_HL_R, vrHL, value))
 		}
-	default:
-		return fmt.Errorf("unsupported address type for store")
+	case 16:
+		return fmt.Errorf("16-bit store not yet implemented")
 	}
-	return nil
+	return nil // store has no result
 }
 
 // SelectLoadConstant generates instructions to load an immediate value
@@ -733,6 +720,94 @@ func (z *instructionSelectorZ80) GetTargetRegisters() []*Register {
 // ============================================================================
 // Z80-specific helper types
 // ============================================================================
+
+// allocateForInstruction creates VRs with constraints from instruction opcode
+// Returns (result, operand) - either can be nil if not applicable
+func (z *instructionSelectorZ80) allocateForInstruction(opcode Z80Opcode, operands ...*VirtualRegister) (*VirtualRegister, *VirtualRegister) {
+	var result, operand *VirtualRegister
+	desc := Z80InstrDescriptors[opcode]
+
+	for i, dep := range desc.Dependencies {
+		// Only care about register dependencies
+		if dep.Type != OpRegister && dep.Type != OpRegisterPairPP &&
+			dep.Type != OpRegisterPairQQ && dep.Type != OpRegisterPairRR {
+			continue
+		}
+
+		switch dep.Access {
+		case AccessWrite, AccessReadWrite:
+			// This is a result/destination - allocate new VR
+			if len(dep.Registers) > 0 && result == nil {
+				result = z.vrAlloc.Allocate(dep.Registers)
+			}
+		case AccessRead:
+			// This is an operand - ensure it's constrained correctly
+			if i < len(operands) && operand == nil {
+				if len(dep.Registers) > 0 {
+					// Has constraints - create a move to constrained VR
+					constrainedVR := z.vrAlloc.Allocate(dep.Registers)
+					z.emit(newInstructionZ80(Z80_LD_R_R, constrainedVR, operands[i]))
+					operand = constrainedVR
+				} else {
+					// No constraints - use original operand
+					operand = operands[i]
+				}
+			}
+		}
+	}
+
+	return result, operand
+}
+
+// emitLoadIntoReg16 loads a 16-bit value (register or immediate) into the target register
+func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targetReg *Register) *VirtualRegister {
+	if targetReg.Size != 16 {
+		return nil // Target register must be 16-bit
+	}
+
+	var vrTarget *VirtualRegister
+	if !value.IsRegister(targetReg) {
+		vrTarget = z.vrAlloc.Allocate([]*Register{targetReg})
+		if value.Type == ImmediateValue {
+			// Load immediate value into targetReg
+			z.emit(newInstructionZ80Imm16(Z80_LD_RR_NN, vrTarget, uint16(value.Value)))
+		} else if len(value.AllowedSet) == 1 {
+			// extract the low and hi value registers
+			regValueLo, regValueHi := value.AllowedSet[0].AsPairs()
+			regTargetLo, regTargetHi := targetReg.AsPairs()
+
+			// LD targetReg[Lo], value[Lo]
+			vrTargetLo := z.vrAlloc.Allocate([]*Register{regTargetLo})
+			vrValueLo := z.vrAlloc.Allocate([]*Register{regValueLo})
+			z.emit(newInstructionZ80(Z80_LD_R_R, vrTargetLo, vrValueLo))
+
+			// LD targetReg[Hi], value[Hi]
+			vrTargetHi := z.vrAlloc.Allocate([]*Register{regTargetHi})
+			if regValueHi != nil {
+				vrValueHi := z.vrAlloc.Allocate([]*Register{regValueHi})
+				z.emit(newInstructionZ80(Z80_LD_R_R, vrTargetHi, vrValueHi))
+			} else {
+				// reset high byte to 0 - not used
+				z.emit(newInstructionZ80Imm8(Z80_LD_R_N, vrTargetHi, 0))
+			}
+		}
+		// else - cannot do it => nil
+	} else {
+		vrTarget = value
+	}
+	return vrTarget
+}
+
+// emitAddOffsetToHL adds an offset to the address in HL
+func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset int32) {
+	if offset != 0 {
+		// Add offset to address
+		vrOffset := z.vrAlloc.AllocateImmediate(offset, Bits16)
+		vrOffsetReg := z.vrAlloc.Allocate(Z80RegistersPP)
+		z.emit(newInstructionZ80(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
+		z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
+	}
+}
 
 // machineInstructionZ80 represents a concrete Z80 instruction
 type machineInstructionZ80 struct {

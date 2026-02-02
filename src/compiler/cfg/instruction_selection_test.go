@@ -255,7 +255,7 @@ func Test_InstructionSelection_Assignment(t *testing.T) {
 		Name: "x",
 		Type: u8Type(),
 	}
-	ctx.symbolToVReg[symbol] = ctx.vrAlloc.AllocateNamed("x", Z80RegistersR)
+	ctx.symbolToVReg[symbol] = ctx.vrAlloc.AllocateNamed("x", Z80Registers8)
 
 	assignment := &zsm.SemAssignment{
 		Target: symbol,
@@ -391,7 +391,7 @@ func Test_InstructionSelection_SymbolRef(t *testing.T) {
 		Name: "x",
 		Type: u8Type(),
 	}
-	expectedVR := ctx.vrAlloc.AllocateNamed("x", Z80RegistersR)
+	expectedVR := ctx.vrAlloc.AllocateNamed("x", Z80Registers8)
 	ctx.symbolToVReg[symbol] = expectedVR
 
 	symbolRef := &zsm.SemSymbolRef{
