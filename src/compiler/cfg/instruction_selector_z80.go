@@ -280,7 +280,7 @@ func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount
 }
 
 // SelectLogicalAnd generates instructions for logical AND (a && b)
-func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(*ExprContext, zsm.SemExpression) (*VirtualRegister, error)) (*VirtualRegister, error) {
 	// In BranchMode: implement short-circuit evaluation
 	if ctx != nil && ctx.Mode == BranchMode {
 		// Create a label/block for testing right operand if left is true
@@ -290,22 +290,22 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right 
 
 		// Evaluate left: if false, jump to falseBlock
 		leftCtx := NewBranchContext(nil, ctx.FalseBlock)
-		_, err := evaluateExpr(left, leftCtx)
+		_, err := evaluateExpr(leftCtx, left)
 		if err != nil {
 			return nil, err
 		}
 
 		// Left was true, now evaluate right with original context
-		return evaluateExpr(right, ctx)
+		return evaluateExpr(ctx, right)
 	}
 
 	// ValueMode: for now, use runtime helper
 	// TODO: Implement proper short-circuit with phi nodes
-	leftVR, err := evaluateExpr(left, ctx)
+	leftVR, err := evaluateExpr(ctx, left)
 	if err != nil {
 		return nil, err
 	}
-	rightVR, err := evaluateExpr(right, ctx)
+	rightVR, err := evaluateExpr(ctx, right)
 	if err != nil {
 		return nil, err
 	}
@@ -322,28 +322,28 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right 
 }
 
 // SelectLogicalOr generates instructions for logical OR (a || b)
-func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(*ExprContext, zsm.SemExpression) (*VirtualRegister, error)) (*VirtualRegister, error) {
 	// In BranchMode: implement short-circuit evaluation
 	if ctx != nil && ctx.Mode == BranchMode {
 		// Evaluate left: if true, jump to trueBlock (short-circuit)
 		// Otherwise, fall through and evaluate right
 
 		leftCtx := NewBranchContext(ctx.TrueBlock, nil)
-		_, err := evaluateExpr(left, leftCtx)
+		_, err := evaluateExpr(leftCtx, left)
 		if err != nil {
 			return nil, err
 		}
 
 		// Left was false, now evaluate right with original context
-		return evaluateExpr(right, ctx)
+		return evaluateExpr(ctx, right)
 	}
 
 	// ValueMode: for now, use runtime helper
-	leftVR, err := evaluateExpr(left, ctx)
+	leftVR, err := evaluateExpr(ctx, left)
 	if err != nil {
 		return nil, err
 	}
-	rightVR, err := evaluateExpr(right, ctx)
+	rightVR, err := evaluateExpr(ctx, right)
 	if err != nil {
 		return nil, err
 	}
@@ -360,16 +360,16 @@ func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, left, right z
 }
 
 // SelectLogicalNot generates instructions for logical NOT (!a)
-func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, operand zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, operand zsm.SemExpression, evaluateExpr func(*ExprContext, zsm.SemExpression) (*VirtualRegister, error)) (*VirtualRegister, error) {
 	// In BranchMode: invert the target blocks
 	if ctx != nil && ctx.Mode == BranchMode {
 		// Swap true and false blocks
 		invertedCtx := NewBranchContext(ctx.FalseBlock, ctx.TrueBlock)
-		return evaluateExpr(operand, invertedCtx)
+		return evaluateExpr(invertedCtx, operand)
 	}
 
 	// ValueMode: use runtime helper
-	operandVR, err := evaluateExpr(operand, ctx)
+	operandVR, err := evaluateExpr(ctx, operand)
 	if err != nil {
 		return nil, err
 	}

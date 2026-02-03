@@ -137,7 +137,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 			// Successors: [0] = then, [1] = else/merge
 			if len(block.Successors) >= 2 {
 				branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
-				_, err := ctx.selectExpressionWithContext(stmt.Condition, branchCtx)
+				_, err := ctx.selectExpressionWithContext(branchCtx, stmt.Condition)
 				return err
 			}
 
@@ -145,7 +145,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 			// Similar to SemIf
 			if len(block.Successors) >= 2 {
 				branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
-				_, err := ctx.selectExpressionWithContext(stmt.Condition, branchCtx)
+				_, err := ctx.selectExpressionWithContext(branchCtx, stmt.Condition)
 				return err
 			}
 
@@ -155,7 +155,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 				// Successors: [0] = body, [1] = exit
 				if len(block.Successors) >= 2 {
 					branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
-					_, err := ctx.selectExpressionWithContext(stmt.Condition, branchCtx)
+					_, err := ctx.selectExpressionWithContext(branchCtx, stmt.Condition)
 					return err
 				}
 			} else {
@@ -181,7 +181,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 				// Branch to case block or next comparison
 				if i < len(block.Successors)-1 {
 					branchCtx := NewBranchContext(block.Successors[i], block.Successors[i+1])
-					_, err := ctx.selectExpressionWithContext(cmpExpr, branchCtx)
+					_, err := ctx.selectExpressionWithContext(branchCtx, cmpExpr)
 					if err != nil {
 						return err
 					}
@@ -310,11 +310,11 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 // selectExpression processes an expression and returns its result VirtualRegister
 // exprCtx: optional context for branch-mode evaluation (nil for value mode)
 func (ctx *InstructionSelectionContext) selectExpression(expr zsm.SemExpression) (*VirtualRegister, error) {
-	return ctx.selectExpressionWithContext(expr, nil)
+	return ctx.selectExpressionWithContext(nil, expr)
 }
 
 // selectExpressionWithContext processes an expression with an evaluation context
-func (ctx *InstructionSelectionContext) selectExpressionWithContext(expr zsm.SemExpression, exprCtx *ExprContext) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *ExprContext, expr zsm.SemExpression) (*VirtualRegister, error) {
 	// In ValueMode, check cache (BranchMode never caches)
 	if exprCtx == nil || exprCtx.Mode == ValueMode {
 		if vr, ok := ctx.exprToVReg[expr]; ok {
@@ -333,10 +333,10 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(expr zsm.Sem
 		resultVR, err = ctx.selectSymbolRef(e)
 
 	case *zsm.SemBinaryOp:
-		resultVR, err = ctx.selectBinaryOp(e, exprCtx)
+		resultVR, err = ctx.selectBinaryOp(exprCtx, e)
 
 	case *zsm.SemUnaryOp:
-		resultVR, err = ctx.selectUnaryOp(e, exprCtx)
+		resultVR, err = ctx.selectUnaryOp(exprCtx, e)
 
 	case *zsm.SemFunctionCall:
 		resultVR, err = ctx.selectFunctionCall(e)
@@ -379,7 +379,7 @@ func (ctx *InstructionSelectionContext) selectSymbolRef(ref *zsm.SemSymbolRef) (
 }
 
 // selectBinaryOp processes binary operations
-func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp, exprCtx *ExprContext) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op *zsm.SemBinaryOp) (*VirtualRegister, error) {
 	regSize := RegisterSize(op.Type().Size() * 8)
 
 	// Handle logical operators specially - they take expressions, not VRs
@@ -466,7 +466,7 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp, expr
 }
 
 // selectUnaryOp processes unary operations
-func (ctx *InstructionSelectionContext) selectUnaryOp(op *zsm.SemUnaryOp, exprCtx *ExprContext) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *zsm.SemUnaryOp) (*VirtualRegister, error) {
 	regSize := RegisterSize(op.Type().Size() * 8)
 
 	// Handle LogicalNot specially - it takes expressions
