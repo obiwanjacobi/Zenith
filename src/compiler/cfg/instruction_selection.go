@@ -339,13 +339,13 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *Exp
 		resultVR, err = ctx.selectUnaryOp(exprCtx, e)
 
 	case *zsm.SemFunctionCall:
-		resultVR, err = ctx.selectFunctionCall(e)
+		resultVR, err = ctx.selectFunctionCall(exprCtx, e)
 
 	case *zsm.SemMemberAccess:
 		resultVR, err = ctx.selectMemberAccess(e)
 
 	case *zsm.SemTypeInitializer:
-		resultVR, err = ctx.selectTypeInitializer(e)
+		resultVR, err = ctx.selectTypeInitializer(exprCtx, e)
 
 	default:
 		return nil, fmt.Errorf("unknown expression type: %T", expr)
@@ -401,21 +401,21 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op 
 
 	if !isComparison {
 		// Regular ops always need VR operands
-		leftVR, err = ctx.selectExpression(op.Left)
+		leftVR, err = ctx.selectExpressionWithContext(exprCtx, op.Left)
 		if err != nil {
 			return nil, err
 		}
-		rightVR, err = ctx.selectExpression(op.Right)
+		rightVR, err = ctx.selectExpressionWithContext(exprCtx, op.Right)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// Comparisons: evaluate operands normally (no branch context for operands)
-		leftVR, err = ctx.selectExpression(op.Left)
+		leftVR, err = ctx.selectExpressionWithContext(exprCtx, op.Left)
 		if err != nil {
 			return nil, err
 		}
-		rightVR, err = ctx.selectExpression(op.Right)
+		rightVR, err = ctx.selectExpressionWithContext(exprCtx, op.Right)
 		if err != nil {
 			return nil, err
 		}
@@ -475,7 +475,7 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 	}
 
 	// Other unary ops need VR operand
-	operandVR, err := ctx.selectExpression(op.Operand)
+	operandVR, err := ctx.selectExpressionWithContext(exprCtx, op.Operand)
 	if err != nil {
 		return nil, err
 	}
@@ -493,11 +493,11 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 }
 
 // selectFunctionCall processes function calls
-func (ctx *InstructionSelectionContext) selectFunctionCall(call *zsm.SemFunctionCall) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectFunctionCall(exprCtx *ExprContext, call *zsm.SemFunctionCall) (*VirtualRegister, error) {
 	// Evaluate arguments
 	argVRs := make([]*VirtualRegister, len(call.Arguments))
 	for i, arg := range call.Arguments {
-		vr, err := ctx.selectExpression(arg)
+		vr, err := ctx.selectExpressionWithContext(exprCtx, arg)
 		if err != nil {
 			return nil, err
 		}
@@ -529,13 +529,13 @@ func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMember
 }
 
 // selectTypeInitializer processes struct initialization
-func (ctx *InstructionSelectionContext) selectTypeInitializer(init *zsm.SemTypeInitializer) (*VirtualRegister, error) {
+func (ctx *InstructionSelectionContext) selectTypeInitializer(exprCtx *ExprContext, init *zsm.SemTypeInitializer) (*VirtualRegister, error) {
 	// Allocate space for the struct
 	structVR := ctx.vrAlloc.Allocate(Z80Registers16)
 
 	// Initialize each field
 	for _, fieldInit := range init.Fields {
-		valueVR, err := ctx.selectExpression(fieldInit.Value)
+		valueVR, err := ctx.selectExpressionWithContext(exprCtx, fieldInit.Value)
 		if err != nil {
 			return nil, err
 		}

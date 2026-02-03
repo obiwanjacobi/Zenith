@@ -341,7 +341,7 @@ func Test_InstructionSelection_FunctionCall(t *testing.T) {
 		TypeInfo: u8Type(),
 	}
 
-	vr, err := ctx.selectFunctionCall(call)
+	vr, err := ctx.selectFunctionCall(nil, call)
 
 	require.NoError(t, err)
 	assert.NotNil(t, vr)
