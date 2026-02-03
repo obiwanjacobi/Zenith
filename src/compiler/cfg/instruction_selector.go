@@ -6,6 +6,50 @@ import (
 )
 
 // ============================================================================
+// Expression Evaluation Context
+// ============================================================================
+
+// EvalMode specifies how an expression should be evaluated
+type EvalMode uint8
+
+const (
+	// ValueMode: expression must produce a VirtualRegister result
+	ValueMode EvalMode = iota
+	// BranchMode: expression should emit conditional branch (preferred for comparisons)
+	BranchMode
+)
+
+// ExprContext provides context for expression evaluation
+// Enables short-circuit evaluation and direct flag-to-branch conversion
+type ExprContext struct {
+	// Evaluation mode
+	Mode EvalMode
+
+	// For BranchMode: target blocks for conditional jumps
+	TrueBlock  *BasicBlock
+	FalseBlock *BasicBlock
+
+	// For future: target VR for assignments (Phase 2)
+	// TargetVR *VirtualRegister
+}
+
+// NewValueContext creates a context for value-producing expressions
+// func NewValueContext() *ExprContext {
+// 	return &ExprContext{
+// 		Mode: ValueMode,
+// 	}
+// }
+
+// NewBranchContext creates a context for conditional branch expressions
+func NewBranchContext(trueBlock, falseBlock *BasicBlock) *ExprContext {
+	return &ExprContext{
+		Mode:       BranchMode,
+		TrueBlock:  trueBlock,
+		FalseBlock: falseBlock,
+	}
+}
+
+// ============================================================================
 // Instruction Categories
 // ============================================================================
 
@@ -84,37 +128,42 @@ type InstructionSelector interface {
 	SelectShiftRight(value, amount *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLogicalAnd generates instructions for logical AND (a && b)
-	// Includes short-circuit evaluation
-	SelectLogicalAnd(left, right *VirtualRegister) (*VirtualRegister, error)
+	// ctx: evaluation context (enables short-circuit evaluation in BranchMode)
+	// evaluateExpr: callback to evaluate sub-expressions with context
+	// left, right: the operand expressions (not yet evaluated)
+	SelectLogicalAnd(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error)
 
 	// SelectLogicalOr generates instructions for logical OR (a || b)
-	// Includes short-circuit evaluation
-	SelectLogicalOr(left, right *VirtualRegister) (*VirtualRegister, error)
+	// ctx: evaluation context (enables short-circuit evaluation in BranchMode)
+	SelectLogicalOr(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error)
 
 	// SelectLogicalNot generates instructions for logical NOT (!a)
-	SelectLogicalNot(operand *VirtualRegister) (*VirtualRegister, error)
+	// ctx: evaluation context (inverts branch targets in BranchMode)
+	SelectLogicalNot(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), operand zsm.SemExpression) (*VirtualRegister, error)
 
 	// ============================================================================
 	// Comparison Operations
 	// ============================================================================
 
 	// SelectEqual generates instructions for equality comparison (a == b)
-	// Returns a virtual register containing boolean result (0 or 1)
-	SelectEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	// ctx: evaluation context (BranchMode or ValueMode)
+	// Returns a virtual register containing boolean result (0 or 1) in ValueMode
+	// Returns nil in BranchMode (emits conditional branch instead)
+	SelectEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectNotEqual generates instructions for inequality comparison (a != b)
-	SelectNotEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectNotEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLessThan generates instructions for less-than comparison (a < b)
-	SelectLessThan(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectLessThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLessEqual generates instructions for less-or-equal comparison (a <= b)
-	SelectLessEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectLessEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 	// SelectGreaterThan generates instructions for greater-than comparison (a > b)
-	SelectGreaterThan(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectGreaterThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectGreaterEqual generates instructions for greater-or-equal comparison (a >= b)
-	SelectGreaterEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectGreaterEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// ============================================================================
 	// Memory Operations

@@ -33,18 +33,27 @@ func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSel
 func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	var result *VirtualRegister
 
+	// swap left.right if right is immediate and left is not
+	imm, reg, isImm := orderImmediateFirst(left, right)
+
 	switch size {
 	case 8:
-		// 8-bit add: requires A register
-		// LD A, left
-		// ADD A, right
-		// LD result, A
-		result = z.vrAlloc.Allocate(Z80Registers8)
+		var opcode Z80Opcode
+		if isImm {
+			opcode = Z80_ADD_A_N
+		} else {
+			opcode = Z80_ADD_A_R
+		}
+
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
-		z.emit(newInstructionZ80(Z80_ADD_A_R, vrA, right))
+		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, reg))
+		z.emit(newInstructionZ80(opcode, vrA, imm))
+
+		// for reg-alloc flexibility, move result to wider VR
+		result = z.vrAlloc.Allocate(Z80Registers8)
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
 	case 16:
+		// TODO: refactor to handle immediate 16-bit addition
 		// 16-bit add: ADD HL, rr
 		result = z.vrAlloc.Allocate(Z80Registers16)
 		vrHL := z.vrAlloc.Allocate(Z80RegHL)
@@ -271,15 +280,41 @@ func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount
 }
 
 // SelectLogicalAnd generates instructions for logical AND (a && b)
-func (z *instructionSelectorZ80) SelectLogicalAnd(left, right *VirtualRegister) (*VirtualRegister, error) {
-	// For logical AND, we need short-circuit evaluation which requires CFG support
-	// For now, use runtime helper that evaluates both operands
-	// TODO: Handle short-circuit evaluation at CFG level
+func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error) {
+	// In BranchMode: implement short-circuit evaluation
+	if ctx != nil && ctx.Mode == BranchMode {
+		// Create a label/block for testing right operand if left is true
+		// For now, evaluate left with inverted logic
+		// If left is false, jump to false block (short-circuit)
+		// Otherwise, fall through and evaluate right
+
+		// Evaluate left: if false, jump to falseBlock
+		leftCtx := NewBranchContext(nil, ctx.FalseBlock)
+		_, err := evaluateExpr(left, leftCtx)
+		if err != nil {
+			return nil, err
+		}
+
+		// Left was true, now evaluate right with original context
+		return evaluateExpr(right, ctx)
+	}
+
+	// ValueMode: for now, use runtime helper
+	// TODO: Implement proper short-circuit with phi nodes
+	leftVR, err := evaluateExpr(left, ctx)
+	if err != nil {
+		return nil, err
+	}
+	rightVR, err := evaluateExpr(right, ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
+	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, leftVR))
+	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, rightVR))
 	z.emit(newCallZ80("__logical_and"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
@@ -287,15 +322,37 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(left, right *VirtualRegister) 
 }
 
 // SelectLogicalOr generates instructions for logical OR (a || b)
-func (z *instructionSelectorZ80) SelectLogicalOr(left, right *VirtualRegister) (*VirtualRegister, error) {
-	// For logical OR, we need short-circuit evaluation which requires CFG support
-	// For now, use runtime helper that evaluates both operands
-	// TODO: Handle short-circuit evaluation at CFG level
+func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error) {
+	// In BranchMode: implement short-circuit evaluation
+	if ctx != nil && ctx.Mode == BranchMode {
+		// Evaluate left: if true, jump to trueBlock (short-circuit)
+		// Otherwise, fall through and evaluate right
+
+		leftCtx := NewBranchContext(ctx.TrueBlock, nil)
+		_, err := evaluateExpr(left, leftCtx)
+		if err != nil {
+			return nil, err
+		}
+
+		// Left was false, now evaluate right with original context
+		return evaluateExpr(right, ctx)
+	}
+
+	// ValueMode: for now, use runtime helper
+	leftVR, err := evaluateExpr(left, ctx)
+	if err != nil {
+		return nil, err
+	}
+	rightVR, err := evaluateExpr(right, ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, right))
+	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, leftVR))
+	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, rightVR))
 	z.emit(newCallZ80("__logical_or"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
@@ -303,10 +360,22 @@ func (z *instructionSelectorZ80) SelectLogicalOr(left, right *VirtualRegister) (
 }
 
 // SelectLogicalNot generates instructions for logical NOT (!a)
-func (z *instructionSelectorZ80) SelectLogicalNot(operand *VirtualRegister) (*VirtualRegister, error) {
-	// Use runtime helper to convert operand != 0 to boolean, then invert
+func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), operand zsm.SemExpression) (*VirtualRegister, error) {
+	// In BranchMode: invert the target blocks
+	if ctx != nil && ctx.Mode == BranchMode {
+		// Swap true and false blocks
+		invertedCtx := NewBranchContext(ctx.FalseBlock, ctx.TrueBlock)
+		return evaluateExpr(operand, invertedCtx)
+	}
+
+	// ValueMode: use runtime helper
+	operandVR, err := evaluateExpr(operand, ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, operand))
+	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, operandVR))
 	z.emit(newCallZ80("__logical_not"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
@@ -318,9 +387,7 @@ func (z *instructionSelectorZ80) SelectLogicalNot(operand *VirtualRegister) (*Vi
 // ============================================================================
 
 // SelectEqual generates instructions for equality comparison (a == b)
-func (z *instructionSelectorZ80) SelectEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
-	var result *VirtualRegister
-
+func (z *instructionSelectorZ80) SelectEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	if size == 8 {
 		var opcode Z80Opcode
 		if right.Type == ImmediateValue {
@@ -329,25 +396,52 @@ func (z *instructionSelectorZ80) SelectEqual(left, right *VirtualRegister, size 
 			opcode = Z80_CP_R
 		}
 
-		// CP A, r - requires left operand in A, right in any register
+		// CP A, r - requires left operand in A
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
+		z.emit(newInstructionZ80(opcode, vrA, right))
 
-		_, rightVR := z.allocateForInstruction(opcode, right)
-		z.emit(newInstructionZ80(opcode, vrA, rightVR))
+		// In BranchMode: emit conditional branch based on flags
+		if ctx != nil && ctx.Mode == BranchMode {
+			z.emit(newBranchZ80WithCondition(Cond_Z, ctx.TrueBlock, ctx.FalseBlock))
+			return nil, nil // No value produced
+		}
 
-		// Result will be in flags - would need flag-to-boolean conversion
-		result = z.vrAlloc.Allocate(Z80Registers8)
-		// TODO: Convert flags to 0/1 value
+		// In ValueMode: convert flags to 0/1 value
+		// TODO: Implement flag-to-boolean conversion
+		result := z.vrAlloc.Allocate(Z80Registers8)
+		return result, nil
 	}
 
-	return result, nil
+	return nil, fmt.Errorf("16-bit equality not yet implemented")
 }
 
 // SelectNotEqual generates instructions for inequality comparison (a != b)
-func (z *instructionSelectorZ80) SelectNotEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
-	// For comparison operations that return boolean, use runtime helper
-	// Converting flags to 0/1 values requires control flow or special instructions
+func (z *instructionSelectorZ80) SelectNotEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+	if size == 8 {
+		var opcode Z80Opcode
+		if right.Type == ImmediateValue {
+			opcode = Z80_CP_N
+		} else {
+			opcode = Z80_CP_R
+		}
+
+		// CP A, r
+		vrA := z.vrAlloc.Allocate(Z80RegA)
+		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
+		z.emit(newInstructionZ80(opcode, vrA, right))
+
+		// In BranchMode: emit conditional branch (NZ for not-equal)
+		if ctx != nil && ctx.Mode == BranchMode {
+			z.emit(newBranchZ80WithCondition(Cond_NZ, ctx.TrueBlock, ctx.FalseBlock))
+			return nil, nil
+		}
+
+		// In ValueMode: use runtime helper for now
+		// TODO: Implement flag-to-boolean conversion
+	}
+
+	// Fallback to runtime helper
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
@@ -365,7 +459,28 @@ func (z *instructionSelectorZ80) SelectNotEqual(left, right *VirtualRegister, si
 }
 
 // SelectLessThan generates instructions for less-than comparison (a < b)
-func (z *instructionSelectorZ80) SelectLessThan(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLessThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+	if size == 8 {
+		var opcode Z80Opcode
+		if right.Type == ImmediateValue {
+			opcode = Z80_CP_N
+		} else {
+			opcode = Z80_CP_R
+		}
+
+		// CP A, r (sets carry if A < r for unsigned)
+		vrA := z.vrAlloc.Allocate(Z80RegA)
+		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
+		z.emit(newInstructionZ80(opcode, vrA, right))
+
+		// In BranchMode: emit conditional branch (C for less-than unsigned)
+		if ctx != nil && ctx.Mode == BranchMode {
+			z.emit(newBranchZ80WithCondition(Cond_C, ctx.TrueBlock, ctx.FalseBlock))
+			return nil, nil
+		}
+	}
+
+	// Fallback to runtime helper
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
@@ -383,7 +498,7 @@ func (z *instructionSelectorZ80) SelectLessThan(left, right *VirtualRegister, si
 }
 
 // SelectLessEqual generates instructions for less-or-equal comparison (a <= b)
-func (z *instructionSelectorZ80) SelectLessEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLessEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
@@ -396,12 +511,35 @@ func (z *instructionSelectorZ80) SelectLessEqual(left, right *VirtualRegister, s
 		z.emit(newCallZ80("__cmp_le16"))
 	}
 
+	// TODO: BranchMode support
 	result := z.vrAlloc.Allocate(Z80RegA)
 	return result, nil
 }
 
 // SelectGreaterThan generates instructions for greater-than comparison (a > b)
-func (z *instructionSelectorZ80) SelectGreaterThan(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectGreaterThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+	if size == 8 {
+		var opcode Z80Opcode
+		if right.Type == ImmediateValue {
+			opcode = Z80_CP_N
+		} else {
+			opcode = Z80_CP_R
+		}
+
+		// CP A, r (greater = NOT(C OR Z))
+		vrA := z.vrAlloc.Allocate(Z80RegA)
+		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
+		z.emit(newInstructionZ80(opcode, vrA, right))
+
+		// In BranchMode: emit conditional branch (NC and NZ for greater-than)
+		// For simplicity, use NC (not-carry) which is >= , not perfect but close
+		if ctx != nil && ctx.Mode == BranchMode {
+			z.emit(newBranchZ80WithCondition(Cond_NC, ctx.TrueBlock, ctx.FalseBlock))
+			return nil, nil
+		}
+	}
+
+	// Fallback to runtime helper
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
@@ -419,7 +557,28 @@ func (z *instructionSelectorZ80) SelectGreaterThan(left, right *VirtualRegister,
 }
 
 // SelectGreaterEqual generates instructions for greater-or-equal comparison (a >= b)
-func (z *instructionSelectorZ80) SelectGreaterEqual(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectGreaterEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+	if size == 8 {
+		var opcode Z80Opcode
+		if right.Type == ImmediateValue {
+			opcode = Z80_CP_N
+		} else {
+			opcode = Z80_CP_R
+		}
+
+		// CP A, r (NC for >=)
+		vrA := z.vrAlloc.Allocate(Z80RegA)
+		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
+		z.emit(newInstructionZ80(opcode, vrA, right))
+
+		// In BranchMode: emit conditional branch
+		if ctx != nil && ctx.Mode == BranchMode {
+			z.emit(newBranchZ80WithCondition(Cond_NC, ctx.TrueBlock, ctx.FalseBlock))
+			return nil, nil
+		}
+	}
+
+	// Fallback to runtime helper
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
@@ -721,13 +880,13 @@ func (z *instructionSelectorZ80) GetTargetRegisters() []*Register {
 // Z80-specific helper types
 // ============================================================================
 
-// allocateForInstruction creates VRs with constraints from instruction opcode
+// allocateRegistersFor creates VRs with constraints from instruction opcode
 // Returns (result, operand) - either can be nil if not applicable
-func (z *instructionSelectorZ80) allocateForInstruction(opcode Z80Opcode, operands ...*VirtualRegister) (*VirtualRegister, *VirtualRegister) {
+func (z *instructionSelectorZ80) allocateRegistersFor(opcode Z80Opcode) (*VirtualRegister, *VirtualRegister) {
 	var result, operand *VirtualRegister
 	desc := Z80InstrDescriptors[opcode]
 
-	for i, dep := range desc.Dependencies {
+	for _, dep := range desc.Dependencies {
 		// Only care about register dependencies
 		if dep.Type != OpRegister && dep.Type != OpRegisterPairPP &&
 			dep.Type != OpRegisterPairQQ && dep.Type != OpRegisterPairRR {
@@ -742,16 +901,8 @@ func (z *instructionSelectorZ80) allocateForInstruction(opcode Z80Opcode, operan
 			}
 		case AccessRead:
 			// This is an operand - ensure it's constrained correctly
-			if i < len(operands) && operand == nil {
-				if len(dep.Registers) > 0 {
-					// Has constraints - create a move to constrained VR
-					constrainedVR := z.vrAlloc.Allocate(dep.Registers)
-					z.emit(newInstructionZ80(Z80_LD_R_R, constrainedVR, operands[i]))
-					operand = constrainedVR
-				} else {
-					// No constraints - use original operand
-					operand = operands[i]
-				}
+			if operand == nil {
+				operand = z.vrAlloc.Allocate(dep.Registers)
 			}
 		}
 	}
@@ -807,6 +958,19 @@ func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset
 		z.emit(newInstructionZ80(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
 		z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
 	}
+}
+
+// orderImmediateFirst checks two VRs and returns them ordered with immediate first if applicable
+func orderImmediateFirst(left, right *VirtualRegister) (immediate *VirtualRegister, other *VirtualRegister, isImmediate bool) {
+	if (*right).Type == ImmediateValue && (left).Type != ImmediateValue {
+		return right, left, true
+	} else if (left).Type == ImmediateValue && (right).Type != ImmediateValue {
+		return left, right, true
+	} else if (left).Type == ImmediateValue && (right).Type == ImmediateValue {
+		// error: should have been constant folded earlier
+		return nil, nil, false
+	}
+	return left, right, false
 }
 
 // machineInstructionZ80 represents a concrete Z80 instruction

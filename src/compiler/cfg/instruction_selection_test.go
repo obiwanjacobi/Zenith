@@ -101,7 +101,7 @@ func Test_InstructionSelection_BinaryOp_Add(t *testing.T) {
 		TypeInfo: u8Type(),
 	}
 
-	vr, err := ctx.selectBinaryOp(binaryOp)
+	vr, err := ctx.selectBinaryOp(binaryOp, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, vr)
@@ -151,7 +151,7 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 			right := newSemConstant(20, u8Type())
 			binaryOp := newSemBinaryOp(tt.op, left, right, u8Type())
 
-			vr, err := ctx.selectBinaryOp(binaryOp)
+			vr, err := ctx.selectBinaryOp(binaryOp, nil)
 
 			require.NoError(t, err)
 			assert.NotNil(t, vr)
@@ -192,7 +192,7 @@ func Test_InstructionSelection_UnaryOp(t *testing.T) {
 			operand := newSemConstant(42, u8Type())
 			unaryOp := newSemUnaryOp(tt.op, operand, u8Type())
 
-			vr, err := ctx.selectUnaryOp(unaryOp)
+		vr, err := ctx.selectUnaryOp(unaryOp, nil)
 
 			require.NoError(t, err)
 			assert.NotNil(t, vr)
@@ -617,7 +617,7 @@ func Test_InstructionSelection_16BitOperations(t *testing.T) {
 		TypeInfo: u16Type(),
 	}
 
-	vr, err := ctx.selectBinaryOp(binaryOp)
+	vr, err := ctx.selectBinaryOp(binaryOp, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, vr)

@@ -133,17 +133,19 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 		switch stmt := lastStmt.(type) {
 		case *zsm.SemIf:
 			// The SemIf is stored in the condition block
-			// Evaluate condition and branch to successors
+			// Evaluate condition in BranchMode
 			// Successors: [0] = then, [1] = else/merge
 			if len(block.Successors) >= 2 {
-				err := ctx.selector.SelectBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
+				branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
+				_, err := ctx.selectExpressionWithContext(stmt.Condition, branchCtx)
 				return err
 			}
 
 		case *zsm.SemElsif:
 			// Similar to SemIf
 			if len(block.Successors) >= 2 {
-				err := ctx.selector.SelectBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
+				branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
+				_, err := ctx.selectExpressionWithContext(stmt.Condition, branchCtx)
 				return err
 			}
 
@@ -152,7 +154,8 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 			if stmt.Condition != nil {
 				// Successors: [0] = body, [1] = exit
 				if len(block.Successors) >= 2 {
-					err := ctx.selector.SelectBranch(ctx.selectExpression, stmt.Condition, block.Successors[0], block.Successors[1])
+					branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
+					_, err := ctx.selectExpressionWithContext(stmt.Condition, branchCtx)
 					return err
 				}
 			} else {
@@ -177,7 +180,8 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 
 				// Branch to case block or next comparison
 				if i < len(block.Successors)-1 {
-					err := ctx.selector.SelectBranch(ctx.selectExpression, cmpExpr, block.Successors[i], block.Successors[i+1])
+					branchCtx := NewBranchContext(block.Successors[i], block.Successors[i+1])
+					_, err := ctx.selectExpressionWithContext(cmpExpr, branchCtx)
 					if err != nil {
 						return err
 					}
@@ -304,10 +308,18 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 }
 
 // selectExpression processes an expression and returns its result VirtualRegister
+// exprCtx: optional context for branch-mode evaluation (nil for value mode)
 func (ctx *InstructionSelectionContext) selectExpression(expr zsm.SemExpression) (*VirtualRegister, error) {
-	// Check if we've already processed this expression
-	if vr, ok := ctx.exprToVReg[expr]; ok {
-		return vr, nil
+	return ctx.selectExpressionWithContext(expr, nil)
+}
+
+// selectExpressionWithContext processes an expression with an evaluation context
+func (ctx *InstructionSelectionContext) selectExpressionWithContext(expr zsm.SemExpression, exprCtx *ExprContext) (*VirtualRegister, error) {
+	// In ValueMode, check cache (BranchMode never caches)
+	if exprCtx == nil || exprCtx.Mode == ValueMode {
+		if vr, ok := ctx.exprToVReg[expr]; ok {
+			return vr, nil
+		}
 	}
 
 	var resultVR *VirtualRegister
@@ -321,10 +333,10 @@ func (ctx *InstructionSelectionContext) selectExpression(expr zsm.SemExpression)
 		resultVR, err = ctx.selectSymbolRef(e)
 
 	case *zsm.SemBinaryOp:
-		resultVR, err = ctx.selectBinaryOp(e)
+		resultVR, err = ctx.selectBinaryOp(e, exprCtx)
 
 	case *zsm.SemUnaryOp:
-		resultVR, err = ctx.selectUnaryOp(e)
+		resultVR, err = ctx.selectUnaryOp(e, exprCtx)
 
 	case *zsm.SemFunctionCall:
 		resultVR, err = ctx.selectFunctionCall(e)
@@ -343,8 +355,10 @@ func (ctx *InstructionSelectionContext) selectExpression(expr zsm.SemExpression)
 		return nil, err
 	}
 
-	// Cache the result
-	ctx.exprToVReg[expr] = resultVR
+	// Cache the result (only in ValueMode)
+	if exprCtx == nil || exprCtx.Mode == ValueMode {
+		ctx.exprToVReg[expr] = resultVR
+	}
 	return resultVR, nil
 }
 
@@ -365,19 +379,47 @@ func (ctx *InstructionSelectionContext) selectSymbolRef(ref *zsm.SemSymbolRef) (
 }
 
 // selectBinaryOp processes binary operations
-func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp) (*VirtualRegister, error) {
-	// Evaluate operands
-	leftVR, err := ctx.selectExpression(op.Left)
-	if err != nil {
-		return nil, err
-	}
-
-	rightVR, err := ctx.selectExpression(op.Right)
-	if err != nil {
-		return nil, err
-	}
-
+func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp, exprCtx *ExprContext) (*VirtualRegister, error) {
 	regSize := RegisterSize(op.Type().Size() * 8)
+
+	// Handle logical operators specially - they take expressions, not VRs
+	if op.Op == zsm.OpLogicalAnd {
+		return ctx.selector.SelectLogicalAnd(exprCtx, ctx.selectExpressionWithContext, op.Left, op.Right)
+	}
+	if op.Op == zsm.OpLogicalOr {
+		return ctx.selector.SelectLogicalOr(exprCtx, ctx.selectExpressionWithContext, op.Left, op.Right)
+	}
+
+	// For comparison operators, pass context; others always evaluate operands to VRs
+	var leftVR, rightVR *VirtualRegister
+	var err error
+
+	// Comparisons can be in BranchMode, others always need values
+	isComparison := op.Op == zsm.OpEqual || op.Op == zsm.OpNotEqual ||
+		op.Op == zsm.OpLessThan || op.Op == zsm.OpLessEqual ||
+		op.Op == zsm.OpGreaterThan || op.Op == zsm.OpGreaterEqual
+
+	if !isComparison {
+		// Regular ops always need VR operands
+		leftVR, err = ctx.selectExpression(op.Left)
+		if err != nil {
+			return nil, err
+		}
+		rightVR, err = ctx.selectExpression(op.Right)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Comparisons: evaluate operands normally (no branch context for operands)
+		leftVR, err = ctx.selectExpression(op.Left)
+		if err != nil {
+			return nil, err
+		}
+		rightVR, err = ctx.selectExpression(op.Right)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Dispatch to appropriate selector method
 	switch op.Op {
@@ -402,27 +444,21 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp) (*Vi
 		return ctx.selector.SelectBitwiseXor(leftVR, rightVR, regSize)
 
 	case zsm.OpEqual:
-		return ctx.selector.SelectEqual(leftVR, rightVR, regSize)
+		return ctx.selector.SelectEqual(exprCtx, leftVR, rightVR, regSize)
 
 	case zsm.OpNotEqual:
-		return ctx.selector.SelectNotEqual(leftVR, rightVR, regSize)
+		return ctx.selector.SelectNotEqual(exprCtx, leftVR, rightVR, regSize)
 
 	case zsm.OpLessThan:
-		return ctx.selector.SelectLessThan(leftVR, rightVR, regSize)
+		return ctx.selector.SelectLessThan(exprCtx, leftVR, rightVR, regSize)
 
 	case zsm.OpLessEqual:
-		return ctx.selector.SelectLessEqual(leftVR, rightVR, regSize)
+		return ctx.selector.SelectLessEqual(exprCtx, leftVR, rightVR, regSize)
 	case zsm.OpGreaterThan:
-		return ctx.selector.SelectGreaterThan(leftVR, rightVR, regSize)
+		return ctx.selector.SelectGreaterThan(exprCtx, leftVR, rightVR, regSize)
 
 	case zsm.OpGreaterEqual:
-		return ctx.selector.SelectGreaterEqual(leftVR, rightVR, regSize)
-
-	case zsm.OpLogicalAnd:
-		return ctx.selector.SelectLogicalAnd(leftVR, rightVR)
-
-	case zsm.OpLogicalOr:
-		return ctx.selector.SelectLogicalOr(leftVR, rightVR)
+		return ctx.selector.SelectGreaterEqual(exprCtx, leftVR, rightVR, regSize)
 
 	default:
 		return nil, fmt.Errorf("unknown binary operator: %v", op.Op)
@@ -430,22 +466,24 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp) (*Vi
 }
 
 // selectUnaryOp processes unary operations
-func (ctx *InstructionSelectionContext) selectUnaryOp(op *zsm.SemUnaryOp) (*VirtualRegister, error) {
-	// Evaluate operand
+func (ctx *InstructionSelectionContext) selectUnaryOp(op *zsm.SemUnaryOp, exprCtx *ExprContext) (*VirtualRegister, error) {
+	regSize := RegisterSize(op.Type().Size() * 8)
+
+	// Handle LogicalNot specially - it takes expressions
+	if op.Op == zsm.OpLogicalNot {
+		return ctx.selector.SelectLogicalNot(exprCtx, ctx.selectExpressionWithContext, op.Operand)
+	}
+
+	// Other unary ops need VR operand
 	operandVR, err := ctx.selectExpression(op.Operand)
 	if err != nil {
 		return nil, err
 	}
 
-	regSize := RegisterSize(op.Type().Size() * 8)
-
 	// Dispatch to appropriate selector method
 	switch op.Op {
 	case zsm.OpNegate:
 		return ctx.selector.SelectNegate(operandVR, regSize)
-
-	case zsm.OpLogicalNot:
-		return ctx.selector.SelectLogicalNot(operandVR)
 
 	case zsm.OpBitwiseNot:
 		return ctx.selector.SelectBitwiseNot(operandVR, regSize)
