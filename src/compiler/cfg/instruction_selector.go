@@ -129,17 +129,21 @@ type InstructionSelector interface {
 
 	// SelectLogicalAnd generates instructions for logical AND (a && b)
 	// ctx: evaluation context (enables short-circuit evaluation in BranchMode)
-	// evaluateExpr: callback to evaluate sub-expressions with context
 	// left, right: the operand expressions (not yet evaluated)
-	SelectLogicalAnd(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error)
+	// evaluateExpr: callback to evaluate sub-expressions with context
+	SelectLogicalAnd(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error)
 
 	// SelectLogicalOr generates instructions for logical OR (a || b)
 	// ctx: evaluation context (enables short-circuit evaluation in BranchMode)
-	SelectLogicalOr(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error)
+	// left, right: the operand expressions (not yet evaluated)
+	// evaluateExpr: callback to evaluate sub-expressions with context
+	SelectLogicalOr(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error)
 
 	// SelectLogicalNot generates instructions for logical NOT (!a)
 	// ctx: evaluation context (inverts branch targets in BranchMode)
-	SelectLogicalNot(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), operand zsm.SemExpression) (*VirtualRegister, error)
+	// operand: the expression to negate (not yet evaluated)
+	// evaluateExpr: callback to evaluate sub-expressions with context
+	SelectLogicalNot(ctx *ExprContext, operand zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error)
 
 	// ============================================================================
 	// Comparison Operations

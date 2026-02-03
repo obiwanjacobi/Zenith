@@ -384,10 +384,10 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(op *zsm.SemBinaryOp, expr
 
 	// Handle logical operators specially - they take expressions, not VRs
 	if op.Op == zsm.OpLogicalAnd {
-		return ctx.selector.SelectLogicalAnd(exprCtx, ctx.selectExpressionWithContext, op.Left, op.Right)
+		return ctx.selector.SelectLogicalAnd(exprCtx, op.Left, op.Right, ctx.selectExpressionWithContext)
 	}
 	if op.Op == zsm.OpLogicalOr {
-		return ctx.selector.SelectLogicalOr(exprCtx, ctx.selectExpressionWithContext, op.Left, op.Right)
+		return ctx.selector.SelectLogicalOr(exprCtx, op.Left, op.Right, ctx.selectExpressionWithContext)
 	}
 
 	// For comparison operators, pass context; others always evaluate operands to VRs
@@ -471,7 +471,7 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(op *zsm.SemUnaryOp, exprCt
 
 	// Handle LogicalNot specially - it takes expressions
 	if op.Op == zsm.OpLogicalNot {
-		return ctx.selector.SelectLogicalNot(exprCtx, ctx.selectExpressionWithContext, op.Operand)
+		return ctx.selector.SelectLogicalNot(exprCtx, op.Operand, ctx.selectExpressionWithContext)
 	}
 
 	// Other unary ops need VR operand

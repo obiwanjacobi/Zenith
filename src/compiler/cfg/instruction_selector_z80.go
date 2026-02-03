@@ -280,7 +280,7 @@ func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount
 }
 
 // SelectLogicalAnd generates instructions for logical AND (a && b)
-func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error) {
 	// In BranchMode: implement short-circuit evaluation
 	if ctx != nil && ctx.Mode == BranchMode {
 		// Create a label/block for testing right operand if left is true
@@ -322,7 +322,7 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, evaluateExpr
 }
 
 // SelectLogicalOr generates instructions for logical OR (a || b)
-func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), left, right zsm.SemExpression) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, left, right zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error) {
 	// In BranchMode: implement short-circuit evaluation
 	if ctx != nil && ctx.Mode == BranchMode {
 		// Evaluate left: if true, jump to trueBlock (short-circuit)
@@ -360,7 +360,7 @@ func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, evaluateExpr 
 }
 
 // SelectLogicalNot generates instructions for logical NOT (!a)
-func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error), operand zsm.SemExpression) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, operand zsm.SemExpression, evaluateExpr func(zsm.SemExpression, *ExprContext) (*VirtualRegister, error)) (*VirtualRegister, error) {
 	// In BranchMode: invert the target blocks
 	if ctx != nil && ctx.Mode == BranchMode {
 		// Swap true and false blocks
