@@ -133,9 +133,6 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 		{"LessEqual", zsm.OpLessEqual},
 		{"GreaterThan", zsm.OpGreaterThan},
 		{"GreaterEqual", zsm.OpGreaterEqual},
-		// TODO: implement logical ops
-		//{"LogicalAnd", zsm.OpLogicalAnd},
-		//{"LogicalOr", zsm.OpLogicalOr},
 	}
 
 	for _, tt := range tests {
@@ -166,6 +163,65 @@ func Test_InstructionSelection_BinaryOp_AllOperators(t *testing.T) {
 			// Check that instructions were generated
 			instructions := block.MachineInstructions
 			assert.NotEmpty(t, instructions)
+		})
+	}
+}
+
+// Test logical AND and OR with proper branch contexts
+func Test_InstructionSelection_LogicalOperators(t *testing.T) {
+	tests := []struct {
+		name string
+		op   zsm.BinaryOperator
+	}{
+		{"LogicalAnd", zsm.OpLogicalAnd},
+		{"LogicalOr", zsm.OpLogicalOr},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			block := newTestBlock()
+			trueBlock := newTestBlock()
+			falseBlock := newTestBlock()
+
+			vrAlloc := NewVirtualRegisterAllocator()
+			selector := NewInstructionSelectorZ80(vrAlloc)
+			selector.SetCurrentBlock(block)
+			ctx := NewInstructionSelectionContext(selector, vrAlloc)
+			ctx.currentBlock = block
+
+			// Create comparison expressions (x < 10) and (y > 5)
+			left := newSemBinaryOp(zsm.OpLessThan,
+				newSemConstant(5, u8Type()),
+				newSemConstant(10, u8Type()),
+				u8Type())
+			right := newSemBinaryOp(zsm.OpGreaterThan,
+				newSemConstant(20, u8Type()),
+				newSemConstant(5, u8Type()),
+				u8Type())
+
+			binaryOp := newSemBinaryOp(tt.op, left, right, u8Type())
+
+			// Test with branch context (most common use case)
+			exprCtx := NewExprContextBranch(trueBlock, falseBlock)
+			vr, err := ctx.selectBinaryOp(exprCtx, binaryOp)
+
+			require.NoError(t, err, tt.name)
+			assert.NotNil(t, vr, tt.name)
+			assert.Equal(t, RegisterSize(8), vr.Size)
+
+			// Check that instructions were generated
+			instructions := block.MachineInstructions
+			assert.NotEmpty(t, instructions, "Should generate instructions for "+tt.name)
+
+			// Verify branching instructions were created
+			hasBranch := false
+			for _, instr := range instructions {
+				if len(instr.GetTargetBlocks()) > 1 {
+					hasBranch = true
+					break
+				}
+			}
+			assert.True(t, hasBranch, "Should generate branch instructions for "+tt.name)
 		})
 	}
 }
