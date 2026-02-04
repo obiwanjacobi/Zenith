@@ -462,6 +462,8 @@ func (op Z80Opcode) String() string {
 // String returns a human-readable name for the condition code
 func (cc ConditionCode) String() string {
 	switch cc {
+	case 0:
+		return ""
 	case Cond_NZ:
 		return "NZ"
 	case Cond_Z:

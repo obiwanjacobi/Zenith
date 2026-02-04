@@ -826,10 +826,9 @@ func newInstructionZ80(opcode Z80Opcode, result, operand *VirtualRegister) *mach
 		operands = append(operands, operand)
 	}
 	return &machineInstructionZ80{
-		opcode:        opcode,
-		result:        result,
-		operands:      operands,
-		branchTargets: make([]*BasicBlock, 0),
+		opcode:   opcode,
+		result:   result,
+		operands: operands,
 	}
 }
 
@@ -852,7 +851,7 @@ func newInstructionZ80Imm16(opcode Z80Opcode, result *VirtualRegister, imm uint1
 }
 
 // newBranchRelativeZ80 is used when no basic block is needed (e.g., JR)
-// displacement is relative offset of machine instructions
+// displacement is relative offset of machine instructions (not bytes)
 func newBranchRelativeZ80(condition ConditionCode, displacement int8) *machineInstructionZ80 {
 	return &machineInstructionZ80{
 		opcode:        Z80_JR_CC_E,
@@ -928,10 +927,10 @@ func (z *machineInstructionZ80) GetAddressingMode() AddressingMode {
 	return 0
 }
 
-// nil for non-branch instructions
-// [1] for jump target
-// branch [1] true target, [2] false target
 func (z *machineInstructionZ80) GetTargetBlocks() []*BasicBlock {
+	if z.branchTargets == nil {
+		return []*BasicBlock{}
+	}
 	return z.branchTargets
 }
 
@@ -946,57 +945,39 @@ func (z *machineInstructionZ80) GetCost() InstructionCost {
 }
 
 func (z *machineInstructionZ80) String() string {
-	opName := z.opcode.String()
 
-	// Handle different instruction formats
-	switch {
-	case z.opcode == Z80_CALL_NN && z.functionName != "":
-		return fmt.Sprintf("CALL %s", z.functionName)
-
-	case z.opcode == Z80_RET:
-		return "RET"
-
-	case z.opcode == Z80_JP_CC_NN:
-		condName := z.conditionCode.String()
-		if len(z.branchTargets) > 0 {
-			return fmt.Sprintf("JP %s, L%d", condName, z.branchTargets[0].ID)
+	var builder strings.Builder
+	builder.WriteString(z.opcode.String())
+	builder.WriteString(" ")
+	if z.conditionCode != 0 {
+		builder.WriteString(z.conditionCode.String())
+		builder.WriteString(" ")
+	}
+	if z.functionName != "" {
+		builder.WriteString(z.functionName)
+		builder.WriteString(" ")
+	}
+	if len(z.branchTargets) > 0 {
+		for _, target := range z.branchTargets {
+			if target != nil {
+				builder.WriteString(fmt.Sprintf("Bb%d ", target.ID))
+			}
 		}
-		return fmt.Sprintf("JP %s, ???", condName)
-
-	case len(z.branchTargets) > 0:
-		// Branch instruction
-		if len(z.branchTargets) == 1 {
-			return fmt.Sprintf("%s L%d", opName, z.branchTargets[0].ID)
-		} else if len(z.branchTargets) == 2 {
-			return fmt.Sprintf("%s L%d, L%d", opName, z.branchTargets[0].ID, z.branchTargets[1].ID)
-		}
-
-	case z.immediateValue != 0:
-		// Immediate value instruction
-		if z.result != nil {
-			return fmt.Sprintf("%s %s, %d", opName, z.result.String(), z.immediateValue)
-		}
-		return fmt.Sprintf("%s %d", opName, z.immediateValue)
-
-	case z.result != nil && len(z.operands) > 0:
-		// Result and operands
-		operandStrs := make([]string, len(z.operands))
-		for i, op := range z.operands {
-			operandStrs[i] = op.String()
-		}
-		return fmt.Sprintf("%s %s, %s", opName, z.result.String(), strings.Join(operandStrs, ", "))
-
-	case z.result != nil:
-		// Result only
-		return fmt.Sprintf("%s %s", opName, z.result.String())
-	case len(z.operands) > 0:
-		// Operands only
-		operandStrs := make([]string, len(z.operands))
-		for i, op := range z.operands {
-			operandStrs[i] = op.String()
-		}
-		return fmt.Sprintf("%s %s", opName, strings.Join(operandStrs, ", "))
+	}
+	if z.immediateValue != 0 {
+		builder.WriteString(fmt.Sprintf("#%04X ", z.immediateValue))
 	}
 
-	return opName
+	if len(z.operands) > 0 {
+		operandStrs := make([]string, len(z.operands))
+		for i, op := range z.operands {
+			operandStrs[i] = op.String()
+		}
+		builder.WriteString(strings.Join(operandStrs, ", "))
+	}
+	if z.result != nil {
+		builder.WriteString(fmt.Sprintf(" -> %s", z.result.String()))
+	}
+
+	return builder.String()
 }

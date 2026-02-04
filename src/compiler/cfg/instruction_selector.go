@@ -331,7 +331,7 @@ func (vr *VirtualRegister) String() string {
 	if name == "" {
 		name = fmt.Sprintf("VR%d", vr.ID)
 	} else {
-		name = fmt.Sprintf("'%s' %d", name, vr.ID)
+		name = fmt.Sprintf("'%s' VR%d", name, vr.ID)
 	}
 	candidates := ""
 	for i, reg := range vr.AllowedSet {
