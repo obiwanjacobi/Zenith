@@ -136,7 +136,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 			// Evaluate condition in BranchMode
 			// Successors: [0] = then, [1] = else/merge
 			if len(block.Successors) >= 2 {
-				branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
+				branchCtx := NewExprContextBranch(block.Successors[0], block.Successors[1])
 				_, err := ctx.selectExpressionWithContext(branchCtx, stmt.Condition)
 				return err
 			}
@@ -144,7 +144,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 		case *zsm.SemElsif:
 			// Similar to SemIf
 			if len(block.Successors) >= 2 {
-				branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
+				branchCtx := NewExprContextBranch(block.Successors[0], block.Successors[1])
 				_, err := ctx.selectExpressionWithContext(branchCtx, stmt.Condition)
 				return err
 			}
@@ -154,7 +154,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 			if stmt.Condition != nil {
 				// Successors: [0] = body, [1] = exit
 				if len(block.Successors) >= 2 {
-					branchCtx := NewBranchContext(block.Successors[0], block.Successors[1])
+					branchCtx := NewExprContextBranch(block.Successors[0], block.Successors[1])
 					_, err := ctx.selectExpressionWithContext(branchCtx, stmt.Condition)
 					return err
 				}
@@ -180,7 +180,7 @@ func (ctx *InstructionSelectionContext) generateBlockTransition(block *BasicBloc
 
 				// Branch to case block or next comparison
 				if i < len(block.Successors)-1 {
-					branchCtx := NewBranchContext(block.Successors[i], block.Successors[i+1])
+					branchCtx := NewExprContextBranch(block.Successors[i], block.Successors[i+1])
 					_, err := ctx.selectExpressionWithContext(branchCtx, cmpExpr)
 					if err != nil {
 						return err
@@ -390,35 +390,13 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op 
 		return ctx.selector.SelectLogicalOr(exprCtx, op.Left, op.Right, ctx.selectExpressionWithContext)
 	}
 
-	// For comparison operators, pass context; others always evaluate operands to VRs
-	var leftVR, rightVR *VirtualRegister
-	var err error
-
-	// Comparisons can be in BranchMode, others always need values
-	isComparison := op.Op == zsm.OpEqual || op.Op == zsm.OpNotEqual ||
-		op.Op == zsm.OpLessThan || op.Op == zsm.OpLessEqual ||
-		op.Op == zsm.OpGreaterThan || op.Op == zsm.OpGreaterEqual
-
-	if !isComparison {
-		// Regular ops always need VR operands
-		leftVR, err = ctx.selectExpressionWithContext(exprCtx, op.Left)
-		if err != nil {
-			return nil, err
-		}
-		rightVR, err = ctx.selectExpressionWithContext(exprCtx, op.Right)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Comparisons: evaluate operands normally (no branch context for operands)
-		leftVR, err = ctx.selectExpressionWithContext(exprCtx, op.Left)
-		if err != nil {
-			return nil, err
-		}
-		rightVR, err = ctx.selectExpressionWithContext(exprCtx, op.Right)
-		if err != nil {
-			return nil, err
-		}
+	leftVR, err := ctx.selectExpressionWithContext(exprCtx, op.Left)
+	if err != nil {
+		return nil, err
+	}
+	rightVR, err := ctx.selectExpressionWithContext(exprCtx, op.Right)
+	if err != nil {
+		return nil, err
 	}
 
 	// Dispatch to appropriate selector method

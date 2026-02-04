@@ -110,11 +110,11 @@ const (
 	Z80_CALL_CC_NN Z80Opcode = 0x00C4 // CALL cc, nn (conditional call)
 	Z80_RET        Z80Opcode = 0x00C9 // RET
 	Z80_RET_CC     Z80Opcode = 0x00C0 // RET cc
-	Z80_RETN       Z80Opcode = 0xED45 // RETN (return from NMI) - ED prefix
 	Z80_RST_P      Z80Opcode = 0x00C7 // RST p (restart to address p*8)
 
 	// interrupts
 	Z80_RETI Z80Opcode = 0xED4D // RETI (return from interrupt) - ED prefix
+	Z80_RETN Z80Opcode = 0xED45 // RETN (return from NMI) - ED prefix
 	Z80_DI   Z80Opcode = 0x00F3 // DI (disable interrupts)
 	Z80_EI   Z80Opcode = 0x00FB // EI (enable interrupts)
 	// IM 0, IM 1, IM 2 (set interrupt mode) - ED prefix
@@ -122,6 +122,8 @@ const (
 	// Special
 	Z80_NOP  Z80Opcode = 0x0000 // NOP
 	Z80_HALT Z80Opcode = 0x0076 // HALT
+	Z80_NEG  Z80Opcode = 0xED44 // NEG (two's complement negate A) - ED prefix
+	Z80_CCF  Z80Opcode = 0x003F // CCF (complement carry flag)
 
 	// others...
 	// EX AF, AF' (exchange AF and AF')
@@ -164,14 +166,15 @@ const (
 type ConditionCode uint8
 
 const (
-	Cond_NZ ConditionCode = iota // Not Zero
-	Cond_Z                       // Zero
-	Cond_NC                      // Not Carry
-	Cond_C                       // Carry
-	Cond_PO                      // Parity Odd
-	Cond_PE                      // Parity Even
-	Cond_P                       // Positive
-	Cond_M                       // Minus
+	Cond_None ConditionCode = iota
+	Cond_NZ                 // Not Zero
+	Cond_Z                  // Zero
+	Cond_NC                 // Not Carry
+	Cond_C                  // Carry
+	Cond_PO                 // Parity Odd
+	Cond_PE                 // Parity Even
+	Cond_P                  // Positive
+	Cond_M                  // Minus
 )
 
 // GetFlagsForCondition returns which flags a condition code depends on

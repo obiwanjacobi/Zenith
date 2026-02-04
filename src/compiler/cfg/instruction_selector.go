@@ -40,8 +40,8 @@ type ExprContext struct {
 // 	}
 // }
 
-// NewBranchContext creates a context for conditional branch expressions
-func NewBranchContext(trueBlock, falseBlock *BasicBlock) *ExprContext {
+// NewExprContextBranch creates a context for conditional branch expressions
+func NewExprContextBranch(trueBlock, falseBlock *BasicBlock) *ExprContext {
 	return &ExprContext{
 		Mode:       BranchMode,
 		TrueBlock:  trueBlock,
@@ -269,6 +269,9 @@ type MachineInstruction interface {
 	// Returns nil if this instruction doesn't transfer control
 	// Returns 1 block for unconditional jumps/gotos
 	// Returns 2 blocks for conditional branches ([0]=true target, [1]=false target)
+	//	- if [1] is nil, falls through to next instruction
+	//  - CONSTRAINT: The last branch in a block must have non-nil false target
+	//                All non-terminal branches must have nil false target
 	// Returns n blocks for multi-way branches (select/case/else - in order, else always last)
 	GetTargetBlocks() []*BasicBlock
 

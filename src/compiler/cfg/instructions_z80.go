@@ -1488,6 +1488,42 @@ var InstrDesc_HALT = InstrDescriptor{
 	Prefix2:        0,
 }
 
+var InstrDesc_NEG = InstrDescriptor{
+	Opcode:   Z80_NEG,
+	Category: CatOther,
+	Dependencies: []InstrDependency{
+		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA}},
+	},
+	AddressingMode: AddrImplicit,
+	AffectedFlags:  InstrFlagN | InstrFlagPV,
+	DependentFlags: InstrFlagNone,
+	Cycles:         8,
+	CyclesTaken:    0,
+	Size:           2,
+	EncodingReg1SL: 0,
+	EncodingReg2SL: 0,
+	Prefix1:        0xED,
+	Prefix2:        0,
+}
+
+var InstrDesc_CCF = InstrDescriptor{
+	Opcode:   Z80_CCF,
+	Category: CatOther,
+	Dependencies: []InstrDependency{
+		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegF}},
+	},
+	AddressingMode: 0,
+	AffectedFlags:  InstrFlagN | InstrFlagH | InstrFlagC,
+	DependentFlags: InstrFlagNone,
+	Cycles:         4,
+	CyclesTaken:    0,
+	Size:           1,
+	EncodingReg1SL: 0,
+	EncodingReg2SL: 0,
+	Prefix1:        0,
+	Prefix2:        0,
+}
+
 // ============================================================================
 // Instruction Descriptor Lookup Table
 // ============================================================================
@@ -1594,4 +1630,6 @@ var Z80InstrDescriptors = map[Z80Opcode]*InstrDescriptor{
 	// Special
 	Z80_NOP:  &InstrDesc_NOP,
 	Z80_HALT: &InstrDesc_HALT,
+	Z80_NEG:  &InstrDesc_NEG,
+	Z80_CCF:  &InstrDesc_CCF,
 }
