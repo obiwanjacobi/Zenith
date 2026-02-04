@@ -47,10 +47,10 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 
 	// Both should be allocated (they can share the same register)
 	if vr1.Type != AllocatedRegister {
-		t.Error("vr1 should be allocated")
+		t.Errorf("vr1 should be allocated, got %v", vr1.Type)
 	}
 	if vr2.Type != AllocatedRegister {
-		t.Error("vr2 should be allocated")
+		t.Errorf("vr2 should be allocated, got %v", vr2.Type)
 	}
 
 	// Both should have physical registers assigned
@@ -102,9 +102,9 @@ func TestRegisterAllocation_WithInterference(t *testing.T) {
 		t.Fatalf("Allocation failed: %v", err)
 	}
 
-	// All should be allocated
+	// All should be allocated (Z80 has enough registers for 3 VRs)
 	if vr1.Type != AllocatedRegister || vr2.Type != AllocatedRegister || vr3.Type != AllocatedRegister {
-		t.Error("All VRs should be allocated")
+		t.Errorf("All VRs should be allocated: vr1=%v, vr2=%v, vr3=%v", vr1.Type, vr2.Type, vr3.Type)
 	}
 
 	// x and y must have different registers (they interfere)
@@ -205,11 +205,11 @@ func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 		t.Fatalf("Allocation failed: %v", err)
 	}
 
-	// All should be allocated
+	// All should be allocated (Z80 has enough registers)
 	allocatedRegs := make(map[*Register]bool)
 	for _, vr := range []*VirtualRegister{vr1, vr2, vr3} {
 		if vr.Type != AllocatedRegister {
-			t.Errorf("VR %s should be allocated", vr.Name)
+			t.Errorf("VR %s should be allocated, got %v", vr.Name, vr.Type)
 		}
 		if vr.PhysicalReg == nil {
 			t.Errorf("VR %s should have physical register", vr.Name)
@@ -302,9 +302,9 @@ func TestRegisterAllocation_Loop(t *testing.T) {
 		t.Fatalf("Allocation failed: %v", err)
 	}
 
-	// All three should be allocated
+	// All three should be allocated (Z80 has enough registers)
 	if vr1.Type != AllocatedRegister || vr2.Type != AllocatedRegister || vr3.Type != AllocatedRegister {
-		t.Error("All loop VRs should be allocated")
+		t.Errorf("All loop VRs should be allocated: vr1=%v, vr2=%v, vr3=%v", vr1.Type, vr2.Type, vr3.Type)
 	}
 
 	// All three interfere, so they must use different registers

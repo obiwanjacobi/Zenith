@@ -326,6 +326,22 @@ func (vr *VirtualRegister) IsRegister(register *Register) bool {
 	}
 }
 
+func (vr *VirtualRegister) MatchAnyRegisters(registers []*Register) bool {
+	if vr.Type != CandidateRegister {
+		return false
+	}
+
+	for _, reg := range registers {
+		for _, allowed := range vr.AllowedSet {
+			if reg == allowed {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func (vr *VirtualRegister) String() string {
 	name := vr.Name
 	if name == "" {

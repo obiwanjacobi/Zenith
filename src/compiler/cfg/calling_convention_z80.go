@@ -28,27 +28,27 @@ var Z80Registers = []*Register{
 	&RegBC, &RegDE, &RegHL, &RegAF, &RegSP,
 }
 
-// the 8-bit registers that can be used for general purposes
+// the 8-bit registers (A|B|C|D|E|H|L) that can be used for general purposes
 var Z80Registers8 = []*Register{
 	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL,
 }
 
-// the 16-bit register that can be used for general purposes
+// the 16-bit registers (BC|DE|HL) that can be used for general purposes
 var Z80Registers16 = []*Register{
 	&RegBC, &RegDE, &RegHL,
 }
 
-// register that can be pushed on the stack
+// registers (BC|DE|HL|AF) that can be pushed on the stack
 var Z80RegistersQQ = []*Register{
 	&RegBC, &RegDE, &RegHL, &RegAF,
 }
 
-// register that can be used for load operations
+// registers (BC|DE|HL|SP) that can be used for load operations
 var Z80RegistersRR = []*Register{
 	&RegBC, &RegDE, &RegHL, &RegSP,
 }
 
-// indirect alternatives to HL
+// indirect alternative registers (BC|DE) to HL
 var Z80RegistersPP = []*Register{
 	&RegBC, &RegDE,
 }
@@ -64,6 +64,22 @@ func (reg *Register) AsPairs() (lowReg *Register, highReg *Register) {
 		highReg = nil
 	}
 	return lowReg, highReg
+}
+
+// ToPairs splits 16-bit registers into its low and high byte registers
+// if the register is not a pair, returns the register itself as low and nil as high
+func ToPairs(regs []*Register) (lowRegs []*Register, highRegs []*Register) {
+	lowRegs = make([]*Register, 0)
+	highRegs = make([]*Register, 0)
+
+	for _, reg := range regs {
+		low, high := reg.AsPairs()
+		lowRegs = append(lowRegs, low)
+		if high != nil {
+			highRegs = append(highRegs, high)
+		}
+	}
+	return lowRegs, highRegs
 }
 
 // callingConventionZ80 implements a standard calling convention for Z80

@@ -75,7 +75,6 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []
 	}
 
 	// Phase 2: Selection - assign registers in reverse order
-	spillCount := 0
 	for i := len(stack) - 1; i >= 0; i-- {
 		vrID := stack[i]
 		vr := candidateVRs[vrID]
@@ -85,12 +84,8 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []
 		if reg != nil {
 			vr.PhysicalReg = reg
 			vr.Type = AllocatedRegister
-		} else {
-			// Spill to stack - mark as StackLocation
-			vr.Type = StackLocation
-			vr.Value = uint32(spillCount) // Stack offset
-			spillCount++
 		}
+		// If no register available, VR remains as CandidateRegister (unallocated)
 	}
 
 	return nil
@@ -139,7 +134,21 @@ func (ra *RegisterAllocator) selectRegister(vr *VirtualRegister, ig *Interferenc
 		}
 	}
 
-	return nil // No register available (needs spilling)
+	return nil // No register available
+}
+
+// Spill marks all unallocated VRs (still CandidateRegister) as StackLocation
+func (ra *RegisterAllocator) Spill(allVRs []*VirtualRegister) int {
+	spillCount := 0
+	for _, vr := range allVRs {
+		if vr.Type == CandidateRegister {
+			// VR couldn't be allocated - spill to stack
+			vr.Type = StackLocation
+			vr.Value = uint32(spillCount) // Stack offset
+			spillCount++
+		}
+	}
+	return spillCount
 }
 
 func DumpAllocation(vrAlloc *VirtualRegisterAllocator) {
