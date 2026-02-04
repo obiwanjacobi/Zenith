@@ -195,14 +195,6 @@ type InstructionSelector interface {
 	// Control Flow
 	// ============================================================================
 
-	// SelectBranch evaluates a conditional expression and branches
-	// Handles comparison operations and logical operators (&& ||) with short-circuit evaluation
-	// evaluateExpr: callback to evaluate sub-expressions to VirtualRegisters
-	// expr: the boolean/comparison expression to evaluate
-	// trueBlock: jumped to if expression is true
-	// falseBlock: jumped to if expression is false
-	SelectBranch(evaluateExpr func(zsm.SemExpression) (*VirtualRegister, error), expr zsm.SemExpression, trueBlock, falseBlock *BasicBlock) error
-
 	// SelectJump generates an unconditional jump to a basic block
 	SelectJump(target *BasicBlock) error
 
@@ -269,9 +261,9 @@ type MachineInstruction interface {
 	// Returns nil if this instruction doesn't transfer control
 	// Returns 1 block for unconditional jumps/gotos
 	// Returns 2 blocks for conditional branches ([0]=true target, [1]=false target)
-	//	- if [1] is nil, falls through to next instruction
-	//  - CONSTRAINT: The last branch in a block must have non-nil false target
-	//                All non-terminal branches must have nil false target
+	//	- if [0] or [1] is nil, falls through to next instruction
+	//  - CONSTRAINT: The last branch in a block must have non-nil targets
+	//                All non-terminal branches must have nil targets
 	// Returns n blocks for multi-way branches (select/case/else - in order, else always last)
 	GetTargetBlocks() []*BasicBlock
 
