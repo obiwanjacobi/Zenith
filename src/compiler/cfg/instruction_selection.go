@@ -101,6 +101,11 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 
 // selectBasicBlock processes a single basic block
 func (ctx *InstructionSelectionContext) selectBasicBlock(block *BasicBlock) error {
+	// Skip unreachable blocks (blocks with no predecessors, except entry)
+	if len(block.Predecessors) == 0 && block.Label != LabelEntry {
+		return nil
+	}
+
 	// Set the current block in both context and selector
 	ctx.currentBlock = block
 	ctx.selector.SetCurrentBlock(block)
@@ -344,6 +349,9 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *Exp
 	case *zsm.SemMemberAccess:
 		resultVR, err = ctx.selectMemberAccess(e)
 
+	case *zsm.SemSubscript:
+		resultVR, err = ctx.selectSubscript(exprCtx, e)
+
 	case *zsm.SemTypeInitializer:
 		resultVR, err = ctx.selectTypeInitializer(exprCtx, e)
 
@@ -504,6 +512,28 @@ func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMember
 	offset := access.Field.Offset
 	regSize := RegisterSize(access.Type().Size() * 8)
 	return ctx.selector.SelectLoad(objectVR, offset, regSize)
+}
+
+// selectSubscript processes array subscripting
+func (ctx *InstructionSelectionContext) selectSubscript(exprCtx *ExprContext, subscript *zsm.SemSubscript) (*VirtualRegister, error) {
+	// Get the array base address
+	arrayVR, err := ctx.selectExpressionWithContext(exprCtx, subscript.Array)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the index
+	indexVR, err := ctx.selectExpressionWithContext(exprCtx, subscript.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate element size
+	elementSize := subscript.Type().Size()
+	regSize := RegisterSize(subscript.Type().Size() * 8)
+
+	// Generate indexed load
+	return ctx.selector.SelectLoadIndexed(arrayVR, indexVR, elementSize, regSize)
 }
 
 // selectTypeInitializer processes struct initialization

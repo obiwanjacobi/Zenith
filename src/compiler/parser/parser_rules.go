@@ -1202,6 +1202,34 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 			continue
 		}
 
+		// Subscript: expression '[' expression ']'
+		if ctx.is(lexer.TokenBracketOpen) {
+			ctx.next(skipEOL) // consume '['
+
+			indexExpr := ctx.expression()
+			if indexExpr == nil {
+				//ctx.error("expected expression for array index")
+				ctx.gotoMark(mark)
+				break
+			}
+
+			if !ctx.is(lexer.TokenBracketClose) {
+				//ctx.error("expected ']'")
+				ctx.gotoMark(mark)
+				break
+			}
+			ctx.next(skipEOL) // consume ']'
+
+			left = &expressionSubscript{
+				parserNodeData: parserNodeData{
+					_children: []ParserNode{left, indexExpr},
+					_tokens:   ctx.fromMark(mark),
+					_errors:   make([]ParserError, 0),
+				},
+			}
+			continue
+		}
+
 		// Postfix arithmetic: '++' | '--'
 		if ctx.isAny([]lexer.TokenId{lexer.TokenIncrement, lexer.TokenDecrement}) {
 			ctx.next(skipEOL) // consume operator

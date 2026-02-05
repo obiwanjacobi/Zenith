@@ -917,6 +917,7 @@ type ExpressionKind int
 const (
 	ExprPrecedence ExpressionKind = iota
 	ExprMemberAccess
+	ExprSubscript
 	ExprBinaryArithmetic
 	ExprBinaryBitwise
 	ExprBinaryComparison
@@ -1022,6 +1023,46 @@ func (n *expressionMemberAccess) Member() lexer.Token {
 	tokens := n.parserNodeData.tokensOf(lexer.TokenIdentifier)
 	if len(tokens) > 0 {
 		return tokens[0]
+	}
+	return nil
+}
+
+// ============================================================================
+// expression_subscript: expression '[' expression ']'
+// ============================================================================
+
+type ExpressionSubscript interface {
+	Expression
+	Array() Expression
+	Index() Expression
+}
+
+type expressionSubscript struct {
+	parserNodeData
+}
+
+func (n *expressionSubscript) Children() []ParserNode {
+	return n.parserNodeData.Children()
+}
+
+func (n *expressionSubscript) Tokens() []lexer.Token {
+	return n.parserNodeData.Tokens()
+}
+
+func (n *expressionSubscript) ExpressionKind() ExpressionKind {
+	return ExprSubscript
+}
+
+func (n *expressionSubscript) Array() Expression {
+	if len(n.parserNodeData._children) > 0 {
+		return n.parserNodeData._children[0].(Expression)
+	}
+	return nil
+}
+
+func (n *expressionSubscript) Index() Expression {
+	if len(n.parserNodeData._children) > 1 {
+		return n.parserNodeData._children[1].(Expression)
 	}
 	return nil
 }

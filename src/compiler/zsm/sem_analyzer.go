@@ -564,6 +564,8 @@ func (sa *SemanticAnalyzer) processExpression(node parser.Expression) SemExpress
 		return sa.processFunctionCall(n)
 	case parser.ExpressionMemberAccess:
 		return sa.processMemberAccess(n)
+	case parser.ExpressionSubscript:
+		return sa.processSubscript(n)
 	case parser.ExpressionTypeInitializer:
 		return sa.processTypeInitializer(n)
 	case parser.ExpressionIdentifier:
@@ -800,6 +802,40 @@ func (sa *SemanticAnalyzer) processMemberAccess(node parser.ExpressionMemberAcce
 	}
 }
 
+func (sa *SemanticAnalyzer) processSubscript(node parser.ExpressionSubscript) *SemSubscript {
+	// Process the array expression
+	array := sa.processExpression(node.Array())
+	if array == nil {
+		return nil
+	}
+
+	// Process the index expression
+	index := sa.processExpression(node.Index())
+	if index == nil {
+		return nil
+	}
+
+	// Get the array type
+	arrayType, ok := array.Type().(*ArrayType)
+	if !ok {
+		sa.error(fmt.Sprintf("cannot index non-array type '%s'", array.Type().Name()), node)
+		return nil
+	}
+
+	// Validate index type is numeric
+	if !isIntegerType(index.Type()) {
+		sa.error(fmt.Sprintf("array index must be integer type, got '%s'", index.Type().Name()), node)
+		return nil
+	}
+
+	return &SemSubscript{
+		Array:    array,
+		Index:    index,
+		TypeInfo: arrayType.ElementType(),
+		astNode:  node,
+	}
+}
+
 func (sa *SemanticAnalyzer) processTypeInitializer(node parser.ExpressionTypeInitializer) *SemTypeInitializer {
 	// Get the type reference
 	typeRef := node.TypeRef()
@@ -998,6 +1034,19 @@ func (sa *SemanticAnalyzer) trackVariableUsageInExpression(expr SemExpression, u
 		if e.Object != nil {
 			sa.trackVariableUsageInExpression(*e.Object, VarUsedPointer)
 		}
+	}
+}
+
+// isIntegerType checks if a type is an integer type
+func isIntegerType(t Type) bool {
+	if t == nil {
+		return false
+	}
+	switch t {
+	case U8Type, U16Type, I8Type, I16Type:
+		return true
+	default:
+		return false
 	}
 }
 

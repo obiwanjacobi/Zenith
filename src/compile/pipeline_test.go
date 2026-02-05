@@ -4,8 +4,36 @@ import (
 	"fmt"
 	"testing"
 	"zenith/compiler/cfg"
-	"zenith/compiler/lexer"
 )
+
+func RunPipeline(t *testing.T, source string) *CompilationResult {
+	opts := DefaultPipelineOptions()
+	opts.SourceCode = source
+	opts.TargetArch = "z80"
+	//opts.Verbose = true
+
+	result, err := Pipeline(opts)
+
+	if err != nil {
+		t.Logf("Compilation failed: %s", err)
+	}
+	for _, perr := range result.ParserErrors {
+		fmt.Printf("  ParseErr: %s\n", perr.Error())
+	}
+	for _, serr := range result.SemanticErrors {
+		fmt.Printf("  SemErr: %s\n", serr.Error())
+	}
+
+	for fnName, funcCFG := range result.FunctionCFGs {
+		cfg.DumpCFG(fnName, funcCFG, cfg.DumpInstructions)
+	}
+
+	if result.VRAllocator != nil {
+		cfg.DumpAllocation(result.VRAllocator)
+	}
+
+	return result
+}
 
 // Example demonstrating the full compilation pipeline
 func Example_pipeline() {
@@ -100,7 +128,7 @@ func Test_Pipeline_StopAfterParse(t *testing.T) {
 }
 
 // Test pipeline with verbose output
-func Test_Pipeline_VerboseOutput(t *testing.T) {
+func Test_Pipeline_Factorial(t *testing.T) {
 	sourceCode := `
 		factorial: (n: u8) u8 {
 			if n <= 1 {
@@ -110,35 +138,10 @@ func Test_Pipeline_VerboseOutput(t *testing.T) {
 		}
 	`
 
-	opts := DefaultPipelineOptions()
-	opts.SourceCode = sourceCode
-	opts.TargetArch = "z80"
-	opts.Verbose = true
-
-	result, err := Pipeline(opts)
-
-	if err != nil {
-		t.Logf("Compilation note: %s", err)
-	}
-
-	if result.SemCU != nil {
-		t.Logf("SemCU has %d declarations", len(result.SemCU.Declarations))
-	}
-	if len(result.FunctionCFGs) > 0 {
-		t.Logf("CFG generated for %d functions", len(result.FunctionCFGs))
-	}
-
-	// zsm.DumpSemanticModel(result.SemCU)
-
-	for fnName, funcCFG := range result.FunctionCFGs {
-		cfg.DumpCFG(fnName, funcCFG, cfg.DumpInstructions)
-	}
-
-	cfg.DumpAllocation(result.VRAllocator)
+	RunPipeline(t, sourceCode)
 }
 
-// Test pipeline with all debug dumps enabled
-func Test_Pipeline_AllDumps(t *testing.T) {
+func Test_Pipeline_Max(t *testing.T) {
 	sourceCode := `
 		max: (a: u8, b: u8) u8 {
 			if a > b {
@@ -149,31 +152,19 @@ func Test_Pipeline_AllDumps(t *testing.T) {
 		}
 	`
 
-	opts := DefaultPipelineOptions()
-	opts.SourceCode = sourceCode
-	opts.TargetArch = "z80"
+	RunPipeline(t, sourceCode)
+}
 
-	result, err := Pipeline(opts)
+func Test_Pipeline_ArrMax(t *testing.T) {
+	sourceCode := `
+		max: (arr: u8[]) u8 {
+			if arr[0] > arr[1] {
+				ret arr[0]
+			} else {
+				ret arr[1]
+			}
+		}
+	`
 
-	if err != nil {
-		t.Logf("Pipeline encountered: %s", err)
-	}
-
-	lexer.DumpTokens(result.Tokens)
-
-	allInstructions := []cfg.MachineInstruction{}
-	for _, funcCFG := range result.FunctionCFGs {
-		allInstructions = append(allInstructions, funcCFG.GetAllInstructions()...)
-	}
-	cfg.DumpInstructions(allInstructions)
-
-	for fnName, liveness := range result.LivenessInfo {
-		cfg.DumpLiveness(fnName, liveness)
-	}
-
-	for fnName, interference := range result.InterferenceInfo {
-		cfg.DumpInterference(fnName, interference)
-	}
-
-	cfg.DumpAllocation(result.VRAllocator)
+	RunPipeline(t, sourceCode)
 }

@@ -467,3 +467,17 @@ func Test_ParseSelectInvalidCaseOrElse(t *testing.T) {
 
 	require.NotEqual(t, 0, len(errors), "Parser should report error for missing case or else clause")
 }
+
+func Test_ParseFuncParamArray(t *testing.T) {
+	code := `max: (arr: u8[]) u8 {
+		if arr[0] > arr[1] {
+			ret arr[0]
+		} else {
+			ret arr[1]
+		}
+	}`
+	tokens := lexer.OpenTokenStream(code)
+	_, errors := Parse("Test_ParseFuncParamArray", tokens)
+
+	assert.Empty(t, errors, fmt.Sprintf("Parser should not report error for array parameter: %v", errors))
+}

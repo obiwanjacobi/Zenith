@@ -279,6 +279,18 @@ func (n *SemMemberAccess) ASTNode() parser.ParserNode         { return n.astNode
 func (n *SemMemberAccess) AST() parser.ExpressionMemberAccess { return n.astNode }
 func (n *SemMemberAccess) Type() Type                         { return n.TypeInfo }
 
+// SemSubscript represents array subscripting (indexing)
+type SemSubscript struct {
+	Array    SemExpression
+	Index    SemExpression
+	TypeInfo Type
+	astNode  parser.ExpressionSubscript
+}
+
+func (n *SemSubscript) ASTNode() parser.ParserNode        { return n.astNode }
+func (n *SemSubscript) AST() parser.ExpressionSubscript   { return n.astNode }
+func (n *SemSubscript) Type() Type                        { return n.TypeInfo }
+
 // SemTypeInitializer represents struct initialization
 type SemTypeInitializer struct {
 	StructType *StructType

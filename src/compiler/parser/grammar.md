@@ -38,8 +38,8 @@ type_declaration:
 type_declaration_fields:
     '{' declaration_fieldlist '}'
 type_ref:
-    identifier ('[' number? ']')?
-type_initializer:       # structs
+    identifier ('[' number? ']')?expression_subscript:
+    expression '[' expression ']'type_initializer:       # structs
     '{' type_initializer_fieldlist? '}'
 type_initializer_fieldlist:
     type_initializer_field (',' type_initializer_field)*
@@ -83,6 +83,7 @@ expression:
     expression_function_invocation |
     expression_type_initializer |
     expression_member_access |
+    expression_subscript |
     expression_literal |
     identifier
 
@@ -100,6 +101,8 @@ expression_function_invocation:
     identifier '(' function_argumentList? ')'
 expression_type_initializer:
     type_ref type_initializer
+expression_subscript:
+    expression '[' expression ']'
 expression_literal:
     string | number | bool_literal
 

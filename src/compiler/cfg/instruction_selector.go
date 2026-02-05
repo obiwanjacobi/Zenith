@@ -177,6 +177,10 @@ type InstructionSelector interface {
 	// address is the base address, offset is optional byte offset
 	SelectLoad(address *VirtualRegister, offset int, size RegisterSize) (*VirtualRegister, error)
 
+	// SelectLoadIndexed generates instructions to load from memory with a dynamic index
+	// address is the base address, index is the index register, elementSize is bytes per element
+	SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize int, size RegisterSize) (*VirtualRegister, error)
+
 	// SelectStore generates instructions to store to memory
 	SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error
 
