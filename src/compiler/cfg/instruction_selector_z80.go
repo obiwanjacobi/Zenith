@@ -46,20 +46,20 @@ func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size Re
 		}
 
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, reg))
-		z.emit(newInstructionZ80(opcode, vrA, imm))
+		z.emit(newInstruction(Z80_LD_R_R, vrA, reg))
+		z.emit(newInstruction(opcode, vrA, imm))
 
 		// for reg-alloc flexibility, move result to wider VR
 		result = z.vrAlloc.Allocate(Z80Registers8)
-		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
+		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	case 16:
 		// TODO: refactor to handle immediate 16-bit addition
 		// 16-bit add: ADD HL, rr
 		result = z.vrAlloc.Allocate(Z80Registers16)
 		vrHL := z.vrAlloc.Allocate(Z80RegHL)
-		z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
-		z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, right))
-		z.emit(newInstructionZ80(Z80_LD_RR_NN, result, vrHL))
+		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, left))
+		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, right))
+		z.emit(newInstruction(Z80_LD_RR_NN, result, vrHL))
 	default:
 		return nil, fmt.Errorf("unsupported size for ADD: %d", size)
 	}
@@ -76,18 +76,18 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, si
 	case 8:
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		// 8-bit subtract: SUB uses A register implicitly
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
-		z.emit(newInstructionZ80(Z80_SUB_R, vrA, right))
-		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
+		z.emit(newInstruction(Z80_LD_R_R, vrA, left))
+		z.emit(newInstruction(Z80_SUB_R, vrA, right))
+		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	case 16:
 		// 16-bit subtract: SBC HL, rr
 		result = z.vrAlloc.Allocate(Z80Registers16)
 		vrHL := z.vrAlloc.Allocate(Z80RegHL)
-		z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, left))
+		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, left))
 		// Clear carry flag first (OR A)
-		z.emit(newInstructionZ80(Z80_OR_R, vrA, vrA))
-		z.emit(newInstructionZ80(Z80_SBC_HL_RR, vrHL, right))
-		z.emit(newInstructionZ80(Z80_LD_RR_NN, result, vrHL))
+		z.emit(newInstruction(Z80_OR_R, vrA, vrA))
+		z.emit(newInstruction(Z80_SBC_HL_RR, vrHL, right))
+		z.emit(newInstruction(Z80_LD_RR_NN, result, vrHL))
 	default:
 		return nil, fmt.Errorf("unsupported size for SUB: %d", size)
 	}
@@ -105,9 +105,9 @@ func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, si
 
 	// Call multiply runtime helper
 	if size == 8 {
-		z.emit(newCallZ80("__mul8"))
+		z.emit(newCall("__mul8"))
 	} else {
-		z.emit(newCallZ80("__mul16"))
+		z.emit(newCall("__mul16"))
 	}
 
 	// Result is always in HL (16-bit) - even 8x8 multiply produces 16-bit result
@@ -125,10 +125,10 @@ func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size
 	var result *VirtualRegister
 	if size == 8 {
 		result = z.vrAlloc.Allocate(Z80Registers8)
-		z.emit(newCallZ80("__div8"))
+		z.emit(newCall("__div8"))
 	} else {
 		result = z.vrAlloc.Allocate(Z80Registers16)
-		z.emit(newCallZ80("__div16"))
+		z.emit(newCall("__div16"))
 	}
 
 	return result, nil
@@ -141,7 +141,7 @@ func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size Reg
 	if size == 8 {
 		z.emitLoadIntoReg8(operand, Z80RegA)
 		result = z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_NEG, result, result))
+		z.emit(newInstruction(Z80_NEG, result, result))
 	} else {
 		return nil, fmt.Errorf("unsupported size for NEGATE: %d", size)
 	}
@@ -160,9 +160,9 @@ func (z *instructionSelectorZ80) SelectBitwiseAnd(left, right *VirtualRegister, 
 	if size == 8 {
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
-		z.emit(newInstructionZ80(Z80_AND_R, vrA, right))
-		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
+		z.emit(newInstruction(Z80_LD_R_R, vrA, left))
+		z.emit(newInstruction(Z80_AND_R, vrA, right))
+		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	} else {
 		// 16-bit AND: do byte-by-byte
 		return nil, fmt.Errorf("16-bit AND not yet implemented")
@@ -178,9 +178,9 @@ func (z *instructionSelectorZ80) SelectBitwiseOr(left, right *VirtualRegister, s
 	if size == 8 {
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
-		z.emit(newInstructionZ80(Z80_OR_R, vrA, right))
-		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
+		z.emit(newInstruction(Z80_LD_R_R, vrA, left))
+		z.emit(newInstruction(Z80_OR_R, vrA, right))
+		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	} else {
 		return nil, fmt.Errorf("16-bit OR not yet implemented")
 	}
@@ -195,9 +195,9 @@ func (z *instructionSelectorZ80) SelectBitwiseXor(left, right *VirtualRegister, 
 	if size == 8 {
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, left))
-		z.emit(newInstructionZ80(Z80_XOR_R, vrA, right))
-		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
+		z.emit(newInstruction(Z80_LD_R_R, vrA, left))
+		z.emit(newInstruction(Z80_XOR_R, vrA, right))
+		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	} else {
 		return nil, fmt.Errorf("16-bit XOR not yet implemented")
 	}
@@ -213,10 +213,10 @@ func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister, size
 		// CPL instruction complements A
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, operand))
+		z.emit(newInstruction(Z80_LD_R_R, vrA, operand))
 		vrFF := z.vrAlloc.AllocateImmediate(0xFF, 8)
-		z.emit(newInstructionZ80(Z80_XOR_N, vrA, vrFF))
-		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
+		z.emit(newInstruction(Z80_XOR_N, vrA, vrFF))
+		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	} else {
 		return nil, fmt.Errorf("16-bit NOT not yet implemented")
 	}
@@ -231,16 +231,16 @@ func (z *instructionSelectorZ80) SelectShiftLeft(value, amount *VirtualRegister,
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, value))
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, amount))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, value))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, amount))
 
 	var result *VirtualRegister
 	if size == 8 {
 		result = z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newCallZ80("__shl8"))
+		z.emit(newCall("__shl8"))
 	} else {
 		result = z.vrAlloc.Allocate(Z80RegHL)
-		z.emit(newCallZ80("__shl16"))
+		z.emit(newCall("__shl16"))
 	}
 
 	return result, nil
@@ -253,16 +253,16 @@ func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, value))
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, amount))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, value))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, amount))
 
 	var result *VirtualRegister
 	if size == 8 {
 		result = z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newCallZ80("__shr8"))
+		z.emit(newCall("__shr8"))
 	} else {
 		result = z.vrAlloc.Allocate(Z80RegHL)
-		z.emit(newCallZ80("__shr16"))
+		z.emit(newCall("__shr16"))
 	}
 
 	return result, nil
@@ -302,9 +302,9 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right 
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, leftVR))
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, rightVR))
-	z.emit(newCallZ80("__logical_and"))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, leftVR))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, rightVR))
+	z.emit(newCall("__logical_and"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
 	return result, nil
@@ -340,9 +340,9 @@ func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, left, right z
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, leftVR))
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrDE, rightVR))
-	z.emit(newCallZ80("__logical_or"))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, leftVR))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, rightVR))
+	z.emit(newCall("__logical_or"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
 	return result, nil
@@ -364,8 +364,8 @@ func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, operand zsm.
 	}
 
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
-	z.emit(newInstructionZ80(Z80_LD_RR_NN, vrHL, operandVR))
-	z.emit(newCallZ80("__logical_not"))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, operandVR))
+	z.emit(newCall("__logical_not"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
 	return result, nil
@@ -384,7 +384,7 @@ func (z *instructionSelectorZ80) SelectEqual(ctx *ExprContext, left, right *Virt
 
 	// In BranchMode: emit conditional branch based on flags
 	if ctx != nil && ctx.Mode == BranchMode {
-		z.emit(newBranchZ80WithCondition(Cond_Z, ctx.TrueBlock, ctx.FalseBlock))
+		z.emit(newJumpWithCondition(Cond_Z, ctx.TrueBlock, ctx.FalseBlock))
 		return result, nil // No value produced
 	}
 
@@ -400,7 +400,7 @@ func (z *instructionSelectorZ80) SelectNotEqual(ctx *ExprContext, left, right *V
 
 	// In BranchMode: emit conditional branch (NZ for not-equal)
 	if ctx != nil && ctx.Mode == BranchMode {
-		z.emit(newBranchZ80WithCondition(Cond_NZ, ctx.TrueBlock, ctx.FalseBlock))
+		z.emit(newJumpWithCondition(Cond_NZ, ctx.TrueBlock, ctx.FalseBlock))
 		return result, nil
 	}
 
@@ -416,7 +416,7 @@ func (z *instructionSelectorZ80) SelectLessThan(ctx *ExprContext, left, right *V
 
 	// In BranchMode: emit conditional branch (C for less-than unsigned)
 	if ctx != nil && ctx.Mode == BranchMode {
-		z.emit(newBranchZ80WithCondition(Cond_C, ctx.TrueBlock, ctx.FalseBlock))
+		z.emit(newJumpWithCondition(Cond_C, ctx.TrueBlock, ctx.FalseBlock))
 		return result, nil
 	}
 
@@ -432,7 +432,7 @@ func (z *instructionSelectorZ80) SelectGreaterThan(ctx *ExprContext, left, right
 
 	// In BranchMode: emit conditional branch (C for less-than unsigned)
 	if ctx != nil && ctx.Mode == BranchMode {
-		z.emit(newBranchZ80WithCondition(Cond_NC, ctx.TrueBlock, ctx.FalseBlock))
+		z.emit(newJumpWithCondition(Cond_NC, ctx.TrueBlock, ctx.FalseBlock))
 		return result, nil
 	}
 
@@ -448,8 +448,8 @@ func (z *instructionSelectorZ80) SelectLessEqual(ctx *ExprContext, left, right *
 
 	// In BranchMode: emit conditional branch (C or Z for <= unsigned)
 	if ctx != nil && ctx.Mode == BranchMode {
-		z.emit(newBranchZ80WithCondition(Cond_Z, ctx.TrueBlock, nil))
-		z.emit(newBranchZ80WithCondition(Cond_C, ctx.TrueBlock, ctx.FalseBlock))
+		z.emit(newJumpWithCondition(Cond_Z, ctx.TrueBlock, nil))
+		z.emit(newJumpWithCondition(Cond_C, ctx.TrueBlock, ctx.FalseBlock))
 		return result, nil
 	}
 
@@ -465,8 +465,8 @@ func (z *instructionSelectorZ80) SelectGreaterEqual(ctx *ExprContext, left, righ
 
 	// In BranchMode: emit conditional branch (C or Z for <= unsigned)
 	if ctx != nil && ctx.Mode == BranchMode {
-		z.emit(newBranchZ80WithCondition(Cond_Z, ctx.TrueBlock, nil))
-		z.emit(newBranchZ80WithCondition(Cond_NC, ctx.TrueBlock, ctx.FalseBlock))
+		z.emit(newJumpWithCondition(Cond_Z, ctx.TrueBlock, nil))
+		z.emit(newJumpWithCondition(Cond_NC, ctx.TrueBlock, ctx.FalseBlock))
 		return result, nil
 	}
 
@@ -487,7 +487,7 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int
 		z.emitAddOffsetToHL(vrHL, int32(offset))
 
 		result = z.vrAlloc.Allocate(Z80Registers8)
-		z.emit(newInstructionZ80(Z80_LD_R_HL, result, vrHL))
+		z.emit(newInstruction(Z80_LD_R_HL, result, vrHL))
 	case 16:
 		// Load 16-bit value
 		return nil, fmt.Errorf("16-bit load not yet implemented")
@@ -522,11 +522,11 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 		// We need index in a register that can be added to HL
 		// Options: BC, DE, or expand via A
 		vrIndexExpanded := z.emitLoadIntoReg16(scaledIndex, Z80RegDE)
-		z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrIndexExpanded))
+		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrIndexExpanded))
 
 		// Load from (HL)
 		result := z.vrAlloc.Allocate(Z80Registers8)
-		z.emit(newInstructionZ80(Z80_LD_R_HL, result, vrHL))
+		z.emit(newInstruction(Z80_LD_R_HL, result, vrHL))
 		return result, nil
 
 	case 16:
@@ -549,7 +549,7 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 			opcode = Z80_LD_HL_R
 		}
 
-		z.emit(newInstructionZ80(opcode, vrHL, value))
+		z.emit(newInstruction(opcode, vrHL, value))
 	case 16:
 		return fmt.Errorf("16-bit store not yet implemented")
 	}
@@ -583,9 +583,9 @@ func (z *instructionSelectorZ80) SelectStoreVariable(symbol *zsm.Symbol, value *
 func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error {
 	switch size {
 	case 8:
-		z.emit(newInstructionZ80(Z80_LD_R_R, target, source))
+		z.emit(newInstruction(Z80_LD_R_R, target, source))
 	case 16:
-		z.emit(newInstructionZ80(Z80_LD_RR_NN, target, source))
+		z.emit(newInstruction(Z80_LD_RR_NN, target, source))
 	}
 	return nil
 }
@@ -596,7 +596,7 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 
 // SelectJump generates an unconditional jump
 func (z *instructionSelectorZ80) SelectJump(target *BasicBlock) error {
-	z.emit(newJumpZ80(Z80_JP_NN, target))
+	z.emit(newJump(Z80_JP_NN, target))
 	return nil
 }
 
@@ -605,7 +605,7 @@ func (z *instructionSelectorZ80) SelectCall(functionName string, args []*Virtual
 	// Set up arguments according to calling convention
 	// For now, assume simple convention: pass in registers/stack
 
-	z.emit(newCallZ80(functionName))
+	z.emit(newCall(functionName))
 
 	// Get return value if non-void
 	if returnSize > 0 {
@@ -620,7 +620,7 @@ func (z *instructionSelectorZ80) SelectCall(functionName string, args []*Virtual
 // SelectReturn generates a return statement
 func (z *instructionSelectorZ80) SelectReturn(value *VirtualRegister) error {
 	// Value should already be in return register (set by caller)
-	z.emit(newReturnZ80())
+	z.emit(newInstruction0(Z80_RET))
 	return nil
 }
 
@@ -709,10 +709,10 @@ func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, target
 		vrTarget = z.vrAlloc.Allocate(targetRegs)
 		if value.Type == ImmediateValue {
 			// Load immediate value into targetReg
-			z.emit(newInstructionZ80(Z80_LD_R_N, vrTarget, value))
+			z.emit(newInstruction(Z80_LD_R_N, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
 			// LD targetReg, value
-			z.emit(newInstructionZ80(Z80_LD_R_R, vrTarget, value))
+			z.emit(newInstruction(Z80_LD_R_R, vrTarget, value))
 		}
 		// else - cannot do it => nil
 	} else {
@@ -733,7 +733,7 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 		if value.Type == ImmediateValue {
 			// Load immediate value into targetReg
 			// Create instruction with immediate as operand, target as result
-			z.emit(newInstructionZ80(Z80_LD_RR_NN, vrTarget, value))
+			z.emit(newInstruction(Z80_LD_RR_NN, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
 			// extract the low and hi value registers
 			loRegsValue, hiRegsValue := ToPairs(value.AllowedSet)
@@ -742,17 +742,17 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 			// LD targetReg[Lo], value[Lo]
 			vrTargetLo := z.vrAlloc.Allocate(loRegsTarget)
 			vrValueLo := z.vrAlloc.Allocate(loRegsValue)
-			z.emit(newInstructionZ80(Z80_LD_R_R, vrTargetLo, vrValueLo))
+			z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrValueLo))
 
 			// LD targetReg[Hi], value[Hi]
 			vrTargetHi := z.vrAlloc.Allocate(hiRegsTarget)
 			if len(hiRegsValue) != 0 {
 				vrValueHi := z.vrAlloc.Allocate(hiRegsValue)
-				z.emit(newInstructionZ80(Z80_LD_R_R, vrTargetHi, vrValueHi))
+				z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrValueHi))
 			} else {
 				// reset high byte to 0 - not used
 				vrZero := z.vrAlloc.AllocateImmediate(0, 8)
-				z.emit(newInstructionZ80(Z80_LD_R_N, vrTargetHi, vrZero))
+				z.emit(newInstruction(Z80_LD_R_N, vrTargetHi, vrZero))
 			}
 		}
 		// else - cannot do it => nil
@@ -768,8 +768,8 @@ func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset
 		// Add offset to address
 		vrOffset := z.vrAlloc.AllocateImmediate(offset, Bits16)
 		vrOffsetReg := z.vrAlloc.Allocate(Z80RegistersPP)
-		z.emit(newInstructionZ80(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
-		z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
+		z.emit(newInstruction(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
+		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
 	}
 }
 
@@ -790,14 +790,14 @@ func (z *instructionSelectorZ80) emitCompare(left, right *VirtualRegister) (*Vir
 			opcode = Z80_LD_R_R
 		}
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(opcode, vrA, left))
+		z.emit(newInstruction(opcode, vrA, left))
 
 		if right.Type == ImmediateValue {
 			opcode = Z80_CP_N
 		} else {
 			opcode = Z80_CP_R
 		}
-		z.emit(newInstructionZ80(opcode, vrA, right))
+		z.emit(newInstruction(opcode, vrA, right))
 		return vrA, nil
 	case 16:
 		// ld hl, reg
@@ -807,11 +807,11 @@ func (z *instructionSelectorZ80) emitCompare(left, right *VirtualRegister) (*Vir
 
 		// or a(, a) - clears carry flag
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionZ80(Z80_OR_R, vrA, nil))
+		z.emit(newInstructionResult(Z80_OR_R, vrA))
 		// sbc hl, bc|de
-		z.emit(newInstructionZ80(Z80_SBC_HL_RR, vrHL, vrDE))
+		z.emit(newInstruction(Z80_SBC_HL_RR, vrHL, vrDE))
 		// add hl, bc|de
-		z.emit(newInstructionZ80(Z80_ADD_HL_RR, vrHL, vrDE))
+		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrDE))
 		// c and z flags set accordingly
 		return vrHL, nil
 	default:
@@ -828,15 +828,16 @@ func (z *instructionSelectorZ80) emitFlagToRegA(conditionCode ConditionCode) (*V
 	// do not use 'xor a' here, as it clears flags
 	switch conditionCode {
 	case Cond_Z, Cond_NZ:
-		z.emit(newInstructionZ80(Z80_LD_R_N, result, vrZero))
-		z.emit(newBranchRelativeZ80(conditionCode, 1)) // 1: jump over next instruction
-		z.emit(newInstructionZ80(Z80_INC_R, result, nil))
+		vrOne := z.vrAlloc.AllocateImmediate(1, 8)
+		z.emit(newInstruction(Z80_LD_R_N, result, vrZero))
+		z.emit(newBranchInternal(conditionCode, vrOne)) // 1: jump over next instruction
+		z.emit(newInstructionResult(Z80_INC_R, result))
 	case Cond_C:
-		z.emit(newInstructionZ80(Z80_LD_R_N, result, vrZero))
-		z.emit(newInstructionZ80(Z80_ADC_A_N, result, vrZero))
+		z.emit(newInstruction(Z80_LD_R_N, result, vrZero))
+		z.emit(newInstruction(Z80_ADC_A_N, result, vrZero))
 	case Cond_NC:
-		z.emit(newInstructionZ80(Z80_SBC_A_R, result, nil))
-		z.emit(newInstructionZ80(Z80_INC_R, result, nil))
+		z.emit(newInstructionResult(Z80_SBC_A_R, result))
+		z.emit(newInstructionResult(Z80_INC_R, result))
 	default:
 		return nil, fmt.Errorf("unsupported flag for bool conversion: %v", conditionCode)
 	}
@@ -870,14 +871,12 @@ type machineInstructionZ80 struct {
 	result        *VirtualRegister
 	operands      []*VirtualRegister
 	conditionCode ConditionCode
-	displacement  int8
 	branchTargets []*BasicBlock
-	functionName  string
 	comment       string
 }
 
-// newInstructionZ80 creates a new Z80 instruction
-func newInstructionZ80(opcode Z80Opcode, result, operand *VirtualRegister) *machineInstructionZ80 {
+// newInstruction creates a new Z80 instruction
+func newInstruction(opcode Z80Opcode, result, operand *VirtualRegister) *machineInstructionZ80 {
 	operands := []*VirtualRegister{}
 	if operand != nil {
 		operands = append(operands, operand)
@@ -888,19 +887,31 @@ func newInstructionZ80(opcode Z80Opcode, result, operand *VirtualRegister) *mach
 		operands: operands,
 	}
 }
-
-// newBranchRelativeZ80 is used when no basic block is needed (e.g., JR)
-// displacement is relative offset of machine instructions (not bytes)
-func newBranchRelativeZ80(condition ConditionCode, displacement int8) *machineInstructionZ80 {
+func newInstructionResult(opcode Z80Opcode, result *VirtualRegister) *machineInstructionZ80 {
 	return &machineInstructionZ80{
-		opcode:        Z80_JR_CC_E,
-		conditionCode: condition,
-		displacement:  displacement,
+		opcode: opcode,
+		result: result,
+	}
+}
+func newInstructionOperand(opcode Z80Opcode, operand *VirtualRegister) *machineInstructionZ80 {
+	return newInstruction(opcode, nil, operand)
+}
+func newInstruction0(opcode Z80Opcode) *machineInstructionZ80 {
+	return &machineInstructionZ80{
+		opcode: opcode,
 	}
 }
 
-// newBranchZ80WithCondition creates a conditional branch with explicit condition code
-func newBranchZ80WithCondition(condition ConditionCode, trueBlock, falseBlock *BasicBlock) *machineInstructionZ80 {
+// newBranchInternal is used when no basic block is needed (e.g., JR)
+// displacement is relative offset of machine instructions (not bytes)
+func newBranchInternal(condition ConditionCode, displacement *VirtualRegister) *machineInstructionZ80 {
+	machInstr := newInstruction(Z80_JR_CC_E, nil, displacement)
+	machInstr.conditionCode = condition
+	return machInstr
+}
+
+// newJumpWithCondition creates a conditional jump with explicit condition code
+func newJumpWithCondition(condition ConditionCode, trueBlock, falseBlock *BasicBlock) *machineInstructionZ80 {
 	return &machineInstructionZ80{
 		opcode:        Z80_JP_CC_NN,
 		conditionCode: condition,
@@ -908,26 +919,20 @@ func newBranchZ80WithCondition(condition ConditionCode, trueBlock, falseBlock *B
 	}
 }
 
-// newJumpZ80 creates an unconditional jump
-func newJumpZ80(opcode Z80Opcode, target *BasicBlock) *machineInstructionZ80 {
+// newJump creates an unconditional jump
+func newJump(opcode Z80Opcode, target *BasicBlock) *machineInstructionZ80 {
 	return &machineInstructionZ80{
 		opcode:        opcode,
 		branchTargets: []*BasicBlock{target},
 	}
 }
 
-// newCallZ80 creates a function call
-func newCallZ80(functionName string) *machineInstructionZ80 {
+// TODO: target block? or do we resolve them seperately after instruction selection?
+// newCall creates a function call
+func newCall(functionName string) *machineInstructionZ80 {
 	return &machineInstructionZ80{
-		opcode:       Z80_CALL_NN,
-		functionName: functionName,
-	}
-}
-
-// newReturnZ80 creates a return instruction
-func newReturnZ80() *machineInstructionZ80 {
-	return &machineInstructionZ80{
-		opcode: Z80_RET,
+		opcode:  Z80_CALL_NN,
+		comment: functionName,
 	}
 }
 
@@ -992,8 +997,8 @@ func (z *machineInstructionZ80) String() string {
 		builder.WriteString(z.conditionCode.String())
 		builder.WriteString(" ")
 	}
-	if z.functionName != "" {
-		builder.WriteString(z.functionName)
+	if z.comment != "" {
+		builder.WriteString(z.comment)
 		builder.WriteString(" ")
 	}
 	if len(z.branchTargets) > 0 {

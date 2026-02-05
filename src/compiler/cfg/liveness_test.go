@@ -17,7 +17,7 @@ func TestLiveness_SimpleLinearFlow(t *testing.T) {
 	block0 := &BasicBlock{
 		ID: 0,
 		MachineInstructions: []MachineInstruction{
-			newInstructionZ80(Z80_ADD_A_R, vr3, vr1), // z = x + y (uses vr1, vr2, defines vr3)
+			newInstruction(Z80_ADD_A_R, vr3, vr1), // z = x + y (uses vr1, vr2, defines vr3)
 		},
 		Successors: []*BasicBlock{},
 	}
