@@ -65,6 +65,8 @@ func TestInterference_OverlappingLiveRanges(t *testing.T) {
 	vr1 := vrAlloc.AllocateNamed("a", Z80Registers8)
 	vr2 := vrAlloc.AllocateNamed("b", Z80Registers8)
 	vr3 := vrAlloc.AllocateNamed("c", Z80Registers8)
+	vrVal1 := vrAlloc.AllocateImmediate(1, 8)
+	vrVal2 := vrAlloc.AllocateImmediate(2, 8)
 
 	// Block 0:
 	//   a = load 1
@@ -75,14 +77,14 @@ func TestInterference_OverlappingLiveRanges(t *testing.T) {
 		ID: 0,
 		MachineInstructions: []MachineInstruction{
 			&machineInstructionZ80{
-				opcode:         Z80_LD_R_N,
-				result:         vr1,
-				immediateValue: 1,
+				opcode:   Z80_LD_R_N,
+				result:   vr1,
+				operands: []*VirtualRegister{vrVal1},
 			},
 			&machineInstructionZ80{
-				opcode:         Z80_LD_R_N,
-				result:         vr2,
-				immediateValue: 2,
+				opcode:   Z80_LD_R_N,
+				result:   vr2,
+				operands: []*VirtualRegister{vrVal2},
 			},
 			&machineInstructionZ80{
 				opcode:   Z80_ADD_A_R,

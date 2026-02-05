@@ -140,7 +140,7 @@ func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size Reg
 
 	if size == 8 {
 		z.emitLoadIntoReg8(operand, Z80RegA)
-		result := z.vrAlloc.Allocate(Z80RegA)
+		result = z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_NEG, result, result))
 	} else {
 		return nil, fmt.Errorf("unsupported size for NEGATE: %d", size)
@@ -214,7 +214,8 @@ func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister, size
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		vrA := z.vrAlloc.Allocate(Z80RegA)
 		z.emit(newInstructionZ80(Z80_LD_R_R, vrA, operand))
-		z.emit(newInstructionZ80Imm8(Z80_XOR_N, vrA, 0xFF))
+		vrFF := z.vrAlloc.AllocateImmediate(0xFF, 8)
+		z.emit(newInstructionZ80(Z80_XOR_N, vrA, vrFF))
 		z.emit(newInstructionZ80(Z80_LD_R_R, result, vrA))
 	} else {
 		return nil, fmt.Errorf("16-bit NOT not yet implemented")
@@ -541,11 +542,14 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 		vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
 		z.emitAddOffsetToHL(vrHL, int32(offset))
 
+		var opcode Z80Opcode
 		if value.Type == ImmediateValue {
-			z.emit(newInstructionZ80Imm8(Z80_LD_HL_N, vrHL, uint8(value.Value)))
+			opcode = Z80_LD_HL_N
 		} else {
-			z.emit(newInstructionZ80(Z80_LD_HL_R, vrHL, value))
+			opcode = Z80_LD_HL_R
 		}
+
+		z.emit(newInstructionZ80(opcode, vrHL, value))
 	case 16:
 		return fmt.Errorf("16-bit store not yet implemented")
 	}
@@ -705,7 +709,7 @@ func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, target
 		vrTarget = z.vrAlloc.Allocate(targetRegs)
 		if value.Type == ImmediateValue {
 			// Load immediate value into targetReg
-			z.emit(newInstructionZ80Imm8(Z80_LD_R_N, vrTarget, uint8(value.Value)))
+			z.emit(newInstructionZ80(Z80_LD_R_N, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
 			// LD targetReg, value
 			z.emit(newInstructionZ80(Z80_LD_R_R, vrTarget, value))
@@ -728,7 +732,8 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 		vrTarget = z.vrAlloc.Allocate(targetRegs)
 		if value.Type == ImmediateValue {
 			// Load immediate value into targetReg
-			z.emit(newInstructionZ80Imm16(Z80_LD_RR_NN, vrTarget, uint16(value.Value)))
+			// Create instruction with immediate as operand, target as result
+			z.emit(newInstructionZ80(Z80_LD_RR_NN, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
 			// extract the low and hi value registers
 			loRegsValue, hiRegsValue := ToPairs(value.AllowedSet)
@@ -746,7 +751,8 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 				z.emit(newInstructionZ80(Z80_LD_R_R, vrTargetHi, vrValueHi))
 			} else {
 				// reset high byte to 0 - not used
-				z.emit(newInstructionZ80Imm8(Z80_LD_R_N, vrTargetHi, 0))
+				vrZero := z.vrAlloc.AllocateImmediate(0, 8)
+				z.emit(newInstructionZ80(Z80_LD_R_N, vrTargetHi, vrZero))
 			}
 		}
 		// else - cannot do it => nil
@@ -817,15 +823,17 @@ func (z *instructionSelectorZ80) emitCompare(left, right *VirtualRegister) (*Vir
 func (z *instructionSelectorZ80) emitFlagToRegA(conditionCode ConditionCode) (*VirtualRegister, error) {
 	result := z.vrAlloc.Allocate(Z80RegA)
 
+	vrZero := z.vrAlloc.AllocateImmediate(0, 8)
+
 	// do not use 'xor a' here, as it clears flags
 	switch conditionCode {
 	case Cond_Z, Cond_NZ:
-		z.emit(newInstructionZ80Imm8(Z80_LD_R_N, result, 0))
+		z.emit(newInstructionZ80(Z80_LD_R_N, result, vrZero))
 		z.emit(newBranchRelativeZ80(conditionCode, 1)) // 1: jump over next instruction
 		z.emit(newInstructionZ80(Z80_INC_R, result, nil))
 	case Cond_C:
-		z.emit(newInstructionZ80Imm8(Z80_LD_R_N, result, 0))
-		z.emit(newInstructionZ80Imm8(Z80_ADC_A_N, result, 0))
+		z.emit(newInstructionZ80(Z80_LD_R_N, result, vrZero))
+		z.emit(newInstructionZ80(Z80_ADC_A_N, result, vrZero))
 	case Cond_NC:
 		z.emit(newInstructionZ80(Z80_SBC_A_R, result, nil))
 		z.emit(newInstructionZ80(Z80_INC_R, result, nil))
@@ -858,15 +866,14 @@ func orderImmediateFirst(left, right *VirtualRegister) (immediate *VirtualRegist
 
 // machineInstructionZ80 represents a concrete Z80 instruction
 type machineInstructionZ80 struct {
-	opcode         Z80Opcode
-	result         *VirtualRegister
-	operands       []*VirtualRegister
-	conditionCode  ConditionCode
-	immediateValue uint16
-	displacement   int8
-	branchTargets  []*BasicBlock
-	functionName   string
-	comment        string
+	opcode        Z80Opcode
+	result        *VirtualRegister
+	operands      []*VirtualRegister
+	conditionCode ConditionCode
+	displacement  int8
+	branchTargets []*BasicBlock
+	functionName  string
+	comment       string
 }
 
 // newInstructionZ80 creates a new Z80 instruction
@@ -879,24 +886,6 @@ func newInstructionZ80(opcode Z80Opcode, result, operand *VirtualRegister) *mach
 		opcode:   opcode,
 		result:   result,
 		operands: operands,
-	}
-}
-
-// newInstructionZ80Imm8 creates an instruction with 8-bit immediate
-func newInstructionZ80Imm8(opcode Z80Opcode, result *VirtualRegister, imm uint8) *machineInstructionZ80 {
-	return &machineInstructionZ80{
-		opcode:         opcode,
-		result:         result,
-		immediateValue: uint16(imm),
-	}
-}
-
-// newInstructionZ80Imm16 creates an instruction with 16-bit immediate
-func newInstructionZ80Imm16(opcode Z80Opcode, result *VirtualRegister, imm uint16) *machineInstructionZ80 {
-	return &machineInstructionZ80{
-		opcode:         opcode,
-		result:         result,
-		immediateValue: imm,
 	}
 }
 
@@ -1013,9 +1002,6 @@ func (z *machineInstructionZ80) String() string {
 				builder.WriteString(fmt.Sprintf("Block %d ", target.ID))
 			}
 		}
-	}
-	if z.immediateValue != 0 {
-		builder.WriteString(fmt.Sprintf("#%04X ", z.immediateValue))
 	}
 
 	operandStrs := make([]string, 0)
