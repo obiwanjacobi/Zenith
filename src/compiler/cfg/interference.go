@@ -3,6 +3,7 @@ package cfg
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // InterferenceGraph represents which VirtualRegisters cannot share the same physical register
@@ -85,17 +86,6 @@ func (ig *InterferenceGraph) GetNodes() []int {
 	return nodes
 }
 
-// String returns a string representation of the interference graph
-func (ig *InterferenceGraph) String() string {
-	result := "Interference Graph:\n"
-	nodes := ig.GetNodes()
-	for _, node := range nodes {
-		neighbors := ig.GetNeighbors(node)
-		result += fmt.Sprintf("  VR%d -> %v\n", node, neighbors)
-	}
-	return result
-}
-
 // BuildInterferenceGraph constructs an interference graph from liveness information
 // Two VirtualRegisters interfere if they are both live at the same point in the program
 func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph {
@@ -150,6 +140,18 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 	}
 
 	return ig
+}
+
+// String returns a string representation of the interference graph
+func (ig *InterferenceGraph) String() string {
+	var result strings.Builder
+	result.WriteString("Interference Graph:\n")
+	nodes := ig.GetNodes()
+	for _, node := range nodes {
+		neighbors := ig.GetNeighbors(node)
+		fmt.Fprintf(&result, "  VR%d -> %v\n", node, neighbors)
+	}
+	return result.String()
 }
 
 func DumpInterference(fnName string, interference *InterferenceGraph) {

@@ -1004,7 +1004,7 @@ func (z *machineInstructionZ80) String() string {
 	if len(z.branchTargets) > 0 {
 		for _, target := range z.branchTargets {
 			if target != nil {
-				builder.WriteString(fmt.Sprintf("Block %d ", target.ID))
+				fmt.Fprintf(&builder, "Block %d ", target.ID)
 			}
 		}
 	}
