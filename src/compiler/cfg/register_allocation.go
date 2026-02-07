@@ -1,8 +1,6 @@
 package cfg
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // Register represents a physical register
 type Register struct {
@@ -15,64 +13,56 @@ type Register struct {
 // RegisterAllocator performs graph coloring register allocation on VirtualRegisters
 type RegisterAllocator struct {
 	availableRegisters []*Register
-	numColors          int
 }
 
 // NewRegisterAllocator creates a new register allocator
 func NewRegisterAllocator(registers []*Register) *RegisterAllocator {
 	return &RegisterAllocator{
 		availableRegisters: registers,
-		numColors:          len(registers),
 	}
 }
 
 // Allocate performs graph coloring register allocation on a CFG
 // Assigns physical registers to VirtualRegisters based on interference graph
-func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []*VirtualRegister) error {
-	// Filter to only CandidateRegisters that need allocation
+// Prioritizes result registers over operands for better allocation success
+func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) error {
+	// Gather all VRs from CFG, separating candidates from others
+	// Also identify which are results vs operands in one pass
 	candidateVRs := make(map[int]*VirtualRegister)
-	for _, vr := range allVRs {
-		if vr.Type == CandidateRegister {
-			candidateVRs[vr.ID] = vr
-		}
-	}
+	resultVRs := make(map[int]bool)
+	seen := make(map[int]bool)
 
-	// Graph coloring with simplification
-	stack := []int{}
-	remaining := make(map[int]bool)
-	for vrID := range candidateVRs {
-		remaining[vrID] = true
-	}
-
-	// Phase 1: Simplification - remove nodes with degree < k
-	for len(remaining) > 0 {
-		// Find a node with degree < numColors (in the remaining subgraph)
-		found := false
-		for vrID := range remaining {
-			degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
-			if degree < ra.numColors {
-				stack = append(stack, vrID)
-				delete(remaining, vrID)
-				found = true
-				break
-			}
-		}
-
-		// If no such node found, pick the node with highest degree (potential spill)
-		if !found {
-			maxDegree := -1
-			var spillCandidate int
-			for vrID := range remaining {
-				degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
-				if degree > maxDegree {
-					maxDegree = degree
-					spillCandidate = vrID
+	for _, block := range cfg.Blocks {
+		for _, instr := range block.MachineInstructions {
+			// Check result
+			if result := instr.GetResult(); result != nil && !seen[result.ID] {
+				seen[result.ID] = true
+				if result.Type == CandidateRegister {
+					candidateVRs[result.ID] = result
+					resultVRs[result.ID] = true
 				}
 			}
-			stack = append(stack, spillCandidate)
-			delete(remaining, spillCandidate)
+
+			// Check operands
+			for _, op := range instr.GetOperands() {
+				if op != nil && !seen[op.ID] {
+					seen[op.ID] = true
+					if op.Type == CandidateRegister {
+						candidateVRs[op.ID] = op
+						// resultVRs[op.ID] remains false (default)
+					}
+				}
+			}
 		}
 	}
+
+	if len(candidateVRs) == 0 {
+		return nil // Nothing to allocate
+	}
+
+	// Build simplification stack using graph coloring
+	// Priority: process operands first (pushed early) so results get allocated first (popped late)
+	stack := ra.buildSimplificationStack(candidateVRs, resultVRs, ig)
 
 	// Phase 2: Selection - assign registers in reverse order
 	for i := len(stack) - 1; i >= 0; i-- {
@@ -88,7 +78,100 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []
 		// If no register available, VR remains as CandidateRegister (unallocated)
 	}
 
+	// Final check: ensure all result VRs have been allocated
+	for vrID, isResult := range resultVRs {
+		if isResult {
+			vr := candidateVRs[vrID]
+			if vr.Type != AllocatedRegister || vr.PhysicalReg == nil {
+				return fmt.Errorf("failed to allocate result VR %d (%s)", vr.ID, vr.Name)
+			}
+		}
+	}
+
 	return nil
+}
+
+// buildSimplificationStack creates the stack for graph coloring
+// Returns a stack where operands are pushed before results (so results pop first)
+func (ra *RegisterAllocator) buildSimplificationStack(
+	candidateVRs map[int]*VirtualRegister,
+	resultVRs map[int]bool,
+	ig *InterferenceGraph,
+) []int {
+	stack := make([]int, 0, len(candidateVRs))
+	remaining := make(map[int]bool, len(candidateVRs))
+	for vrID := range candidateVRs {
+		remaining[vrID] = true
+	}
+
+	numColors := len(ra.availableRegisters)
+
+	// Phase 1: Simplification
+	for len(remaining) > 0 {
+		found := false
+
+		// Try to remove an operand with low degree first
+		for vrID := range remaining {
+			if !resultVRs[vrID] {
+				degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
+				if degree < numColors {
+					stack = append(stack, vrID)
+					delete(remaining, vrID)
+					found = true
+					break
+				}
+			}
+		}
+
+		// If no low-degree operand, try low-degree result
+		if !found {
+			for vrID := range remaining {
+				degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
+				if degree < numColors {
+					stack = append(stack, vrID)
+					delete(remaining, vrID)
+					found = true
+					break
+				}
+			}
+		}
+
+		// If still nothing, pick a spill candidate (prefer operand over result)
+		if !found {
+			spillCandidate := ra.selectSpillCandidate(remaining, resultVRs, ig)
+			stack = append(stack, spillCandidate)
+			delete(remaining, spillCandidate)
+		}
+	}
+
+	return stack
+}
+
+func findUnallocatedVRs(cfg *CFG) []*VirtualRegister {
+	seen := make(map[*VirtualRegister]bool)
+	unallocated := []*VirtualRegister{}
+
+	for _, block := range cfg.Blocks {
+		for _, instr := range block.MachineInstructions {
+			// Results are not considered because they are prioritized for allocation and won't be unallocated if allocation succeeded
+			// and cannot be easily changed for instructions.
+
+			vrs := instr.GetOperands()
+
+			for _, vr := range vrs {
+				if vr == nil || seen[vr] {
+					continue
+				}
+				seen[vr] = true
+
+				if vr.PhysicalReg == nil && vr.Type != ImmediateValue {
+					unallocated = append(unallocated, vr)
+				}
+			}
+		}
+	}
+
+	return unallocated
 }
 
 // getDegreeInSubgraph counts how many neighbors of a VR are in the remaining subgraph
@@ -101,6 +184,41 @@ func (ra *RegisterAllocator) getDegreeInSubgraph(vrID int, ig *InterferenceGraph
 		}
 	}
 	return degree
+}
+
+// selectSpillCandidate chooses a VR to potentially spill
+// Prefers operands over results, and higher degree nodes
+func (ra *RegisterAllocator) selectSpillCandidate(remaining map[int]bool, resultVRs map[int]bool, ig *InterferenceGraph) int {
+	maxDegree := -1
+	var spillCandidate int
+	isResultCandidate := true
+
+	// First pass: try to find an operand with high degree
+	for vrID := range remaining {
+		if resultVRs[vrID] {
+			continue // Skip results
+		}
+		degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
+		if degree > maxDegree {
+			maxDegree = degree
+			spillCandidate = vrID
+			isResultCandidate = false
+		}
+	}
+
+	// If no operands found, fall back to results
+	if isResultCandidate {
+		maxDegree = -1
+		for vrID := range remaining {
+			degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
+			if degree > maxDegree {
+				maxDegree = degree
+				spillCandidate = vrID
+			}
+		}
+	}
+
+	return spillCandidate
 }
 
 // selectRegister chooses the best physical register for a VirtualRegister
@@ -149,58 +267,4 @@ func (ra *RegisterAllocator) Spill(allVRs []*VirtualRegister) int {
 		}
 	}
 	return spillCount
-}
-
-func DumpAllocation(vrAlloc *VirtualRegisterAllocator) {
-	fmt.Println("========== REGISTER ALLOCATION ==========")
-
-	// Collect VRs by type
-	allocated := []*VirtualRegister{}
-	spilled := []*VirtualRegister{}
-	immediates := []*VirtualRegister{}
-	candidates := []*VirtualRegister{}
-
-	for _, vr := range vrAlloc.GetAll() {
-		switch vr.Type {
-		case AllocatedRegister:
-			allocated = append(allocated, vr)
-		case StackLocation:
-			spilled = append(spilled, vr)
-		case ImmediateValue:
-			immediates = append(immediates, vr)
-		case CandidateRegister:
-			candidates = append(candidates, vr)
-		}
-	}
-
-	if len(allocated) > 0 {
-		fmt.Printf("Allocated (%d):\n", len(allocated))
-		for _, vr := range allocated {
-			fmt.Println(vr.String())
-		}
-	}
-
-	if len(spilled) > 0 {
-		fmt.Printf("\nSpilled to stack (%d):\n", len(spilled))
-		for _, vr := range spilled {
-			fmt.Println(vr.String())
-		}
-	}
-
-	if len(immediates) > 0 {
-		fmt.Printf("\nImmediates (%d):\n", len(immediates))
-		for _, vr := range immediates {
-			fmt.Println(vr.String())
-		}
-	}
-
-	if len(candidates) > 0 {
-		fmt.Printf("\nUnallocated candidates (%d):\n", len(candidates))
-		for _, vr := range candidates {
-			fmt.Println(vr.String())
-		}
-	}
-
-	fmt.Printf("\nTotal: %d VRs (%d allocated, %d spilled, %d immediate, %d unallocated)\n\n",
-		len(vrAlloc.GetAll()), len(allocated), len(spilled), len(immediates), len(candidates))
 }

@@ -448,3 +448,57 @@ func (vra *VirtualRegisterAllocator) GetAll() []*VirtualRegister {
 	}
 	return result
 }
+
+func DumpAllocation(vrAlloc *VirtualRegisterAllocator) {
+	fmt.Println("========== REGISTER ALLOCATION ==========")
+
+	// Collect VRs by type
+	allocated := []*VirtualRegister{}
+	spilled := []*VirtualRegister{}
+	immediates := []*VirtualRegister{}
+	candidates := []*VirtualRegister{}
+
+	for _, vr := range vrAlloc.GetAll() {
+		switch vr.Type {
+		case AllocatedRegister:
+			allocated = append(allocated, vr)
+		case StackLocation:
+			spilled = append(spilled, vr)
+		case ImmediateValue:
+			immediates = append(immediates, vr)
+		case CandidateRegister:
+			candidates = append(candidates, vr)
+		}
+	}
+
+	if len(allocated) > 0 {
+		fmt.Printf("Allocated (%d):\n", len(allocated))
+		for _, vr := range allocated {
+			fmt.Println(vr.String())
+		}
+	}
+
+	if len(spilled) > 0 {
+		fmt.Printf("\nSpilled to stack (%d):\n", len(spilled))
+		for _, vr := range spilled {
+			fmt.Println(vr.String())
+		}
+	}
+
+	if len(immediates) > 0 {
+		fmt.Printf("\nImmediates (%d):\n", len(immediates))
+		for _, vr := range immediates {
+			fmt.Println(vr.String())
+		}
+	}
+
+	if len(candidates) > 0 {
+		fmt.Printf("\nUnallocated candidates (%d):\n", len(candidates))
+		for _, vr := range candidates {
+			fmt.Println(vr.String())
+		}
+	}
+
+	fmt.Printf("\nTotal: %d VRs (%d allocated, %d spilled, %d immediate, %d unallocated)\n\n",
+		len(vrAlloc.GetAll()), len(allocated), len(spilled), len(immediates), len(candidates))
+}

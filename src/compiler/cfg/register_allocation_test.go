@@ -39,7 +39,7 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -96,7 +96,7 @@ func TestRegisterAllocation_WithInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -145,7 +145,7 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -199,7 +199,7 @@ func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -296,7 +296,7 @@ func TestRegisterAllocation_Loop(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -350,7 +350,7 @@ func TestRegisterAllocation_16Bit(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -403,7 +403,7 @@ func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -496,7 +496,7 @@ func TestRegisterAllocation_Branching(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation failed: %v", err)
@@ -517,8 +517,6 @@ func TestRegisterAllocation_Branching(t *testing.T) {
 
 // Test empty CFG (no VRs to allocate)
 func TestRegisterAllocation_EmptyCFG(t *testing.T) {
-	vrAlloc := NewVirtualRegisterAllocator()
-
 	block0 := &BasicBlock{
 		ID:                  0,
 		MachineInstructions: []MachineInstruction{},
@@ -535,7 +533,7 @@ func TestRegisterAllocation_EmptyCFG(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
+	err := allocator.Allocate(cfg, ig)
 
 	if err != nil {
 		t.Fatalf("Allocation of empty CFG should not fail: %v", err)
