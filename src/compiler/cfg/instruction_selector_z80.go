@@ -865,6 +865,10 @@ func orderImmediateFirst(left, right *VirtualRegister) (immediate *VirtualRegist
 	return left, right, false
 }
 
+// ============================================================================
+// Z80-specific instruction representation
+// ============================================================================
+
 // machineInstructionZ80 represents a concrete Z80 instruction
 type machineInstructionZ80 struct {
 	opcode        Z80Opcode

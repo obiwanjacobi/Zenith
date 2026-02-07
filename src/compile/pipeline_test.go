@@ -168,3 +168,13 @@ func Test_Pipeline_ArrMax(t *testing.T) {
 
 	RunPipeline(t, sourceCode)
 }
+
+func Test_Pipeline_Variables(t *testing.T) {
+	sourceCode := `max: (p: u8) u8 {
+		x := p + 42
+		y := x + 42
+		ret x + y + p
+	}`
+
+	RunPipeline(t, sourceCode)
+}

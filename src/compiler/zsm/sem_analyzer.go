@@ -212,6 +212,7 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *Sem
 		if initExpr != nil {
 			initializer = sa.processExpression(initExpr)
 			if initializer == nil {
+				sa.error(fmt.Sprintf("initializer for '%s' not valid", node.Label().Name()), node)
 				return nil
 			}
 			// TODO: Check that initializer type matches variable type
@@ -264,10 +265,18 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *Sem
 		sa.trackInitializationPattern(symbol, initializer)
 	}
 
+	var typeInfo Type
+	if symbol != nil {
+		typeInfo = symbol.Type
+	} else if initializer != nil {
+		typeInfo = initializer.Type()
+	}
+
 	return &SemVariableDecl{
 		Symbol:      symbol,
 		Initializer: initializer,
 		astNode:     node,
+		TypeInfo:    typeInfo,
 	}
 }
 

@@ -481,3 +481,15 @@ func Test_ParseFuncParamArray(t *testing.T) {
 
 	assert.Empty(t, errors, fmt.Sprintf("Parser should not report error for array parameter: %v", errors))
 }
+
+func Test_ParseVariables(t *testing.T) {
+	code := `max: () u8 {
+		x := 42
+		y := x + 42
+		ret x + y
+	}`
+	tokens := lexer.OpenTokenStream(code)
+	_, errors := Parse("Test_ParseVariables", tokens)
+
+	assert.Empty(t, errors, fmt.Sprintf("Parser should not report error for variables: %v", errors))
+}
