@@ -91,6 +91,18 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) error {
 	return nil
 }
 
+// ResolveUnallocated resolves unallocated operand VRs by inserting register moves
+// Takes the CFG and an InstructionSelector for target-specific operations
+// Unallocated operands need to be moved into allocated registers before use
+func ResolveUnallocated(cfg *CFG, li *LivenessInfo, ig *InterferenceGraph, selector InstructionSelector) error {
+	// for _, block := range cfg.Blocks {
+	//     for instrIdx, instr := range block.MachineInstructions {
+	//         operands := instr.GetOperands()
+	//     }
+	// }
+	return nil
+}
+
 // buildSimplificationStack creates the stack for graph coloring
 // Returns a stack where operands are pushed before results (so results pop first)
 func (ra *RegisterAllocator) buildSimplificationStack(
@@ -145,33 +157,6 @@ func (ra *RegisterAllocator) buildSimplificationStack(
 	}
 
 	return stack
-}
-
-func findUnallocatedVRs(cfg *CFG) []*VirtualRegister {
-	seen := make(map[*VirtualRegister]bool)
-	unallocated := []*VirtualRegister{}
-
-	for _, block := range cfg.Blocks {
-		for _, instr := range block.MachineInstructions {
-			// Results are not considered because they are prioritized for allocation and won't be unallocated if allocation succeeded
-			// and cannot be easily changed for instructions.
-
-			vrs := instr.GetOperands()
-
-			for _, vr := range vrs {
-				if vr == nil || seen[vr] {
-					continue
-				}
-				seen[vr] = true
-
-				if vr.PhysicalReg == nil && vr.Type != ImmediateValue {
-					unallocated = append(unallocated, vr)
-				}
-			}
-		}
-	}
-
-	return unallocated
 }
 
 // getDegreeInSubgraph counts how many neighbors of a VR are in the remaining subgraph

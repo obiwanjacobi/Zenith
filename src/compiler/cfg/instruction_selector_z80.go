@@ -100,8 +100,8 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, si
 func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 
 	// call parameters
-	z.emitLoadIntoReg16(left, Z80RegHL)
-	z.emitLoadIntoReg16(right, Z80RegDE)
+	vrHL := z.emitLoadIntoReg16(left, Z80RegHL)
+	z.emitLoadIntoReg16(right, Z80RegDE).Unused()
 
 	// Call multiply runtime helper
 	if size == 8 {
@@ -111,7 +111,6 @@ func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, si
 	}
 
 	// Result is always in HL (16-bit) - even 8x8 multiply produces 16-bit result
-	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	return vrHL, nil
 }
 
@@ -119,28 +118,23 @@ func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, si
 // Z80 has no divide instruction - call runtime helper
 func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	// call parameters
-	z.emitLoadIntoReg16(left, Z80RegHL)
-	z.emitLoadIntoReg16(right, Z80RegDE)
+	vrHL := z.emitLoadIntoReg16(left, Z80RegHL)
+	z.emitLoadIntoReg16(right, Z80RegDE).Unused()
 
-	var result *VirtualRegister
 	if size == 8 {
-		result = z.vrAlloc.Allocate(Z80Registers8)
 		z.emit(newCall("__div8"))
 	} else {
-		result = z.vrAlloc.Allocate(Z80Registers16)
 		z.emit(newCall("__div16"))
 	}
 
-	return result, nil
+	return vrHL, nil
 }
 
 // SelectNegate generates instructions for negation (-a)
 func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	var result *VirtualRegister
-
 	if size == 8 {
-		z.emitLoadIntoReg8(operand, Z80RegA)
-		result = z.vrAlloc.Allocate(Z80RegA)
+		result := z.emitLoadIntoReg8(operand, Z80RegA)
 		z.emit(newInstruction(Z80_NEG, result, result))
 	} else {
 		return nil, fmt.Errorf("unsupported size for NEGATE: %d", size)
@@ -735,6 +729,8 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 			// Create instruction with immediate as operand, target as result
 			z.emit(newInstruction(Z80_LD_RR_NN, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
+			// Mark value as unused - we will allocate new VRs for the parts we need
+			value.Type = Unused
 			// extract the low and hi value registers
 			loRegsValue, hiRegsValue := ToPairs(value.AllowedSet)
 			loRegsTarget, hiRegsTarget := ToPairs(targetRegs)
