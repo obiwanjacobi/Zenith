@@ -118,7 +118,7 @@ func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, si
 // Z80 has no divide instruction - call runtime helper
 func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	// call parameters
-	vrHL := z.emitLoadIntoReg16(left, Z80RegHL)
+	z.emitLoadIntoReg16(left, Z80RegHL).Unused()
 	z.emitLoadIntoReg16(right, Z80RegDE).Unused()
 
 	if size == 8 {
@@ -127,14 +127,15 @@ func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size
 		z.emit(newCall("__div16"))
 	}
 
-	return vrHL, nil
+	vrA := z.vrAlloc.Allocate(Z80RegA)
+	return vrA, nil
 }
 
 // SelectNegate generates instructions for negation (-a)
 func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	var result *VirtualRegister
 	if size == 8 {
-		result := z.emitLoadIntoReg8(operand, Z80RegA)
+		result = z.emitLoadIntoReg8(operand, Z80RegA)
 		z.emit(newInstruction(Z80_NEG, result, result))
 	} else {
 		return nil, fmt.Errorf("unsupported size for NEGATE: %d", size)
