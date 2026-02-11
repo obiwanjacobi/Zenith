@@ -71,6 +71,8 @@ func (l BlockLabel) String() string {
 	}
 }
 
+type BlockId int
+
 // BasicBlock represents a sequence of instructions with one entry and one exit
 type BasicBlock struct {
 	ID                  int                  // Unique identifier
@@ -89,6 +91,7 @@ type CFG struct {
 	Blocks       []*BasicBlock        // All blocks in the graph
 	FunctionName string               // Name of the function (for qualified variable names)
 	FunctionDecl *zsm.SemFunctionDecl // Original function declaration (for parameters, return type)
+	StackOffset  int8                 // Current stack offset for spills
 }
 
 // ============================================================================

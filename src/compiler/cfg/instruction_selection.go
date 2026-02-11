@@ -11,7 +11,7 @@ type InstructionSelectionContext struct {
 	vrAlloc           *VirtualRegisterAllocator
 	callingConvention CallingConvention
 
-	// Maps ZIR symbols to their VirtualRegisters
+	// Maps zsm symbols to their VirtualRegisters
 	symbolToVReg map[*zsm.Symbol]*VirtualRegister
 
 	// Maps expression nodes to their result VirtualRegisters (for reuse)
@@ -77,8 +77,8 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 				// generate loads when the value is actually used in a physical register.
 			} else {
 				// Parameter is in a register - allocate VirtualRegister with constraint
-				vr := ctx.vrAlloc.Allocate([]*Register{reg})
-				vr.Name = param.Name
+				vr := ctx.vrAlloc.AllocateNamed(param.Name, []*Register{reg})
+				vr.Assign(reg)
 				ctx.symbolToVReg[param] = vr
 			}
 		}
@@ -295,7 +295,14 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 		}
 
 		// Get the return register from calling convention
-		returnSize := RegisterSize(ret.Value.Type().Size() * 8)
+		// Use the function's declared return type size, not the expression's type size
+		var returnSize RegisterSize
+		if ctx.currentCFG != nil && ctx.currentCFG.FunctionDecl != nil && ctx.currentCFG.FunctionDecl.ReturnType != nil {
+			returnSize = RegisterSize(ctx.currentCFG.FunctionDecl.ReturnType.Size() * 8)
+		} else {
+			// Fallback to expression type if function context not available
+			returnSize = RegisterSize(ret.Value.Type().Size() * 8)
+		}
 		returnReg := ctx.callingConvention.GetReturnValueRegister(returnSize)
 
 		// Move value to the return register

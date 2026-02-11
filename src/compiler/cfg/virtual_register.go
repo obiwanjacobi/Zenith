@@ -5,11 +5,11 @@ import "fmt"
 type VirtualRegisterType uint8
 
 const (
-	CandidateRegister VirtualRegisterType = iota // General-purpose virtual register
+	Unused            VirtualRegisterType = iota // Unused VR
+	CandidateRegister                            // General-purpose virtual register
 	StackLocation                                // Stack location (for parameters/locals)
 	ImmediateValue                               // Immediate/literal value
 	AllocatedRegister                            // Physical register assigned after allocation
-	Unused                                       // Unused VR
 )
 
 // VirtualRegister represents a register before physical allocation
@@ -38,7 +38,14 @@ type VirtualRegister struct {
 }
 
 func (vr *VirtualRegister) Unused() {
-	vr.Type = Unused
+	if vr.PhysicalReg == nil {
+		vr.Type = Unused
+	}
+}
+
+func (vr *VirtualRegister) Assign(register *Register) {
+	vr.PhysicalReg = register
+	vr.Type = AllocatedRegister
 }
 
 func (vr *VirtualRegister) IsRegister(register *Register) bool {
@@ -52,8 +59,22 @@ func (vr *VirtualRegister) IsRegister(register *Register) bool {
 	}
 }
 
+func (vr *VirtualRegister) HasRegister(register *Register) bool {
+	if vr.Type != CandidateRegister && vr.Type != AllocatedRegister {
+		return false
+	}
+
+	for _, allowed := range vr.AllowedSet {
+		if register == allowed {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (vr *VirtualRegister) MatchAnyRegisters(registers []*Register) bool {
-	if vr.Type != CandidateRegister {
+	if vr.Type != CandidateRegister && vr.Type != AllocatedRegister {
 		return false
 	}
 
@@ -96,6 +117,10 @@ func (vr *VirtualRegister) String() string {
 
 	return name
 }
+
+// ============================================================================
+// Virtual Register Allocator
+// ============================================================================
 
 // VirtualRegisterAllocator manages virtual register creation
 type VirtualRegisterAllocator struct {
@@ -175,6 +200,7 @@ func DumpAllocation(vrAlloc *VirtualRegisterAllocator) {
 	fmt.Println("========== REGISTER ALLOCATION ==========")
 
 	// Collect VRs by type
+	unused := []*VirtualRegister{}
 	allocated := []*VirtualRegister{}
 	spilled := []*VirtualRegister{}
 	immediates := []*VirtualRegister{}
@@ -182,6 +208,8 @@ func DumpAllocation(vrAlloc *VirtualRegisterAllocator) {
 
 	for _, vr := range vrAlloc.GetAll() {
 		switch vr.Type {
+		case Unused:
+			unused = append(unused, vr)
 		case AllocatedRegister:
 			allocated = append(allocated, vr)
 		case StackLocation:
@@ -221,6 +249,13 @@ func DumpAllocation(vrAlloc *VirtualRegisterAllocator) {
 		}
 	}
 
-	fmt.Printf("\nTotal: %d VRs (%d allocated, %d spilled, %d immediate, %d unallocated)\n\n",
-		len(vrAlloc.GetAll()), len(allocated), len(spilled), len(immediates), len(candidates))
+	if len(unused) > 0 {
+		fmt.Printf("\nUnused (%d):\n", len(unused))
+		for _, vr := range unused {
+			fmt.Println(vr.String())
+		}
+	}
+
+	fmt.Printf("\nTotal: %d VRs (%d allocated, %d spilled, %d immediate, %d unallocated, unused %d)\n\n",
+		len(vrAlloc.GetAll()), len(allocated), len(spilled), len(immediates), len(candidates), len(unused))
 }

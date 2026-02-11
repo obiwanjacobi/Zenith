@@ -14,8 +14,15 @@ type instructionSelectorZ80 struct {
 }
 
 var Z80RegA = []*Register{&RegA}
+var Z80RegB = []*Register{&RegB}
+var Z80RegC = []*Register{&RegC}
+var Z80RegD = []*Register{&RegD}
+var Z80RegE = []*Register{&RegE}
+var Z80RegH = []*Register{&RegH}
+var Z80RegL = []*Register{&RegL}
 var Z80RegHL = []*Register{&RegHL}
 var Z80RegDE = []*Register{&RegDE}
+var Z80RegBC = []*Register{&RegBC}
 
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
 func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSelector {
@@ -42,6 +49,7 @@ func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size Re
 		if isImm {
 			opcode = Z80_ADD_A_N
 		} else {
+			reg, imm = orderToMatchRegisters(left, right, &RegA)
 			opcode = Z80_ADD_A_R
 		}
 
@@ -97,38 +105,60 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, si
 
 // SelectMultiply generates instructions for multiplication (a * b)
 // Z80 has no multiply instruction - call runtime helper
-func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+// Intrinsic calling convention: __mul8(A, L) -> HL (16-bit), __mul16(HL, DE) -> HLDE (32-bit)
+func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, resultSize RegisterSize) (*VirtualRegister, error) {
+	var result *VirtualRegister
 
-	// call parameters
-	vrHL := z.emitLoadIntoReg16(left, Z80RegHL)
-	z.emitLoadIntoReg16(right, Z80RegDE).Unused()
-
-	// Call multiply runtime helper
-	if size == 8 {
-		z.emit(newCall("__mul8"))
+	// Call multiply runtime helper based on operand size
+	// 8-bit × 8-bit = 16-bit result in HL
+	if left.Size == 8 && right.Size == 8 {
+		left, right = orderToMatchRegisters(left, right, &RegA)
+		// __mul8: params in A and L, result in HL (16-bit)
+		z.emitLoadIntoReg8(left, Z80RegA)
+		z.emitLoadIntoReg8(right, Z80RegL)
+		callInstr := newCall("__mul8")
+		result = z.vrAlloc.Allocate(Z80RegHL)
+		callInstr.result = result
+		z.emit(callInstr)
 	} else {
-		z.emit(newCall("__mul16"))
+		// __mul16: params in HL and DE, result in HLDE (32-bit)
+		left, right = orderToMatchRegisters(left, right, &RegHL)
+		z.emitLoadIntoReg16(left, Z80RegHL)
+		z.emitLoadIntoReg16(right, Z80RegDE)
+		callInstr := newCall("__mul16")
+		result = z.vrAlloc.Allocate(Z80RegHL)
+		// TODO: implement 32-bit registers.
+		callInstr.result = result
+		z.emit(callInstr)
 	}
 
-	// Result is always in HL (16-bit) - even 8x8 multiply produces 16-bit result
-	return vrHL, nil
+	return result, nil
 }
 
 // SelectDivide generates instructions for division (a / b)
 // Z80 has no divide instruction - call runtime helper
+// Intrinsic calling convention: __div8(HL, DE) -> A, __div16(HL, DE) -> HL
 func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	// call parameters
-	z.emitLoadIntoReg16(left, Z80RegHL).Unused()
-	z.emitLoadIntoReg16(right, Z80RegDE).Unused()
+	z.emitLoadIntoReg16(left, Z80RegHL)
+	z.emitLoadIntoReg16(right, Z80RegDE)
+
+	var result *VirtualRegister
+	var callInstr *machineInstructionZ80
 
 	if size == 8 {
-		z.emit(newCall("__div8"))
+		// __div8: params in HL and DE, result in A
+		callInstr = newCall("__div8")
+		result = z.vrAlloc.Allocate(Z80RegA)
 	} else {
-		z.emit(newCall("__div16"))
+		// __div16: params in HL and DE, result in HL
+		callInstr = newCall("__div16")
+		result = z.vrAlloc.Allocate(Z80RegHL)
 	}
 
-	vrA := z.vrAlloc.Allocate(Z80RegA)
-	return vrA, nil
+	callInstr.result = result
+	z.emit(callInstr)
+	return result, nil
 }
 
 // SelectNegate generates instructions for negation (-a)
@@ -575,12 +605,13 @@ func (z *instructionSelectorZ80) SelectStoreVariable(symbol *zsm.Symbol, value *
 }
 
 // SelectMove moves a value from source to target
+// Handles size conversions when necessary (e.g., 16-bit to 8-bit extracts low byte)
 func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error {
 	switch size {
 	case 8:
-		z.emit(newInstruction(Z80_LD_R_R, target, source))
+		z.emitLoadIntoReg8(source, target.AllowedSet)
 	case 16:
-		z.emit(newInstruction(Z80_LD_RR_NN, target, source))
+		z.emitLoadIntoReg16(source, target.AllowedSet)
 	}
 	return nil
 }
@@ -600,15 +631,19 @@ func (z *instructionSelectorZ80) SelectCall(functionName string, args []*Virtual
 	// Set up arguments according to calling convention
 	// For now, assume simple convention: pass in registers/stack
 
-	z.emit(newCall(functionName))
+	callInstr := newCall(functionName)
 
 	// Get return value if non-void
 	if returnSize > 0 {
 		returnReg := z.callingConvention.GetReturnValueRegister(returnSize)
 		result := z.vrAlloc.Allocate([]*Register{returnReg})
+		// Associate the result VR with the CALL instruction for proper liveness tracking
+		callInstr.result = result
+		z.emit(callInstr)
 		return result, nil
 	}
 
+	z.emit(callInstr)
 	return nil, nil
 }
 
@@ -706,8 +741,14 @@ func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, target
 			// Load immediate value into targetReg
 			z.emit(newInstruction(Z80_LD_R_N, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
+			// Handle size mismatch: if source is 16-bit, extract low byte
+			sourceVR := value
+			if value.Size == 16 {
+				lowRegs, _ := ToPairs(value.AllowedSet)
+				sourceVR = z.vrAlloc.Allocate(lowRegs)
+			}
 			// LD targetReg, value
-			z.emit(newInstruction(Z80_LD_R_R, vrTarget, value))
+			z.emit(newInstruction(Z80_LD_R_R, vrTarget, sourceVR))
 		}
 		// else - cannot do it => nil
 	} else {
@@ -730,8 +771,6 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 			// Create instruction with immediate as operand, target as result
 			z.emit(newInstruction(Z80_LD_RR_NN, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
-			// Mark value as unused - we will allocate new VRs for the parts we need
-			value.Type = Unused
 			// extract the low and hi value registers
 			loRegsValue, hiRegsValue := ToPairs(value.AllowedSet)
 			loRegsTarget, hiRegsTarget := ToPairs(targetRegs)
@@ -851,15 +890,25 @@ func largestSize(a, b *VirtualRegister) RegisterSize {
 
 // orderImmediateFirst checks two VRs and returns them ordered with immediate first if applicable
 func orderImmediateFirst(left, right *VirtualRegister) (immediate *VirtualRegister, other *VirtualRegister, isImmediate bool) {
-	if (*right).Type == ImmediateValue && (left).Type != ImmediateValue {
+	if right.Type == ImmediateValue && left.Type != ImmediateValue {
 		return right, left, true
-	} else if (left).Type == ImmediateValue && (right).Type != ImmediateValue {
+	} else if left.Type == ImmediateValue && right.Type != ImmediateValue {
 		return left, right, true
-	} else if (left).Type == ImmediateValue && (right).Type == ImmediateValue {
+	} else if left.Type == ImmediateValue && right.Type == ImmediateValue {
 		// error: should have been constant folded earlier
 		return nil, nil, false
 	}
 	return left, right, false
+}
+
+func orderToMatchRegisters(left, right *VirtualRegister, reg *Register) (first *VirtualRegister, second *VirtualRegister) {
+	if left.HasRegister(reg) {
+		return left, right
+	}
+	if right.HasRegister(reg) {
+		return right, left
+	}
+	return left, right
 }
 
 // ============================================================================

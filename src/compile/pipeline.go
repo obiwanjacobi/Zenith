@@ -236,12 +236,15 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		return result, fmt.Errorf("instruction selection failed: %w", err)
 	}
 
+	totalInstrs := make([]cfg.MachineInstruction, 0)
+	for _, funcCFG := range result.FunctionCFGs {
+		totalInstrs = append(totalInstrs, funcCFG.GetAllInstructions()...)
+	}
+
+	cfg.MarkUnusedVirtualRegisters(vrAlloc.GetAll(), totalInstrs)
+
 	if opts.Verbose {
-		totalInstrs := 0
-		for _, funcCFG := range result.FunctionCFGs {
-			totalInstrs += len(funcCFG.GetAllInstructions())
-		}
-		fmt.Printf("  Generated %d machine instructions with virtual registers\n", totalInstrs)
+		fmt.Printf("  Generated %d machine instructions with virtual registers\n", len(totalInstrs))
 	}
 
 	if opts.StopAfterInstructionSelection {
