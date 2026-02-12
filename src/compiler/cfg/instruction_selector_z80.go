@@ -37,7 +37,8 @@ func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSel
 // ============================================================================
 
 // SelectAdd generates instructions for addition (a + b)
-func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister) (*VirtualRegister, error) {
+	size := largestSize(left, right)
 	var result *VirtualRegister
 
 	// swap left.right if right is immediate and left is not
@@ -76,7 +77,8 @@ func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister, size Re
 }
 
 // SelectSubtract generates instructions for subtraction (a - b)
-func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister) (*VirtualRegister, error) {
+	size := largestSize(left, right)
 	var result *VirtualRegister
 
 	vrA := z.vrAlloc.Allocate(Z80RegA)
@@ -106,7 +108,7 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister, si
 // SelectMultiply generates instructions for multiplication (a * b)
 // Z80 has no multiply instruction - call runtime helper
 // Intrinsic calling convention: __mul8(A, L) -> HL (16-bit), __mul16(HL, DE) -> HLDE (32-bit)
-func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, resultSize RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister) (*VirtualRegister, error) {
 	var result *VirtualRegister
 
 	// Call multiply runtime helper based on operand size
@@ -138,7 +140,8 @@ func (z *instructionSelectorZ80) SelectMultiply(left, right *VirtualRegister, re
 // SelectDivide generates instructions for division (a / b)
 // Z80 has no divide instruction - call runtime helper
 // Intrinsic calling convention: __div8(HL, DE) -> A, __div16(HL, DE) -> HL
-func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister) (*VirtualRegister, error) {
+	size := largestSize(left, right)
 	// call parameters
 	z.emitLoadIntoReg16(left, Z80RegHL)
 	z.emitLoadIntoReg16(right, Z80RegDE)
@@ -162,7 +165,8 @@ func (z *instructionSelectorZ80) SelectDivide(left, right *VirtualRegister, size
 }
 
 // SelectNegate generates instructions for negation (-a)
-func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister) (*VirtualRegister, error) {
+	size := operand.Size
 	var result *VirtualRegister
 	if size == 8 {
 		result = z.emitLoadIntoReg8(operand, Z80RegA)
@@ -179,7 +183,8 @@ func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister, size Reg
 // ============================================================================
 
 // SelectBitwiseAnd generates instructions for bitwise AND (a & b)
-func (z *instructionSelectorZ80) SelectBitwiseAnd(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectBitwiseAnd(left, right *VirtualRegister) (*VirtualRegister, error) {
+	size := largestSize(left, right)
 	var result *VirtualRegister
 
 	if size == 8 {
@@ -197,7 +202,8 @@ func (z *instructionSelectorZ80) SelectBitwiseAnd(left, right *VirtualRegister, 
 }
 
 // SelectBitwiseOr generates instructions for bitwise OR (a | b)
-func (z *instructionSelectorZ80) SelectBitwiseOr(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectBitwiseOr(left, right *VirtualRegister) (*VirtualRegister, error) {
+	size := largestSize(left, right)
 	var result *VirtualRegister
 
 	if size == 8 {
@@ -214,7 +220,8 @@ func (z *instructionSelectorZ80) SelectBitwiseOr(left, right *VirtualRegister, s
 }
 
 // SelectBitwiseXor generates instructions for bitwise XOR (a ^ b)
-func (z *instructionSelectorZ80) SelectBitwiseXor(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectBitwiseXor(left, right *VirtualRegister) (*VirtualRegister, error) {
+	size := largestSize(left, right)
 	var result *VirtualRegister
 
 	if size == 8 {
@@ -231,7 +238,8 @@ func (z *instructionSelectorZ80) SelectBitwiseXor(left, right *VirtualRegister, 
 }
 
 // SelectBitwiseNot generates instructions for bitwise NOT (~a)
-func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister) (*VirtualRegister, error) {
+	size := operand.Size
 	var result *VirtualRegister
 
 	if size == 8 {
@@ -250,7 +258,8 @@ func (z *instructionSelectorZ80) SelectBitwiseNot(operand *VirtualRegister, size
 }
 
 // SelectShiftLeft generates instructions for left shift (a << b)
-func (z *instructionSelectorZ80) SelectShiftLeft(value, amount *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectShiftLeft(value, amount *VirtualRegister) (*VirtualRegister, error) {
+	size := value.Size
 	// For variable shifts, call runtime helper
 	// Constant shifts could be optimized later
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
@@ -272,7 +281,8 @@ func (z *instructionSelectorZ80) SelectShiftLeft(value, amount *VirtualRegister,
 }
 
 // SelectShiftRight generates instructions for right shift (a >> b)
-func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectShiftRight(value *VirtualRegister, amount *VirtualRegister) (*VirtualRegister, error) {
+	size := value.Size
 	// For variable shifts, call runtime helper
 	// Constant shifts could be optimized later
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
@@ -401,7 +411,7 @@ func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, operand zsm.
 // ============================================================================
 
 // SelectEqual generates instructions for equality comparison (a == b)
-func (z *instructionSelectorZ80) SelectEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error) {
 	result, err := z.emitCompare(left, right)
 	if err != nil {
 		return nil, err
@@ -417,7 +427,7 @@ func (z *instructionSelectorZ80) SelectEqual(ctx *ExprContext, left, right *Virt
 }
 
 // SelectNotEqual generates instructions for inequality comparison (a != b)
-func (z *instructionSelectorZ80) SelectNotEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectNotEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error) {
 	result, err := z.emitCompare(left, right)
 	if err != nil {
 		return nil, err
@@ -433,7 +443,7 @@ func (z *instructionSelectorZ80) SelectNotEqual(ctx *ExprContext, left, right *V
 }
 
 // SelectLessThan generates instructions for less-than comparison (a < b)
-func (z *instructionSelectorZ80) SelectLessThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLessThan(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error) {
 	result, err := z.emitCompare(left, right)
 	if err != nil {
 		return nil, err
@@ -449,7 +459,7 @@ func (z *instructionSelectorZ80) SelectLessThan(ctx *ExprContext, left, right *V
 }
 
 // SelectGreaterThan generates instructions for greater-than comparison (a > b)
-func (z *instructionSelectorZ80) SelectGreaterThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectGreaterThan(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error) {
 	result, err := z.emitCompare(left, right)
 	if err != nil {
 		return nil, err
@@ -465,7 +475,7 @@ func (z *instructionSelectorZ80) SelectGreaterThan(ctx *ExprContext, left, right
 }
 
 // SelectLessEqual generates instructions for less-or-equal comparison (a <= b)
-func (z *instructionSelectorZ80) SelectLessEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLessEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error) {
 	result, err := z.emitCompare(left, right)
 	if err != nil {
 		return nil, err
@@ -482,7 +492,7 @@ func (z *instructionSelectorZ80) SelectLessEqual(ctx *ExprContext, left, right *
 }
 
 // SelectGreaterEqual generates instructions for greater-or-equal comparison (a >= b)
-func (z *instructionSelectorZ80) SelectGreaterEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectGreaterEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error) {
 	result, err := z.emitCompare(left, right)
 	if err != nil {
 		return nil, err

@@ -395,8 +395,6 @@ func (ctx *InstructionSelectionContext) selectSymbolRef(ref *zsm.SemSymbolRef) (
 
 // selectBinaryOp processes binary operations
 func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op *zsm.SemBinaryOp) (*VirtualRegister, error) {
-	regSize := RegisterSize(op.Type().Size() * 8)
-
 	// Handle logical operators specially - they take expressions, not VRs
 	if op.Op == zsm.OpLogicalAnd {
 		return ctx.selector.SelectLogicalAnd(exprCtx, op.Left, op.Right, ctx.selectExpressionWithContext)
@@ -417,41 +415,41 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op 
 	// Dispatch to appropriate selector method
 	switch op.Op {
 	case zsm.OpAdd:
-		return ctx.selector.SelectAdd(leftVR, rightVR, regSize)
+		return ctx.selector.SelectAdd(leftVR, rightVR)
 
 	case zsm.OpSubtract:
-		return ctx.selector.SelectSubtract(leftVR, rightVR, regSize)
+		return ctx.selector.SelectSubtract(leftVR, rightVR)
 
 	case zsm.OpMultiply:
-		return ctx.selector.SelectMultiply(leftVR, rightVR, regSize)
+		return ctx.selector.SelectMultiply(leftVR, rightVR)
 
 	case zsm.OpDivide:
-		return ctx.selector.SelectDivide(leftVR, rightVR, regSize)
+		return ctx.selector.SelectDivide(leftVR, rightVR)
 
 	case zsm.OpBitwiseAnd:
-		return ctx.selector.SelectBitwiseAnd(leftVR, rightVR, regSize)
+		return ctx.selector.SelectBitwiseAnd(leftVR, rightVR)
 	case zsm.OpBitwiseOr:
-		return ctx.selector.SelectBitwiseOr(leftVR, rightVR, regSize)
+		return ctx.selector.SelectBitwiseOr(leftVR, rightVR)
 
 	case zsm.OpBitwiseXor:
-		return ctx.selector.SelectBitwiseXor(leftVR, rightVR, regSize)
+		return ctx.selector.SelectBitwiseXor(leftVR, rightVR)
 
 	case zsm.OpEqual:
-		return ctx.selector.SelectEqual(exprCtx, leftVR, rightVR, regSize)
+		return ctx.selector.SelectEqual(exprCtx, leftVR, rightVR)
 
 	case zsm.OpNotEqual:
-		return ctx.selector.SelectNotEqual(exprCtx, leftVR, rightVR, regSize)
+		return ctx.selector.SelectNotEqual(exprCtx, leftVR, rightVR)
 
 	case zsm.OpLessThan:
-		return ctx.selector.SelectLessThan(exprCtx, leftVR, rightVR, regSize)
+		return ctx.selector.SelectLessThan(exprCtx, leftVR, rightVR)
 
 	case zsm.OpLessEqual:
-		return ctx.selector.SelectLessEqual(exprCtx, leftVR, rightVR, regSize)
+		return ctx.selector.SelectLessEqual(exprCtx, leftVR, rightVR)
 	case zsm.OpGreaterThan:
-		return ctx.selector.SelectGreaterThan(exprCtx, leftVR, rightVR, regSize)
+		return ctx.selector.SelectGreaterThan(exprCtx, leftVR, rightVR)
 
 	case zsm.OpGreaterEqual:
-		return ctx.selector.SelectGreaterEqual(exprCtx, leftVR, rightVR, regSize)
+		return ctx.selector.SelectGreaterEqual(exprCtx, leftVR, rightVR)
 
 	default:
 		return nil, fmt.Errorf("unknown binary operator: %v", op.Op)
@@ -460,8 +458,6 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op 
 
 // selectUnaryOp processes unary operations
 func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *zsm.SemUnaryOp) (*VirtualRegister, error) {
-	regSize := RegisterSize(op.Type().Size() * 8)
-
 	// Handle LogicalNot specially - it takes expressions
 	if op.Op == zsm.OpLogicalNot {
 		return ctx.selector.SelectLogicalNot(exprCtx, op.Operand, ctx.selectExpressionWithContext)
@@ -476,10 +472,10 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 	// Dispatch to appropriate selector method
 	switch op.Op {
 	case zsm.OpNegate:
-		return ctx.selector.SelectNegate(operandVR, regSize)
+		return ctx.selector.SelectNegate(operandVR)
 
 	case zsm.OpBitwiseNot:
-		return ctx.selector.SelectBitwiseNot(operandVR, regSize)
+		return ctx.selector.SelectBitwiseNot(operandVR)
 	default:
 		return nil, fmt.Errorf("unknown unary operator: %v", op.Op)
 	}

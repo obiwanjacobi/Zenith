@@ -92,39 +92,39 @@ type InstructionSelector interface {
 	// ============================================================================
 
 	// SelectAdd generates instructions for addition (a + b)
-	SelectAdd(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectAdd(left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectSubtract generates instructions for subtraction (a - b)
-	SelectSubtract(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectSubtract(left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectMultiply generates instructions for multiplication (a * b)
-	SelectMultiply(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectMultiply(left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectDivide generates instructions for division (a / b)
-	SelectDivide(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectDivide(left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectNegate generates instructions for negation (-a)
-	SelectNegate(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectNegate(operand *VirtualRegister) (*VirtualRegister, error)
 	// ============================================================================
 	// Bitwise Operations
 	// ============================================================================
 
 	// SelectBitwiseAnd generates instructions for bitwise AND (a & b)
-	SelectBitwiseAnd(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectBitwiseAnd(left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectBitwiseOr generates instructions for bitwise OR (a | b)
-	SelectBitwiseOr(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectBitwiseOr(left, right *VirtualRegister) (*VirtualRegister, error)
 	// SelectBitwiseXor generates instructions for bitwise XOR (a ^ b)
-	SelectBitwiseXor(left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectBitwiseXor(left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectBitwiseNot generates instructions for bitwise NOT (~a)
-	SelectBitwiseNot(operand *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectBitwiseNot(operand *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectShiftLeft generates instructions for left shift (a << b)
-	SelectShiftLeft(value, amount *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectShiftLeft(value, amount *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectShiftRight generates instructions for right shift (a >> b)
-	SelectShiftRight(value, amount *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectShiftRight(value, amount *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectLogicalAnd generates instructions for logical AND (a && b)
 	// ctx: evaluation context (enables short-circuit evaluation in BranchMode)
@@ -152,21 +152,21 @@ type InstructionSelector interface {
 	// ctx: evaluation context (BranchMode or ValueMode)
 	// Returns a virtual register containing boolean result (0 or 1) in ValueMode
 	// Returns nil in BranchMode (emits conditional branch instead)
-	SelectEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectNotEqual generates instructions for inequality comparison (a != b)
-	SelectNotEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectNotEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectLessThan generates instructions for less-than comparison (a < b)
-	SelectLessThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectLessThan(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectLessEqual generates instructions for less-or-equal comparison (a <= b)
-	SelectLessEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectLessEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error)
 	// SelectGreaterThan generates instructions for greater-than comparison (a > b)
-	SelectGreaterThan(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectGreaterThan(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// SelectGreaterEqual generates instructions for greater-or-equal comparison (a >= b)
-	SelectGreaterEqual(ctx *ExprContext, left, right *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectGreaterEqual(ctx *ExprContext, left, right *VirtualRegister) (*VirtualRegister, error)
 
 	// ============================================================================
 	// Memory Operations
