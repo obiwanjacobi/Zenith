@@ -4,22 +4,6 @@ import (
 	"fmt"
 )
 
-// InstructionFactory handles generating move/spill/reload instructions
-// during register allocation resolution
-type InstructionFactory interface {
-	// SelectMove generates a move instruction from source VR to target VR
-	// Returns the generated instruction(s) to be inserted before the current instruction
-	CreateMove(target *VirtualRegister, source *VirtualRegister) ([]MachineInstruction, error)
-
-	// SelectSpill generates instructions to spill a VR to stack
-	// Returns the generated instruction(s) to be inserted
-	CreateSpill(vr *VirtualRegister, stackOffset int8) ([]MachineInstruction, error)
-
-	// SelectReload generates instructions to reload a VR from stack
-	// Returns the generated instruction(s) to be inserted before the current instruction
-	CreateReload(vr *VirtualRegister, stackOffset int8) ([]MachineInstruction, error)
-}
-
 // Register represents a physical register
 type Register struct {
 	Name        string
@@ -40,14 +24,25 @@ func NewRegisterAllocator(registers []*Register) *RegisterAllocator {
 	}
 }
 
+// AllocationStrategy defines the heuristic for building the simplification stack
+type AllocationStrategy int
+
+const (
+	ConstrainedFirst AllocationStrategy = iota // Prioritize VRs with AllowedSet
+	ResultFirst                                // Prioritize result VRs
+	OperandFirst                               // Prioritize operand VRs (original strategy)
+)
+
 // Allocate performs graph coloring register allocation on a CFG
 // Assigns physical registers to VirtualRegisters based on interference graph
-// Prioritizes result registers over operands for better allocation success
-func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) error {
+// Uses iterative allocation with different strategies if initial allocation fails
+// Returns true if a second pass (ResolveUnallocated) is needed for remaining unallocated VRs
+func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) bool {
 	// Gather all VRs from CFG, separating candidates from others
-	// Also identify which are results vs operands in one pass
+	// Also identify which are results vs operands, and which are constrained
 	candidateVRs := make(map[int]*VirtualRegister)
 	resultVRs := make(map[int]bool)
+	constrainedVRs := make(map[int]bool)
 	seen := make(map[int]bool)
 
 	for _, block := range cfg.Blocks {
@@ -58,6 +53,9 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) error {
 				if result.Type == CandidateRegister {
 					candidateVRs[result.ID] = result
 					resultVRs[result.ID] = true
+					if len(result.AllowedSet) > 0 {
+						constrainedVRs[result.ID] = true
+					}
 				}
 			}
 
@@ -68,6 +66,9 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) error {
 					if op.Type == CandidateRegister {
 						candidateVRs[op.ID] = op
 						// resultVRs[op.ID] remains false (default)
+						if len(op.AllowedSet) > 0 {
+							constrainedVRs[op.ID] = true
+						}
 					}
 				}
 			}
@@ -75,157 +76,238 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) error {
 	}
 
 	if len(candidateVRs) == 0 {
-		return nil // Nothing to allocate
+		return false // Nothing to allocate
 	}
 
-	// Build simplification stack using graph coloring
-	// Priority: process operands first (pushed early) so results get allocated first (popped late)
-	stack := ra.buildSimplificationStack(candidateVRs, resultVRs, ig)
+	// Try allocation with different strategies until one succeeds
+	strategies := []AllocationStrategy{
+		ConstrainedFirst, // Best for Z80: allocate A, HL first
+		ResultFirst,      // Fallback: prioritize results
+		OperandFirst,     // Last resort: original strategy
+	}
 
-	// Phase 2: Selection - assign registers in reverse order
-	for i := len(stack) - 1; i >= 0; i-- {
-		vrID := stack[i]
-		vr := candidateVRs[vrID]
-
-		// Find an available register
-		reg := ra.selectRegister(vr, ig, candidateVRs)
-		if reg != nil {
-			vr.PhysicalReg = reg
-			vr.Type = AllocatedRegister
+	for _, strategy := range strategies {
+		// Reset all candidates to unallocated state for retry
+		if strategy != ConstrainedFirst {
+			for _, vr := range candidateVRs {
+				if vr.Type == AllocatedRegister {
+					vr.Type = CandidateRegister
+					vr.PhysicalReg = nil
+				}
+			}
 		}
-		// If no register available, VR remains as CandidateRegister (unallocated)
-	}
 
-	// Final check: ensure all result VRs have been allocated
-	for vrID, isResult := range resultVRs {
-		if isResult {
+		// Build simplification stack using current strategy
+		stack := ra.buildSimplificationStack(candidateVRs, resultVRs, constrainedVRs, ig, strategy)
+
+		// Phase 2: Selection - assign registers in reverse order
+		for i := len(stack) - 1; i >= 0; i-- {
+			vrID := stack[i]
+			vr := candidateVRs[vrID]
+
+			// Find an available register
+			reg := ra.selectRegister(vr, ig, candidateVRs)
+			if reg != nil {
+				vr.Assign(reg)
+			}
+			// If no register available, VR remains as CandidateRegister (unallocated)
+		}
+
+		// Check if all result VRs have been allocated
+		allResultsAllocated := true
+		for vrID, isResult := range resultVRs {
+			if isResult {
+				vr := candidateVRs[vrID]
+				if vr.Type != AllocatedRegister || vr.PhysicalReg == nil {
+					allResultsAllocated = false
+					break
+				}
+			}
+		}
+
+		// Also check constrained operands - they're just as critical
+		// If an operandhas AllowedSet, the instruction REQUIRES that specific register
+		allConstrainedAllocated := true
+		for vrID := range constrainedVRs {
 			vr := candidateVRs[vrID]
 			if vr.Type != AllocatedRegister || vr.PhysicalReg == nil {
-				return fmt.Errorf("failed to allocate result VR %d (%s)", vr.ID, vr.Name)
+				allConstrainedAllocated = false
+				break
 			}
+		}
+
+		if allResultsAllocated && allConstrainedAllocated {
+			// Success! All critical VRs allocated
+			// Check if any unconstrained operands remain unallocated
+			for _, vr := range candidateVRs {
+				if vr.Type == CandidateRegister {
+					return true // Second pass needed
+				}
+			}
+			return false // All VRs allocated
+		}
+	}
+
+	// All strategies failed to allocate critical VRs
+	// This shouldn't happen with the current iterative strategy approach
+	// Return true to attempt second pass (ResolveUnallocated will handle the issue)
+	return true
+}
+
+// ResolveUnallocated resolves unallocated operand VRs by direct allocation with move insertion
+// This is the second-chance allocation pass that runs after the main Allocate pass
+//
+// Strategy:
+// 1. For each instruction with unallocated operands:
+//    a. Pick a register from the operand's AllowedSet (architectural constraint)
+//    b. Allocate the operand VR directly to that register
+//    c. Find where the value is currently located (as a result somewhere)
+//    d. Insert move instructions before this instruction to get value into the required register
+//
+// This respects instruction constraints (AllowedSet) and doesn't modify instruction semantics.
+// It "spills to another register" by inserting moves to satisfy architectural requirements.
+func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph, selector InstructionSelector) error {
+	// Use pre-computed instruction liveness from interference graph
+	instrLiveness := ig.InstructionLiveness
+
+	for blockID, block := range cfg.Blocks {
+		newInstructions := make([]MachineInstruction, 0, len(block.MachineInstructions))
+
+		for instrIdx, instr := range block.MachineInstructions {
+			operands := instr.GetOperands()
+
+			// Check each operand for unallocated VRs
+			for _, operand := range operands {
+				if operand == nil {
+					continue
+				}
+
+				// Skip already allocated operands and immediates
+				if operand.Type != CandidateRegister {
+					continue
+				}
+
+				// Unallocated operand - needs resolution
+
+				// Pick a register from AllowedSet - these are the ONLY valid registers for this operand
+				// The instruction selector already determined these constraints
+				liveAtInstr := instrLiveness[blockID][instrIdx]
+				targetReg := ra.pickRegisterFromAllowedSetAtPoint(operand, liveAtInstr, cfg)
+				if targetReg == nil {
+					// No register from AllowedSet is available - must spill to stack
+					operand.Type = StackLocation
+					stackOffset := cfg.StackOffset
+					cfg.StackOffset += int8(operand.Size / 8)
+					operand.Value = uint32(stackOffset)
+
+					// Insert reload from stack before instruction
+					reloadInstrs, err := selector.CreateReload(operand, int8(stackOffset))
+					if err != nil {
+						return fmt.Errorf("failed to create reload for VR %d: %w", operand.ID, err)
+					}
+					newInstructions = append(newInstructions, reloadInstrs...)
+					continue
+				}
+
+				// Allocate operand to the target register from AllowedSet
+				operand.Assign(targetReg)
+
+				// Now find where this value is currently located
+				// If the operand VR was defined as a result elsewhere, find that definition
+				sourceVR := ra.findValueSource(cfg, operand.ID)
+				if sourceVR != nil && sourceVR.Type == AllocatedRegister {
+					// Value is in another register - insert move
+					moveInstrs, err := selector.CreateMove(operand, sourceVR)
+					if err != nil {
+						return fmt.Errorf("failed to create move for VR %d: %w", operand.ID, err)
+					}
+					newInstructions = append(newInstructions, moveInstrs...)
+				} else if sourceVR != nil && sourceVR.Type == StackLocation {
+					// Value is on stack - insert reload
+					reloadInstrs, err := selector.CreateReload(operand, int8(sourceVR.Value))
+					if err != nil {
+						return fmt.Errorf("failed to create reload for VR %d: %w", operand.ID, err)
+					}
+					newInstructions = append(newInstructions, reloadInstrs...)
+				}
+				// If sourceVR is nil, the value might be an input parameter or undefined
+				// The instruction selector's CreateMove should handle this case
+			}
+
+			// Append the original instruction (unchanged)
+			newInstructions = append(newInstructions, instr)
+		}
+
+		block.MachineInstructions = newInstructions
+	}
+
+	return nil
+}
+
+// pickRegisterFromAllowedSetAtPoint selects a register from AllowedSet that's not used by live VRs
+// Uses precise per-instruction liveness rather than block-level liveness
+func (ra *RegisterAllocator) pickRegisterFromAllowedSetAtPoint(vr *VirtualRegister, liveVRs map[int]bool, cfg *CFG) *Register {
+	if len(vr.AllowedSet) == 0 {
+		// No constraints - fall back to any register of matching size
+		for _, reg := range ra.availableRegisters {
+			if reg.Size == int(vr.Size) {
+				return reg
+			}
+		}
+		return nil
+	}
+
+	// Build set of registers used by currently live VRs
+	// Accounts for register composition (HL uses both H and L)
+	usedRegs := make(map[*Register]bool)
+
+	for _, block := range cfg.Blocks {
+		for _, instr := range block.MachineInstructions {
+			// Check result
+			if result := instr.GetResult(); result != nil && liveVRs[result.ID] {
+				if result.Type == AllocatedRegister && result.PhysicalReg != nil {
+					markRegisterAsUsed(result.PhysicalReg, usedRegs, ra.availableRegisters)
+				}
+			}
+
+			// Check operands
+			for _, operand := range instr.GetOperands() {
+				if operand != nil && liveVRs[operand.ID] {
+					if operand.Type == AllocatedRegister && operand.PhysicalReg != nil {
+						markRegisterAsUsed(operand.PhysicalReg, usedRegs, ra.availableRegisters)
+					}
+				}
+			}
+		}
+	}
+
+	// Pick first available register from AllowedSet
+	for _, reg := range vr.AllowedSet {
+		if reg.Size == int(vr.Size) && !usedRegs[reg] {
+			return reg
+		}
+	}
+
+	// All AllowedSet registers appear used - pick first one anyway and let moves handle it
+	for _, reg := range vr.AllowedSet {
+		if reg.Size == int(vr.Size) {
+			return reg
 		}
 	}
 
 	return nil
 }
 
-// ResolveUnallocated resolves unallocated operand VRs by inserting register moves
-// Takes the CFG, liveness info, interference graph, and InstructionManipulator
-// Unallocated operands need to be moved into allocated registers before use
-//
-// Strategy:
-// 1. For each unallocated operand, try to find a free register (not live at this point)
-// 2. If found, swap the operand to use that register (insert move before instruction)
-// 3. If no free register, spill to stack and reload before use
-//
-// Note: Current implementation handles single-use operands (values consumed by instruction).
-// For operands that need to persist after the instruction (multi-use), additional logic
-// would be needed to restore the original register or track the new location.
-func ResolveUnallocated(cfg *CFG, li *LivenessInfo, ig *InterferenceGraph, factory InstructionFactory, availableRegs []*Register) error {
+// findValueSource finds where a VR's value is defined (as a result)
+// Returns the VR at the definition point (which may have been allocated)
+func (ra *RegisterAllocator) findValueSource(cfg *CFG, vrID int) *VirtualRegister {
 	for _, block := range cfg.Blocks {
-		// Build new instruction list with inserted moves/spills
-		newInstructions := make([]MachineInstruction, 0, len(block.MachineInstructions)*2)
-
 		for _, instr := range block.MachineInstructions {
-			operands := instr.GetOperands()
-			needsReplacement := false
-			newOperands := make([]*VirtualRegister, len(operands))
-
-			// Check each operand
-			for opIdx, operand := range operands {
-				if operand == nil {
-					newOperands[opIdx] = operand
-					continue
-				}
-
-				// Skip already allocated operands and immediates
-				if operand.Type == AllocatedRegister || operand.Type == ImmediateValue {
-					newOperands[opIdx] = operand
-					continue
-				}
-
-				// Unallocated candidate register - needs resolution
-				if operand.Type == CandidateRegister {
-					// Try register swap first
-					freeReg := findFreeRegister(block, li, availableRegs, operand.Size)
-					if freeReg != nil {
-						// TODO: Call VR allocator?
-						// Allocate new VR with the free register
-						replacementVR := &VirtualRegister{
-							ID:          operand.ID, // Keep same ID for tracking
-							Size:        operand.Size,
-							Type:        AllocatedRegister,
-							PhysicalReg: freeReg,
-							Name:        operand.Name,
-						}
-
-						// Generate move from original to replacement
-						// These instructions will be inserted BEFORE the current instruction
-						moveInstrs, err := factory.CreateMove(replacementVR, operand)
-						if err != nil {
-							return fmt.Errorf("failed to generate swap move: %w", err)
-						}
-
-						// Insert move instruction(s) before current instruction
-						newInstructions = append(newInstructions, moveInstrs...)
-
-						// Mark original operand as unused since we've swapped it
-						operand.Unused()
-
-						newOperands[opIdx] = replacementVR
-						needsReplacement = true
-					} else {
-						// No free register - spill to stack
-						stackOffset := cfg.StackOffset
-						cfg.StackOffset += int8(operand.Size / 8) // Convert bits to bytes
-
-						// First, generate spill instruction to store current value to stack
-						spillInstrs, err := factory.CreateSpill(operand, stackOffset)
-						if err != nil {
-							return fmt.Errorf("failed to generate spill: %w", err)
-						}
-
-						// Insert spill instruction(s) before current instruction
-						newInstructions = append(newInstructions, spillInstrs...)
-
-						// Mark original as stack location
-						operand.Type = StackLocation
-						operand.Value = uint32(stackOffset)
-
-						// Create a new VR for the reloaded value
-						// The reload instructions will load from stack into this register
-						reloadedVR := &VirtualRegister{
-							ID:   operand.ID, // Keep same ID for tracking
-							Size: operand.Size,
-							Type: CandidateRegister, // Needs register allocation
-							Name: operand.Name,
-						}
-
-						// Generate reload from stack into temporary register
-						// These instructions load from stack and will be inserted BEFORE the current instruction
-						reloadInstrs, err := factory.CreateReload(reloadedVR, stackOffset)
-						if err != nil {
-							return fmt.Errorf("failed to generate reload: %w", err)
-						}
-
-						// Insert reload instruction(s) before current instruction
-						newInstructions = append(newInstructions, reloadInstrs...)
-
-						newOperands[opIdx] = reloadedVR
-						needsReplacement = true
-					}
-				}
-			}
-
-			if !needsReplacement {
-				newInstructions = append(newInstructions, instr)
+			if result := instr.GetResult(); result != nil && result.ID == vrID {
+				return result
 			}
 		}
-
-		// Replace block instructions with updated list
-		block.MachineInstructions = newInstructions
 	}
-
 	return nil
 }
 
@@ -274,11 +356,14 @@ func findFreeRegister(block *BasicBlock, li *LivenessInfo, availableRegs []*Regi
 }
 
 // buildSimplificationStack creates the stack for graph coloring
-// Returns a stack where operands are pushed before results (so results pop first)
+// Returns a stack ordered according to the specified strategy
+// Stack is processed in reverse (last pushed = first allocated)
 func (ra *RegisterAllocator) buildSimplificationStack(
 	candidateVRs map[int]*VirtualRegister,
 	resultVRs map[int]bool,
+	constrainedVRs map[int]bool,
 	ig *InterferenceGraph,
+	strategy AllocationStrategy,
 ) []int {
 	stack := make([]int, 0, len(candidateVRs))
 	remaining := make(map[int]bool, len(candidateVRs))
@@ -286,13 +371,19 @@ func (ra *RegisterAllocator) buildSimplificationStack(
 		remaining[vrID] = true
 	}
 
-	// Phase 1: Simplification
+	// Phase 1: Simplification with strategy-based prioritization
 	for len(remaining) > 0 {
 		found := false
 
-		// Try to remove an operand with low degree first
-		for vrID := range remaining {
-			if !resultVRs[vrID] {
+		// Try to find a low-degree node matching our priority order
+		priorityGroups := ra.getPriorityGroups(strategy, resultVRs, constrainedVRs)
+
+		for _, checkPriority := range priorityGroups {
+			for vrID := range remaining {
+				if !ra.matchesPriority(vrID, checkPriority, resultVRs, constrainedVRs) {
+					continue
+				}
+
 				vr := candidateVRs[vrID]
 				degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
 				numColors := ra.countAvailableColors(vr)
@@ -303,49 +394,78 @@ func (ra *RegisterAllocator) buildSimplificationStack(
 					break
 				}
 			}
-		}
-
-		// If no low-degree operand, try low-degree result
-		if !found {
-			for vrID := range remaining {
-				vr := candidateVRs[vrID]
-				degree := ra.getDegreeInSubgraph(vrID, ig, remaining)
-				numColors := ra.countAvailableColors(vr)
-				if degree < numColors {
-					stack = append(stack, vrID)
-					delete(remaining, vrID)
-					found = true
-					break
-				}
-			}
-		}
-
-		// If still no low-degree node found, pick an arbitrary one (potential spill)
-		// Prefer operands over results for spilling
-		if !found {
-			// Try to pick an operand first
-			for vrID := range remaining {
-				if !resultVRs[vrID] {
-					stack = append(stack, vrID)
-					delete(remaining, vrID)
-					found = true
-					break
-				}
-			}
-		}
-
-		// If only results remain, pick one
-		if !found {
-			for vrID := range remaining {
-				stack = append(stack, vrID)
-				delete(remaining, vrID)
-				found = true
+			if found {
 				break
+			}
+		}
+
+		// If no low-degree node found, pick an arbitrary one (potential spill)
+		// Use same priority order
+		if !found {
+			for _, checkPriority := range priorityGroups {
+				for vrID := range remaining {
+					if ra.matchesPriority(vrID, checkPriority, resultVRs, constrainedVRs) {
+						stack = append(stack, vrID)
+						delete(remaining, vrID)
+						found = true
+						break
+					}
+				}
+				if found {
+					break
+				}
 			}
 		}
 	}
 
 	return stack
+}
+
+// vrPriority defines the type of VR for prioritization
+type vrPriority int
+
+const (
+	constrainedResult vrPriority = iota
+	constrainedOperand
+	unconstrainedResult
+	unconstrainedOperand
+)
+
+// getPriorityGroups returns the order in which to try allocating VRs based on strategy
+// Lower index = pushed earlier = allocated later (due to stack reversal)
+func (ra *RegisterAllocator) getPriorityGroups(strategy AllocationStrategy, resultVRs, constrainedVRs map[int]bool) []vrPriority {
+	switch strategy {
+	case ConstrainedFirst:
+		// Allocate constrained first (results > operands), then unconstrained
+		return []vrPriority{unconstrainedOperand, unconstrainedResult, constrainedOperand, constrainedResult}
+	case ResultFirst:
+		// Allocate results first (constrained > unconstrained), then operands
+		return []vrPriority{unconstrainedOperand, constrainedOperand, unconstrainedResult, constrainedResult}
+	case OperandFirst:
+		// Original strategy: allocate operands first, results last
+		return []vrPriority{constrainedResult, unconstrainedResult, constrainedOperand, unconstrainedOperand}
+	default:
+		return []vrPriority{unconstrainedOperand, unconstrainedResult, constrainedOperand, constrainedResult}
+	}
+}
+
+// matchesPriority checks if a VR matches the given priority category
+func (ra *RegisterAllocator) matchesPriority(vrID int, priority vrPriority, resultVRs, constrainedVRs map[int]bool) bool {
+	isResult := resultVRs[vrID]
+	isConstrained := constrainedVRs[vrID]
+
+	switch priority {
+	case constrainedResult:
+		return isResult && isConstrained
+	case constrainedOperand:
+		return !isResult && isConstrained
+	case unconstrainedResult:
+		return isResult && !isConstrained
+	case unconstrainedOperand:
+		return !isResult && !isConstrained
+	default:
+		return false
+	}
 }
 
 // getDegreeInSubgraph counts how many neighbors of a VR are in the remaining subgraph

@@ -316,10 +316,15 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		interference := result.InterferenceInfo[fnName]
 
 		// Run register allocation (assigns PhysicalReg to each VirtualRegister)
-		err := allocator.Allocate(fnCFG, interference)
-		if err != nil {
-			result.CodeGenErrors = append(result.CodeGenErrors, err)
-			return result, fmt.Errorf("register allocation failed for %s: %w", fnName, err)
+		needsSecondPass := allocator.Allocate(fnCFG, interference)
+		
+		// If there are unallocated VRs, run second pass to resolve them
+		if needsSecondPass {
+			err := allocator.ResolveUnallocated(fnCFG, interference, selector)
+			if err != nil {
+				result.CodeGenErrors = append(result.CodeGenErrors, err)
+				return result, fmt.Errorf("failed to resolve unallocated VRs for %s: %w", fnName, err)
+			}
 		}
 
 		if opts.Verbose {

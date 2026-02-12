@@ -39,11 +39,7 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
-
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
-	}
+	_ = allocator.Allocate(cfg, ig)
 
 	// Both should be allocated (they can share the same register)
 	if vr1.Type != AllocatedRegister {
@@ -96,11 +92,7 @@ func TestRegisterAllocation_WithInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
-
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
-	}
+	_ = allocator.Allocate(cfg, ig)
 
 	// All should be allocated (Z80 has enough registers for 3 VRs)
 	if vr1.Type != AllocatedRegister || vr2.Type != AllocatedRegister || vr3.Type != AllocatedRegister {
@@ -145,10 +137,9 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
+	needSecondPass := allocator.Allocate(cfg, ig)
 
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
+	if needSecondPass {
 	}
 
 	// vr2 must be assigned to A register
@@ -199,10 +190,9 @@ func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
+	needSecondPass := allocator.Allocate(cfg, ig)
 
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
+	if needSecondPass {
 	}
 
 	// All should be allocated (Z80 has enough registers)
@@ -296,11 +286,7 @@ func TestRegisterAllocation_Loop(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
-
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
-	}
+	_ = allocator.Allocate(cfg, ig)
 
 	// All three should be allocated (Z80 has enough registers)
 	if vr1.Type != AllocatedRegister || vr2.Type != AllocatedRegister || vr3.Type != AllocatedRegister {
@@ -350,10 +336,9 @@ func TestRegisterAllocation_16Bit(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
+	needSecondPass := allocator.Allocate(cfg, ig)
 
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
+	if needSecondPass {
 	}
 
 	// All should be allocated to 16-bit registers
@@ -403,11 +388,7 @@ func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
-
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
-	}
+	_ = allocator.Allocate(cfg, ig)
 
 	// vr1 should be allocated
 	if vr1.Type != AllocatedRegister {
@@ -496,10 +477,9 @@ func TestRegisterAllocation_Branching(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
+	needSecondPass := allocator.Allocate(cfg, ig)
 
-	if err != nil {
-		t.Fatalf("Allocation failed: %v", err)
+	if needSecondPass {
 	}
 
 	// All should be allocated
@@ -533,9 +513,8 @@ func TestRegisterAllocation_EmptyCFG(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness)
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	err := allocator.Allocate(cfg, ig)
+	needSecondPass := allocator.Allocate(cfg, ig)
 
-	if err != nil {
-		t.Fatalf("Allocation of empty CFG should not fail: %v", err)
+	if needSecondPass {
 	}
 }

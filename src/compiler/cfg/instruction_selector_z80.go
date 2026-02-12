@@ -683,6 +683,22 @@ func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl)
 }
 
 // ============================================================================
+// Register Management
+// ============================================================================
+
+func (z *instructionSelectorZ80) CreateMove(target *VirtualRegister, source *VirtualRegister) ([]MachineInstruction, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
+func (z *instructionSelectorZ80) CreateSpill(vr *VirtualRegister, stackOffset int8) ([]MachineInstruction, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
+func (z *instructionSelectorZ80) CreateReload(vr *VirtualRegister, stackOffset int8) ([]MachineInstruction, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
+// ============================================================================
 // Utility
 // ============================================================================
 

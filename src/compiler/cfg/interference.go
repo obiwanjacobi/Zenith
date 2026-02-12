@@ -13,13 +13,17 @@ type InterferenceGraph struct {
 	edges map[int]map[int]bool
 	// All VirtualRegister IDs in the graph
 	nodes map[int]bool
+	// Instruction-level liveness: map[blockID][instrIdx] -> set of live VR IDs
+	// Computed during BuildInterferenceGraph and reused by ResolveUnallocated
+	InstructionLiveness map[int][]map[int]bool
 }
 
 // NewInterferenceGraph creates a new empty interference graph
 func NewInterferenceGraph() *InterferenceGraph {
 	return &InterferenceGraph{
-		edges: make(map[int]map[int]bool),
-		nodes: make(map[int]bool),
+		edges:               make(map[int]map[int]bool),
+		nodes:               make(map[int]bool),
+		InstructionLiveness: make(map[int][]map[int]bool),
 	}
 }
 
@@ -46,6 +50,80 @@ func (ig *InterferenceGraph) AddEdge(vr1, vr2 int) {
 	// Add undirected edge
 	ig.edges[vr1][vr2] = true
 	ig.edges[vr2][vr1] = true
+}
+
+// AddEdgeWithVRs adds an interference edge between two VirtualRegisters
+// Takes the actual VR objects to check for composition compatibility
+// If one VR can use a component of the other's register, they don't truly interfere
+func (ig *InterferenceGraph) AddEdgeWithVRs(vr1, vr2 *VirtualRegister) {
+	// Don't add self-loops
+	if vr1.ID == vr2.ID {
+		return
+	}
+
+	// Check if these VRs are composition-compatible:
+	// If vr1 needs a component of vr2's register (or vice versa), they don't conflict
+	if ig.areCompositionCompatible(vr1, vr2) {
+		return
+	}
+
+	// Ensure both nodes exist
+	ig.AddNode(vr1.ID)
+	ig.AddNode(vr2.ID)
+
+	// Add undirected edge
+	ig.edges[vr1.ID][vr2.ID] = true
+	ig.edges[vr2.ID][vr1.ID] = true
+}
+
+// areCompositionCompatible checks if two VRs can coexist due to register composition
+// Returns true if one VR's AllowedSet only contains components of the other's AllowedSet
+func (ig *InterferenceGraph) areCompositionCompatible(vr1, vr2 *VirtualRegister) bool {
+	// If either has no constraints, they can't be composition-compatible
+	if len(vr1.AllowedSet) == 0 || len(vr2.AllowedSet) == 0 {
+		return false
+	}
+
+	// Check if vr1's allowed registers are all components of vr2's allowed registers
+	if ig.allComponentsOf(vr1.AllowedSet, vr2.AllowedSet) {
+		return true
+	}
+
+	// Check the reverse
+	if ig.allComponentsOf(vr2.AllowedSet, vr1.AllowedSet) {
+		return true
+	}
+
+	return false
+}
+
+// allComponentsOf checks if all registers in 'components' are components of any register in 'composites'
+func (ig *InterferenceGraph) allComponentsOf(components, composites []*Register) bool {
+	for _, component := range components {
+		foundAsComponent := false
+
+		for _, composite := range composites {
+			// Check if component is part of this composite's composition
+			if len(composite.Composition) > 0 {
+				for _, part := range composite.Composition {
+					if part == component {
+						foundAsComponent = true
+						break
+					}
+				}
+			}
+			if foundAsComponent {
+				break
+			}
+		}
+
+		// If this component isn't part of any composite, they're not compatible
+		if !foundAsComponent {
+			return false
+		}
+	}
+
+	return len(components) > 0 // Must have at least one component
 }
 
 // Interferes returns true if two VirtualRegisters interfere with each other
@@ -88,11 +166,30 @@ func (ig *InterferenceGraph) GetNodes() []int {
 
 // BuildInterferenceGraph constructs an interference graph from liveness information
 // Two VirtualRegisters interfere if they are both live at the same point in the program
+// Uses instruction-level liveness for precision and considers register composition
 func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph {
 	ig := NewInterferenceGraph()
 
-	// For each block, track live VRs as we process machine instructions
+	// Build a map of VR ID to VR object for composition checking
+	vrMap := make(map[int]*VirtualRegister)
 	for _, block := range cfg.Blocks {
+		for _, instr := range block.MachineInstructions {
+			if result := instr.GetResult(); result != nil {
+				vrMap[result.ID] = result
+			}
+			for _, operand := range instr.GetOperands() {
+				if operand != nil {
+					vrMap[operand.ID] = operand
+				}
+			}
+		}
+	}
+
+	// For each block, compute precise per-instruction liveness
+	for _, block := range cfg.Blocks {
+		// Prepare storage for this block's instruction liveness
+		blockLiveness := make([]map[int]bool, len(block.MachineInstructions))
+
 		// Start with live-out for this block (VRs live at the end)
 		currentlyLive := make(map[int]bool)
 		for vrID := range liveness.LiveOut[block.ID] {
@@ -104,15 +201,29 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 		for i := len(block.MachineInstructions) - 1; i >= 0; i-- {
 			instr := block.MachineInstructions[i]
 
+			// Save liveness BEFORE this instruction executes (what operands see)
+			liveAtInstr := make(map[int]bool)
+			for vrID := range currentlyLive {
+				liveAtInstr[vrID] = true
+			}
+			blockLiveness[i] = liveAtInstr
+
 			// Get result (defined VR) and operands (used VRs)
 			result := instr.GetResult()
 			operands := instr.GetOperands()
 
-			// The defined VR interferes with all currently live VRs
+			// The defined VR interferes with all VRs that are live AFTER this instruction
+			// (i.e., those in currentlyLive before we remove the result)
 			if result != nil && shouldTrackForLiveness(result) {
 				ig.AddNode(result.ID)
 				for liveVRID := range currentlyLive {
-					ig.AddEdge(result.ID, liveVRID)
+					// Use composition-aware interference checking
+					if liveVR, exists := vrMap[liveVRID]; exists {
+						ig.AddEdgeWithVRs(result, liveVR)
+					} else {
+						// Fallback if VR not in map
+						ig.AddEdge(result.ID, liveVRID)
+					}
 				}
 				// Remove the defined VR from live set (no longer live before definition)
 				delete(currentlyLive, result.ID)
@@ -127,14 +238,31 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph
 			}
 		}
 
-		// At the start of the block, all live VRs interfere with each other
+		// Save this block's instruction liveness
+		ig.InstructionLiveness[block.ID] = blockLiveness
+
+		// For VRs that are live at block entry (live-in from predecessors),
+		// they are simultaneously live and must interfere with each other.
+		// IMPORTANT: Only add pairwise interference for VRs that are ALSO in LiveIn.
+		// This excludes VRs that are only used locally within this block.
+		liveAtEntry := liveness.LiveIn[block.ID]
 		liveVRs := []int{}
 		for vrID := range currentlyLive {
-			liveVRs = append(liveVRs, vrID)
+			// Only include if this VR is truly live-in (comes from predecessor)
+			if liveAtEntry[vrID] {
+				liveVRs = append(liveVRs, vrID)
+			}
 		}
 		for i := 0; i < len(liveVRs); i++ {
 			for j := i + 1; j < len(liveVRs); j++ {
-				ig.AddEdge(liveVRs[i], liveVRs[j])
+				// Use composition-aware interference checking
+				vr1, exists1 := vrMap[liveVRs[i]]
+				vr2, exists2 := vrMap[liveVRs[j]]
+				if exists1 && exists2 {
+					ig.AddEdgeWithVRs(vr1, vr2)
+				} else {
+					ig.AddEdge(liveVRs[i], liveVRs[j])
+				}
 			}
 		}
 	}

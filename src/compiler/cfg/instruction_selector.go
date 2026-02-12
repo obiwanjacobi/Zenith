@@ -221,6 +221,22 @@ type InstructionSelector interface {
 	SelectFunctionEpilogue(fn *zsm.SemFunctionDecl) error
 
 	// ============================================================================
+	// Register Management
+	// ============================================================================
+
+	// SelectMove generates a move instruction from source VR to target VR
+	// Returns the generated instruction(s) to be inserted before the current instruction
+	CreateMove(target *VirtualRegister, source *VirtualRegister) ([]MachineInstruction, error)
+
+	// SelectSpill generates instructions to spill a VR to stack
+	// Returns the generated instruction(s) to be inserted
+	CreateSpill(vr *VirtualRegister, stackOffset int8) ([]MachineInstruction, error)
+
+	// SelectReload generates instructions to reload a VR from stack
+	// Returns the generated instruction(s) to be inserted before the current instruction
+	CreateReload(vr *VirtualRegister, stackOffset int8) ([]MachineInstruction, error)
+
+	// ============================================================================
 	// Utility
 	// ============================================================================
 
