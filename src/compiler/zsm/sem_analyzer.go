@@ -2,6 +2,7 @@ package zsm
 
 import (
 	"fmt"
+	"reflect"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
 )
@@ -321,6 +322,8 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 	var returnType Type
 	if retTypeRef := node.ReturnType(); retTypeRef != nil {
 		returnType = sa.resolveTypeRef(retTypeRef)
+		// Validate return type
+		sa.validateReturnType(returnType, node)
 	}
 
 	return &SemFunctionDecl{
@@ -557,32 +560,66 @@ func (sa *SemanticAnalyzer) processReturn(node parser.StatementReturn) *SemRetur
 // Expression Processing
 // ============================================================================
 
+// processExpression processes any expression node and returns a semantic expression.
+//
+// IMPORTANT: Handles "typed nil" interface problem (lines 594-600)
+//
+// THE PROBLEM: In Go, an interface can be non-nil while containing a nil pointer.
+// When an expression processor like processMemberAccess fails and returns nil,
+// that nil is a *typed* nil (e.g., *SemMemberAccess = nil).
+// When returned through the SemExpression interface, the interface itself becomes
+// non-nil (because it has type information), but the underlying value is nil.
+//
+// EXAMPLE:
+//   var x *SemMemberAccess = nil  // typed nil
+//   var y SemExpression = x        // interface is non-nil!
+//   y == nil                       // false
+//   y.Type()                       // PANIC - dereferences nil pointer
+//
+// THE FIX: We use reflect to check if the underlying pointer is nil, and convert
+// that to an actual nil return value so callers can use simple nil checks.
+//
+// See typed_nil_test.go for test cases demonstrating this issue.
 func (sa *SemanticAnalyzer) processExpression(node parser.Expression) SemExpression {
 	if node == nil {
 		return nil
 	}
 
+	var result SemExpression
+
 	switch n := node.(type) {
 	case parser.ExpressionLiteral:
-		return sa.processLiteral(n)
+		result = sa.processLiteral(n)
 	case parser.ExpressionOperatorBinary:
-		return sa.processBinaryOp(n, n.Operator().Id())
+		result = sa.processBinaryOp(n, n.Operator().Id())
 	case parser.ExpressionOperatorUnaryPrefix:
-		return sa.processUnaryPrefixOp(n)
+		result = sa.processUnaryPrefixOp(n)
 	case parser.ExpressionFunctionInvocation:
-		return sa.processFunctionCall(n)
+		result = sa.processFunctionCall(n)
 	case parser.ExpressionMemberAccess:
-		return sa.processMemberAccess(n)
+		result = sa.processMemberAccess(n)
 	case parser.ExpressionSubscript:
-		return sa.processSubscript(n)
+		result = sa.processSubscript(n)
 	case parser.ExpressionTypeInitializer:
-		return sa.processTypeInitializer(n)
+		result = sa.processTypeInitializer(n)
 	case parser.ExpressionIdentifier:
-		return sa.processIdentifier(n)
+		result = sa.processIdentifier(n)
 	default:
 		sa.error(fmt.Sprintf("unknown expression type: %T", node), node)
 		return nil
 	}
+
+	// Convert "typed nil" to actual nil
+	// This handles the case where a function returns a nil pointer of a specific type
+	// which becomes a non-nil interface containing a nil value
+	if result != nil {
+		rv := reflect.ValueOf(result)
+		if rv.Kind() == reflect.Ptr && rv.IsNil() {
+			return nil
+		}
+	}
+
+	return result
 }
 
 func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *SemConstant {
@@ -687,6 +724,7 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 	left := sa.processExpression(node.Left())
 	right := sa.processExpression(node.Right())
 
+	// Check if either operand failed to process
 	if left == nil || right == nil {
 		return nil
 	}
@@ -1067,6 +1105,37 @@ func (sa *SemanticAnalyzer) isArithmeticOperator(op BinaryOperator) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// validateReturnType checks that a function return type is valid.
+// Only primitive types and references (pointers, unsized arrays) can be returned.
+// Structs and fixed-size arrays cannot be returned by value.
+func (sa *SemanticAnalyzer) validateReturnType(returnType Type, node parser.ParserNode) {
+	if returnType == nil {
+		// Void return is allowed
+		return
+	}
+
+	switch t := returnType.(type) {
+	case *PrimitiveType:
+		// Primitive types can be returned
+		return
+	case *PointerType:
+		// Pointers can be returned
+		return
+	case *ArrayType:
+		// Only unsized arrays (references) can be returned
+		if t.Length() == 0 {
+			return
+		}
+		sa.error(fmt.Sprintf("cannot return fixed-size array type '%s' by value", t.Name()), node)
+	case *StructType:
+		// Structs cannot be returned by value
+		sa.error(fmt.Sprintf("cannot return struct type '%s' by value", t.Name()), node)
+	default:
+		// Unknown type
+		sa.error(fmt.Sprintf("invalid return type '%s'", returnType.Name()), node)
 	}
 }
 

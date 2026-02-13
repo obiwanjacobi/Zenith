@@ -182,7 +182,8 @@ Invocation syntax: `result := sum(101, 42)`
 
 - Primitive types can be passed by value (param and return) - except u24?.
 - Structs cannot be passed by value (param and return).
-- 
+- Structs and Arrays (of Structs) cannot be returned from a function.
+- Arrays/structs are passed by ref as param.
 
 ### Conversions
 

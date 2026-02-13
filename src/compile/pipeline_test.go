@@ -178,3 +178,17 @@ func Test_Pipeline_Variables(t *testing.T) {
 
 	RunPipeline(t, sourceCode)
 }
+
+func Test_Pipeline_Reverse(t *testing.T) {
+	sourceCode := `reverse: (arr: u8[]) {
+		l := arr.length
+		for i := 0; i < l / 2 ; i++ {
+			j := l - 1 - i
+			tmp := arr[i]
+			arr[i] = arr[j]
+			arr[j] = tmp
+		}
+	}`
+
+	RunPipeline(t, sourceCode)
+}

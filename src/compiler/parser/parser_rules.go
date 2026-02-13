@@ -122,16 +122,37 @@ func (ctx *parserContext) variableDeclaration() ParserNode {
 
 // ============================================================================
 // variable_assignment: identifier (operator_arithmetic | operator_bitwise)? '=' expression end
+// Note: Also supports subscript expressions like arr[i] = value
 // ============================================================================
 
 func (ctx *parserContext) variableAssignment() ParserNode {
 	mark := ctx.mark()
 
+	// Try to parse lvalue (identifier or subscript expression)
 	if !ctx.is(lexer.TokenIdentifier) {
 		ctx.gotoMark(mark)
 		return nil
 	}
 	ctx.next(skipEOL) // consume identifier
+
+	// Check for subscript: identifier '[' expression ']'
+	for ctx.is(lexer.TokenBracketOpen) {
+		ctx.next(skipEOL) // consume '['
+
+		indexExpr := ctx.expression()
+		if indexExpr == nil {
+			ctx.gotoMark(mark)
+			return nil
+		}
+
+		if !ctx.is(lexer.TokenBracketClose) {
+			ctx.gotoMark(mark)
+			return nil
+		}
+		ctx.next(skipEOL) // consume ']'
+
+		// Can have chained subscripts like arr[i][j]
+	}
 
 	// Optional compound operator
 	if ctx.isAny([]lexer.TokenId{
@@ -1082,7 +1103,7 @@ func (ctx *parserContext) expressionBinaryBitwise() ParserNode {
 	return left
 }
 
-// expressionBinaryArithmetic: handles '+' | '-' | '*' | '/'
+// expressionBinaryArithmetic: handles '+' | '-' | '*' | '/' | '%'
 func (ctx *parserContext) expressionBinaryArithmetic() ParserNode {
 	left := ctx.expressionUnary()
 	if left == nil {
@@ -1090,7 +1111,7 @@ func (ctx *parserContext) expressionBinaryArithmetic() ParserNode {
 	}
 
 	for ctx.isAny([]lexer.TokenId{
-		lexer.TokenPlus, lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenSlash,
+		lexer.TokenPlus, lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenSlash, lexer.TokenPercent,
 	}) {
 		mark := ctx.mark()
 		ctx.next(skipEOL) // consume operator
