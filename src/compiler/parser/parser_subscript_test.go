@@ -93,3 +93,14 @@ func Test_ParseReverseWithL(t *testing.T) {
 	}
 	assert.Equal(t, 0, len(cu.Errors()))
 }
+
+func Test_ParseComplexSubscript(t *testing.T) {
+	code := `complex: () {
+		call1().field1[i + 1] = call2().field2[j - 1]
+	}`
+	cu := parseCode(t, "Test_ParseComplexSubscript", code)
+	for _, err := range cu.Errors() {
+		t.Logf("Error: %s", err.Error())
+	}
+	assert.Equal(t, 0, len(cu.Errors()))
+}

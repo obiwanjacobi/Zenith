@@ -50,9 +50,10 @@ func (ctx *parserContext) codeBlock() ParserNode {
 	errors := make([]ParserError, 0)
 	for !ctx.is(lexer.TokenBracesClose) && !ctx.is(lexer.TokenEOF) {
 		node := ctx.parseOr([]func() ParserNode{
-			ctx.statement,
 			ctx.variableDeclaration,
 			ctx.variableAssignment,
+			// leave statement last.
+			ctx.statement,
 		})
 		if node == nil {
 			// not an error, empty block is valid
@@ -128,30 +129,12 @@ func (ctx *parserContext) variableDeclaration() ParserNode {
 func (ctx *parserContext) variableAssignment() ParserNode {
 	mark := ctx.mark()
 
-	// Try to parse lvalue (identifier or subscript expression)
-	if !ctx.is(lexer.TokenIdentifier) {
+	// Parse lvalue using existing expression postfix logic
+	// This handles identifier, subscripts, and member access
+	lvalue := ctx.expressionPostfix()
+	if lvalue == nil {
 		ctx.gotoMark(mark)
 		return nil
-	}
-	ctx.next(skipEOL) // consume identifier
-
-	// Check for subscript: identifier '[' expression ']'
-	for ctx.is(lexer.TokenBracketOpen) {
-		ctx.next(skipEOL) // consume '['
-
-		indexExpr := ctx.expression()
-		if indexExpr == nil {
-			ctx.gotoMark(mark)
-			return nil
-		}
-
-		if !ctx.is(lexer.TokenBracketClose) {
-			ctx.gotoMark(mark)
-			return nil
-		}
-		ctx.next(skipEOL) // consume ']'
-
-		// Can have chained subscripts like arr[i][j]
 	}
 
 	// Optional compound operator
@@ -168,15 +151,15 @@ func (ctx *parserContext) variableAssignment() ParserNode {
 	}
 	ctx.next(skipEOL) // consume '='
 
-	expr := ctx.expression()
-	if expr == nil {
+	rvalue := ctx.expression()
+	if rvalue == nil {
 		ctx.gotoMark(mark)
 		return nil
 	}
 
 	return &variableAssignment{
 		parserNodeData: parserNodeData{
-			_children: []ParserNode{expr},
+			_children: []ParserNode{lvalue, rvalue},
 			_tokens:   ctx.fromMark(mark),
 		},
 	}
