@@ -50,17 +50,23 @@ Indexing syntax: `<arr>[<index>]`
 ```c
 arr: u8[3]
 arr[0] = 0
+
+l = arr.length  // l=3
 ```
 
 Static instantiation syntax: `arr:u8[3] = (1, 2, 3)`
 
-#### String
-
-A string is an array of (ascii) characters.
+Implementation:
 
 ```c
-str: u8[] = "String"
+// variable length struct
+struct Array
+    len: u16    // length of array (length+2 = total size)
+    arr[]       // allocated array elements
 ```
+
+The type of the array elements is tracked during compile time - no runtime type info.
+The compiler will generate the correct indexing code taking the element size into account.
 
 #### Slice
 
@@ -71,6 +77,35 @@ A slice is a reference to a part of an array.
 The start is inclusive, the end is exclusive.
 
 Syntax: `slice := arr[1,4]` from second-till fourth elelement.
+
+Implementation:
+
+```c
+// fixed length struct
+struct Slice
+    // TBD: small slices (u8)? Or large slices (u16)?
+    len: u8|u16?
+    ptr: u8* // points to the start of the slice into the array elements
+```
+
+The type of the array elements is tracked during compile time and is based on the array that is pointed to.
+The compiler will generate the correct indexing code taking the element size into account.
+
+> TBD
+
+Not sure if we allow slices to reinterpret the array-element type.
+This would allow a `arr: u8[]` to be sliced to a `slice: u16[]` for instance.
+-What if the originating array does not fit exactly into the slice (odd number of elements)?
+
+#### String
+
+A string is an array of (ascii) characters.
+
+```c
+str: u8[] = "String"
+
+illegal: u16[] = "Invalid Assignment"   // error: must be u8
+```
 
 ### Pointer
 
@@ -204,6 +239,8 @@ Use a tag to indicate special use.
 reset20: () { ... }
 ```
 
+There are also compiler-intrinsic functions. See [Compiler](#intrinsics) for more info.
+
 ---
 
 ## Values and Variables
@@ -214,11 +251,12 @@ A value is constant.
 Variable syntax: `x: u8`    default value
 Constant value syntax: `const x: u8 = 42`  must be initialzed
 
-Constant values are not stored in memory.
+Constant values are not stored in memory but are managed during compilation.
 
-```c
+Global variables are stored in the 'global' memory.
+Memory layout configuration dictates where that is and how big the space is.
 
-```
+Variables used inside functions are kept in registers as much as possible or stored on stack.
 
 ---
 
@@ -256,23 +294,21 @@ if a = 42 {
 }
 ```
 
-#### Switch
+#### Select-Case
 
-> TBD: `select`-`case`?
-
-Compiled to a jump table.
+Compiled to a jump table?
 
 Syntax:
 
 ```c
-switch <variable>
+select <variable>
 {
     case <value>:
     else:
 }
 ```
 
-No `break` keyword is needed. There is no fall-through in the `switch`-`case` statement.
+No `break` keyword is needed. There is no fall-through in the `select`-`case` statement.
 
 ---
 
@@ -280,9 +316,7 @@ No `break` keyword is needed. There is no fall-through in the `switch`-`case` st
 
 Comment syntax: `// <text>` rest of the line is comment
 
-Public Label Syntax: `label:`
-
-Private Label Syntax: `.label`
+Label Syntax: `label:`
 
 Qualified Name: `<module>.<symbol>`
 
@@ -307,14 +341,13 @@ The compiler will try to result (parts of) expressions at compile-time as much a
 | `-`      | Subtraction          |
 | `+c`     | Addition /w carry    |
 | `-c`     | Subtraction /w carry |
-| `*`      | Multiplication*      |
-| `/`      | Division*            |
+| `*`      | Multiplication       |
+| `/`      | Division             |
+| `%`      | Modulo               |
 | `++`     | Increment            |
 | `--`     | Decrement            |
 
-*) Implemented in software.
-
-The result type is the same as the biggest operand type unless the target assignment type is bigger.
+The result type is the same as the biggest operand type unless the target assignment type is bigger. The result type for Multiplication is always double-the-operands.
 
 ```c
 x:u8 = 101
@@ -331,7 +364,7 @@ z:u16 = x + y
 | `~`      | Negate/Invert            |
 | `^`      | Exclusive Or             |
 | `>>`     | Logical shift right      |
-| `>>>`    | arithmetic shift right   |
+| `>>>`    | Arithmetic shift right   |
 | `<<`     | Shift left               |
 | `>\|`    | Roll right               |
 | `\|<`    | Roll left                |
@@ -354,13 +387,11 @@ The result type is the same as the biggest operand type unless the target assign
 
 The result type is a `bool`.
 
-> TBD: Do we need to include (carry,zero) flags? Or are the comparison operators enough?
-
 #### Logical
 
 | Operator | Description |
 | -------- | ----------- |
-| `!`      | Not         |
+| `not`    | Not         |
 | `and`    | and         |
 | `or`     | Or          |
 | `?`      | Bool*       |
@@ -379,7 +410,8 @@ All arithmetic (except `++` and `--`) and bitwise operators can be used in this 
 | `=`      | Assignment                              |
 | `()`     | Operator Precedence, List instantiation |
 | `{}`     | Scope Block, Object construction        |
-| `#`      | Compiler directive / intrinsic / tags   |
+| `#`      | Compiler directive / tags               |
+| `@`      | Compiler intrinsic                      |
 
 ## Keywords
 
@@ -387,8 +419,6 @@ Other than the ones already discussed.
 
 | Keyword       | Description                |
 | ------------- | -------------------------- |
-| `in`          | IO input `r:u8 = in 0x32`  |
-| `out`         | IO output `out 0x32, a`    |
 | `ret`         | Return statement           |
 | `brk`         | Break out of a scope       |
 | `brk` <label> | Break out of scope 'label' |
@@ -396,19 +426,19 @@ Other than the ones already discussed.
 | `cnt` <label> | Skip current iteration of <label> |
 | `goto`        | ??                         |
 
-> TBD: are 'in' and 'out' compiler intrinsics?
-
 ## Files
 
 Multiple files can be compiled in parallel.
+
+Their syntax trees will be combined before semantic analysis. This means they all share the same namespace.
 
 ### Modules
 
 A modules is named a collection of file where exported symbols can be (re)used by other code or modules.
 
-#### Import Export
+#### Import / Export
 
-All [public lables](#symbols) are exported.
+All [lables](#symbols) are exported.
 
 To import a symbol from a module use the qualified name: `<module>.<symbol>`
 
@@ -436,9 +466,13 @@ All intrinsics start with a `@`.
 
 | Intrinsic                  | Description                     |
 | -------------------------- | ------------------------------- |
-| @movemem(src, dst, u/d, r) | LDI/LDIR/LDD/LDDR               |
-| @findmem(src, f, u/d, r)   | CPI/CPIR/CPD/CPDR               |
-| @carry(false/true/not)     | Clear, set or toggle carry flag |
+| `@movemem(src, dst, u/d, r)` | LDI/LDIR/LDD/LDDR             |
+| `@findmem(src, f, u/d, r)`   | CPI/CPIR/CPD/CPDR             |
+| `@carry(false/true/not)`     | Clear, set or toggle carry flag |
+| `@in`                        | IO input: IN                  |
+| `@out`                       | IO output: OUT                |
+
+> TBD: naming. Perhaps `@memory_move()` and `@memory_find()` etc. is better?
 
 - Provide prolog/epilog 'macros' for working with the calling conventions for custom asm code.
 
@@ -449,7 +483,6 @@ The compiler can be configured to suit the hardware that is being coded for best
 | Setting   | Description                                                 |
 | -------   | ----------------------------------------------------------- |
 | output    | What output file to generate (asm (what flavor?), hex, elf) |
-| z80-undoc | use z80 undocumented assembly instructions                  |
 
 > TBD:
 
