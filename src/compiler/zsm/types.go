@@ -110,8 +110,14 @@ var (
 	D8Type  = &PrimitiveType{"d8", 1}
 	D16Type = &PrimitiveType{"d16", 2}
 
-	// Boolean type
-	BoolType = &PrimitiveType{"bool", 1}
+	// Bit type
+	BitType = &PrimitiveType{"bit", 1}
+
+	// Len(Array<T>)
+	LenFnType = &FunctionType{
+		parameters: []Type{&ArrayType{elementType: nil, length: 0}},
+		returnType: U16Type,
+	}
 )
 
 // NewArrayType creates a new array type

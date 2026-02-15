@@ -52,10 +52,10 @@ func Test_Analyze_FunctionReturnVoid_Valid(t *testing.T) {
 	requireNoErrors(t, errors)
 }
 
-func Test_Analyze_FunctionReturnBool_Valid(t *testing.T) {
-	code := `isValid: () bool {
+func Test_Analyze_FunctionReturnBit_Valid(t *testing.T) {
+	code := `isValid: () bit {
 	}`
-	_, errors := analyzeCode(t, "Test_Analyze_FunctionReturnBool_Valid", code)
+	_, errors := analyzeCode(t, "Test_Analyze_FunctionReturnBit_Valid", code)
 	requireNoErrors(t, errors)
 }
 

@@ -234,7 +234,7 @@ func (t *Tokenizer) parsePunctuation(first rune, location compiler.Location) (To
 	case '#':
 		token = &tokenData{TokenHash, location, text}
 	case '@':
-		token = &tokenData{TokenAt, location, text}
+		token = &tokenData{TokenAtSign, location, text}
 	case '$':
 		token = &tokenData{TokenDollar, location, text}
 	case '|':

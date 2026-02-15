@@ -661,7 +661,7 @@ func Test_Analyze_BooleanLiteral(t *testing.T) {
 	constant, ok := varDecl.Initializer.(*SemConstant)
 	require.True(t, ok)
 	assert.Equal(t, true, constant.Value)
-	assert.Equal(t, BoolType, constant.Type())
+	assert.Equal(t, BitType, constant.Type())
 }
 
 func Test_Analyze_NumberLiteral_U8(t *testing.T) {
@@ -857,7 +857,7 @@ func Test_Analyze_ScopeGlobalAccess(t *testing.T) {
 // ============================================================================
 
 func Test_Analyze_BuiltinTypes(t *testing.T) {
-	builtinTypes := []string{"u8", "u16", "i8", "i16", "d8", "d16", "bool"}
+	builtinTypes := []string{"u8", "u16", "i8", "i16", "d8", "d16", "bit"}
 
 	for _, typeName := range builtinTypes {
 		t.Run(typeName, func(t *testing.T) {

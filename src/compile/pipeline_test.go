@@ -181,7 +181,7 @@ func Test_Pipeline_Variables(t *testing.T) {
 
 func Test_Pipeline_Reverse(t *testing.T) {
 	sourceCode := `reverse: (arr: u8[]) {
-		l := arr.length
+		l := @len(arr)
 		for i := 0; i < l / 2 ; i++ {
 			j := l - 1 - i
 			tmp := arr[i]

@@ -63,13 +63,17 @@ func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*SemCompilation
 func (sa *SemanticAnalyzer) initBuiltinTypes() {
 	// Add builtin types as type symbols in global scope
 	builtins := map[string]Type{
-		"u8":   U8Type,
-		"u16":  U16Type,
-		"i8":   I8Type,
-		"i16":  I16Type,
-		"d8":   D8Type,
-		"d16":  D16Type,
-		"bool": BoolType,
+		// primitive types
+		"u8":  U8Type,
+		"u16": U16Type,
+		"i8":  I8Type,
+		"i16": I16Type,
+		"d8":  D8Type,
+		"d16": D16Type,
+		"bit": BitType,
+
+		// intrinsic functions
+		"@len": LenFnType,
 	}
 	for name, typ := range builtins {
 		sa.globalScope.Add(&Symbol{
@@ -653,7 +657,7 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *SemCo
 		typ = NewArrayType(U8Type, len(node.String()))
 	case lexer.TokenTrue, lexer.TokenFalse:
 		value = token.Id() == lexer.TokenTrue
-		typ = BoolType
+		typ = BitType
 	default:
 		sa.error(fmt.Sprintf("unknown literal type: %s", token.Text()), node)
 		return nil
@@ -766,7 +770,7 @@ func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary
 }
 
 func (sa *SemanticAnalyzer) processFunctionCall(node parser.ExpressionFunctionInvocation) *SemFunctionCall {
-	name := node.FunctionName().Text()
+	name := node.FunctionName()
 	symbol := sa.currentScope.Lookup(name)
 	if symbol == nil {
 		sa.error(fmt.Sprintf("undefined function '%s'", name), node)

@@ -1493,12 +1493,14 @@ func (n *expressionOperatorUnipostLogical) ExpressionKind() ExpressionKind {
 
 type ExpressionFunctionInvocation interface {
 	Expression
-	FunctionName() lexer.Token
+	FunctionName() string
 	Arguments() FunctionArgumentList
+	IsIntrinsic() bool
 }
 
 type expressionFunctionInvocation struct {
 	parserNodeData
+	isIntrinsic bool
 }
 
 func (n *expressionFunctionInvocation) Children() []ParserNode {
@@ -1513,12 +1515,15 @@ func (n *expressionFunctionInvocation) ExpressionKind() ExpressionKind {
 	return ExprFunctionInvocation
 }
 
-func (n *expressionFunctionInvocation) FunctionName() lexer.Token {
+func (n *expressionFunctionInvocation) FunctionName() string {
 	tokens := n.parserNodeData.tokensOf(lexer.TokenIdentifier)
 	if len(tokens) > 0 {
-		return tokens[0]
+		if n.isIntrinsic {
+			return "@" + tokens[0].Text()
+		}
+		return tokens[0].Text()
 	}
-	return nil
+	return ""
 }
 
 func (n *expressionFunctionInvocation) Arguments() FunctionArgumentList {
@@ -1528,6 +1533,10 @@ func (n *expressionFunctionInvocation) Arguments() FunctionArgumentList {
 		}
 	}
 	return nil
+}
+
+func (n *expressionFunctionInvocation) IsIntrinsic() bool {
+	return n.isIntrinsic
 }
 
 // ============================================================================

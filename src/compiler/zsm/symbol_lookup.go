@@ -67,7 +67,7 @@ func getTypeSizeInBits(typ Type) int {
 	}
 
 	switch typ {
-	case U8Type, I8Type, BoolType:
+	case U8Type, I8Type, BitType:
 		return 8
 	case U16Type, I16Type:
 		return 16

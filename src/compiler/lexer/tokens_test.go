@@ -99,7 +99,7 @@ func Test_TokenPunctuation(t *testing.T) {
 	tokens := RunTokenizer(code)
 
 	expected := []TokenId{
-		TokenExclamation, TokenAt, TokenHash, TokenDollar, TokenPercent, TokenCaret, TokenAmpersant, TokenAsterisk,
+		TokenExclamation, TokenAtSign, TokenHash, TokenDollar, TokenPercent, TokenCaret, TokenAmpersant, TokenAsterisk,
 		TokenParenOpen, TokenParenClose, TokenBracketOpen, TokenBracketClose, TokenBracesOpen, TokenBracesClose,
 		TokenSemiColon, TokenColon, TokenComma, TokenPeriod, TokenSlash,
 		TokenQuestion, TokenBackTick, TokenTilde, TokenEquals, TokenPlus, TokenUnderscore, TokenMinus,

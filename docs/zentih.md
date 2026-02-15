@@ -179,17 +179,28 @@ Accessing a struct instance directly or via a pointer always uses `.`.
 
 > TBD: anonymous structs?
 
-### Boolean
-
-> TBD
+### Bit
 
 Also adds the `true` and `false` keywords.
 
-Syntax: `bool`
+Syntax: `bit` or `bit[4]`
 
 ```c
-b: bool = true
+b0: bit = true              // bool
+b1: bit[1] = true           // bool / 0b1
+b2: bit[2] = 0b10
+b4: bit[4] = 0b1011
+
+// equivalent
+b4[2] = true
+b4[2] = 1
+
+if b4[2] {
+    // b4[2] == true
+}
 ```
+
+Allows manipulating any number of bits. A bool is just a `bit-1`. The `true` and `false` keywords still apply to any bit.
 
 ### Alias
 

@@ -231,6 +231,12 @@ func (ctx *parserContext) functionDeclaration() ParserNode {
 func (ctx *parserContext) functionInvocation() ParserNode {
 	mark := ctx.mark()
 
+	var isIntrinsic bool
+	if ctx.is(lexer.TokenAtSign) {
+		isIntrinsic = true
+		ctx.next(skipEOL) // consume '@'
+	}
+
 	if !ctx.is(lexer.TokenIdentifier) {
 		ctx.gotoMark(mark)
 		return nil
@@ -266,6 +272,7 @@ func (ctx *parserContext) functionInvocation() ParserNode {
 			_tokens:   ctx.fromMark(mark),
 			_errors:   errors,
 		},
+		isIntrinsic: isIntrinsic,
 	}
 }
 

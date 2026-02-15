@@ -42,7 +42,7 @@ const (
 	TokenNotEquals               // <>
 	TokenAmpersant               // &
 	TokenHash                    // #
-	TokenAt                      // @
+	TokenAtSign                  // @
 	TokenDollar                  // $
 	TokenPipe                    // |
 	TokenCaret                   // ^
