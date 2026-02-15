@@ -3,6 +3,7 @@ package zsm
 import (
 	"fmt"
 	"reflect"
+	"zenith/compiler"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
 )
@@ -13,20 +14,20 @@ type SemanticAnalyzer struct {
 	currentScope    *SymbolTable
 	currentFunction string // Track which function we're analyzing
 	callGraph       *CallGraph
-	errors          []*SemError
+	errors          []*compiler.Diagnostic
 }
 
 // NewSemanticAnalyzer creates a new semantic analyzer
 func NewSemanticAnalyzer() *SemanticAnalyzer {
 	sa := &SemanticAnalyzer{
 		callGraph: NewCallGraph(),
-		errors:    make([]*SemError, 0),
+		errors:    make([]*compiler.Diagnostic, 0),
 	}
 	return sa
 }
 
 // Analyze performs semantic analysis on the AST and returns the semantic model
-func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*SemCompilationUnit, []*SemError) {
+func (sa *SemanticAnalyzer) Analyze(ast parser.CompilationUnit) (*SemCompilationUnit, []*compiler.Diagnostic) {
 	// Initialize global scope
 	sa.globalScope = NewSymbolTable(nil, "<global>")
 	sa.currentScope = sa.globalScope
@@ -1140,5 +1141,7 @@ func (sa *SemanticAnalyzer) validateReturnType(returnType Type, node parser.Pars
 }
 
 func (sa *SemanticAnalyzer) error(msg string, node parser.ParserNode) {
-	sa.errors = append(sa.errors, NewSemError(msg, node))
+	locaction := node.Tokens()[0].Location()
+	err := compiler.NewDiagnostic("SrcUnknown", msg, locaction, compiler.PipelineSemanticAnalysis, compiler.SeverityError)
+	sa.errors = append(sa.errors, err)
 }

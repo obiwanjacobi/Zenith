@@ -1,12 +1,10 @@
 package lexer
 
-import "fmt"
+import (
+	"fmt"
 
-type Location struct {
-	Index  int // stream index
-	Line   int // code line
-	Column int // column on line
-}
+	"zenith/compiler"
+)
 
 type TokenId int
 
@@ -81,20 +79,20 @@ const (
  */
 type Token interface {
 	Id() TokenId
-	Location() Location
+	Location() compiler.Location
 	Text() string
 }
 
 type tokenData struct {
 	id       TokenId
-	location Location
+	location compiler.Location
 	text     string
 }
 
 func (t *tokenData) Id() TokenId {
 	return t.id
 }
-func (t *tokenData) Location() Location {
+func (t *tokenData) Location() compiler.Location {
 	return t.location
 }
 func (t *tokenData) Text() string {
@@ -106,7 +104,7 @@ type InvalidToken interface {
 	InitialId() TokenId
 }
 type invalidTokenData struct {
-	location  Location
+	location  compiler.Location
 	text      string
 	initialId TokenId
 }
@@ -114,7 +112,7 @@ type invalidTokenData struct {
 func (t *invalidTokenData) Id() TokenId {
 	return TokenInvalid
 }
-func (t *invalidTokenData) Location() Location {
+func (t *invalidTokenData) Location() compiler.Location {
 	return t.location
 }
 func (t *invalidTokenData) Text() string {

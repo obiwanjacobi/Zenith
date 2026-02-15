@@ -126,7 +126,7 @@ expression_operator_unipost_logical:
     expression '?'
 
 operator_arithmetic:
-    '+' | '-' | '*' | '/'
+    '+' | '-' | '*' | '/' | '%'
 operator_bitwise:
     '&' | '|' | '^'
 

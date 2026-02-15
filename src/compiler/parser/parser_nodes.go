@@ -10,14 +10,14 @@ import (
 type ParserNode interface {
 	Children() []ParserNode
 	Tokens() []lexer.Token
-	Errors() []ParserError
+	Errors() []*compiler.Diagnostic
 }
 
 // Base parser node data structure
 type parserNodeData struct {
 	_children []ParserNode
 	_tokens   []lexer.Token
-	_errors   []ParserError
+	_errors   []*compiler.Diagnostic
 }
 
 func (n *parserNodeData) Children() []ParserNode {
@@ -28,7 +28,7 @@ func (n *parserNodeData) Tokens() []lexer.Token {
 	return n._tokens
 }
 
-func (n *parserNodeData) Errors() []ParserError {
+func (n *parserNodeData) Errors() []*compiler.Diagnostic {
 	return n._errors
 }
 
@@ -441,7 +441,7 @@ func (n *typeInitializerFieldList) Tokens() []lexer.Token {
 }
 
 func (n *typeInitializerFieldList) Fields() []TypeInitializerField {
-	return compiler.OfType[TypeInitializerField](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*typeInitializerField, TypeInitializerField](n.parserNodeData._children)
 }
 
 // ============================================================================
@@ -540,7 +540,7 @@ func (n *declarationFieldList) Tokens() []lexer.Token {
 }
 
 func (n *declarationFieldList) Fields() []DeclarationField {
-	return compiler.OfType[DeclarationField](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*declarationField, DeclarationField](n.parserNodeData._children)
 }
 
 // ============================================================================
@@ -634,12 +634,12 @@ func (n *statementIf) ThenBlock() CodeBlock {
 }
 
 func (n *statementIf) ElsifClauses() []StatementElsif {
-	return compiler.OfType[StatementElsif](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*statementElsif, StatementElsif](n.parserNodeData._children)
 }
 
 func (n *statementIf) ElseBlock() CodeBlock {
 	// The else block is distinct from the main then block
-	blocks := compiler.OfType[CodeBlock](n.parserNodeData._children)
+	blocks := compiler.OfTypeInterface[*codeBlock, CodeBlock](n.parserNodeData._children)
 	if len(blocks) > 1 {
 		return blocks[len(blocks)-1]
 	}
@@ -737,9 +737,9 @@ func (n *statementFor) Increment() Expression {
 }
 
 func (n *statementFor) Body() CodeBlock {
-	children := n.parserNodeData.childrenOf(reflect.TypeFor[CodeBlock]())
+	children := compiler.OfTypeInterface[*codeBlock, CodeBlock](n.parserNodeData._children)
 	if len(children) > 0 {
-		return children[0].(CodeBlock)
+		return children[0]
 	}
 	return nil
 }
@@ -776,12 +776,12 @@ func (n *statementSelect) Expression() Expression {
 }
 
 func (n *statementSelect) Cases() []StatementSelectCase {
-	return compiler.OfType[StatementSelectCase](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*statementSelectCase, StatementSelectCase](n.parserNodeData._children)
 }
 
 func (n *statementSelect) Else() StatementSelectElse {
 	// Use concrete type to avoid matching statementSelectCase
-	elseNodes := compiler.OfType[*statementSelectElse](n.parserNodeData._children)
+	elseNodes := compiler.OfTypeInterface[*statementSelectElse, StatementSelectElse](n.parserNodeData._children)
 	if len(elseNodes) > 0 {
 		return elseNodes[0]
 	}

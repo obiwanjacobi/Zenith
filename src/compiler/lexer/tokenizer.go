@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"unicode"
+
+	"zenith/compiler"
 )
 
 type Tokenizer struct {
@@ -90,7 +92,7 @@ func (t *Tokenizer) parseToken() (Token, error) {
 	return token, err
 }
 
-func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location compiler.Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
@@ -150,7 +152,7 @@ func (t *Tokenizer) parseIdentifierOrKeyword(first rune, location Location) (Tok
 	return token, nil
 }
 
-func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseNumber(first rune, location compiler.Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
@@ -185,7 +187,7 @@ func (t *Tokenizer) parseNumber(first rune, location Location) (Token, error) {
 	}
 }
 
-func (t *Tokenizer) parsePunctuation(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parsePunctuation(first rune, location compiler.Location) (Token, error) {
 	var token Token
 	var err error
 	var text = string(first)
@@ -260,15 +262,15 @@ func (t *Tokenizer) parsePunctuation(first rune, location Location) (Token, erro
 	return token, err
 }
 
-func (t *Tokenizer) parsePlusOrIncrement(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parsePlusOrIncrement(first rune, location compiler.Location) (Token, error) {
 	return t.parseSingeOrDouble(first, location, TokenPlus, TokenIncrement)
 }
 
-func (t *Tokenizer) parseMinusOrDecrement(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseMinusOrDecrement(first rune, location compiler.Location) (Token, error) {
 	return t.parseSingeOrDouble(first, location, TokenMinus, TokenDecrement)
 }
 
-func (t *Tokenizer) parseSingeOrDouble(first rune, location Location, singleId TokenId, doubleId TokenId) (Token, error) {
+func (t *Tokenizer) parseSingeOrDouble(first rune, location compiler.Location, singleId TokenId, doubleId TokenId) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
@@ -284,7 +286,7 @@ func (t *Tokenizer) parseSingeOrDouble(first rune, location Location, singleId T
 	return &tokenData{doubleId, location, builder.String()}, nil
 }
 
-func (t *Tokenizer) parseCommentOrSlash(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseCommentOrSlash(first rune, location compiler.Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
@@ -312,7 +314,7 @@ func (t *Tokenizer) parseCommentOrSlash(first rune, location Location) (Token, e
 	return &tokenData{TokenComment, location, builder.String()}, err
 }
 
-func (t *Tokenizer) parseGreaterOrGreaterEquals(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseGreaterOrGreaterEquals(first rune, location compiler.Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 	r, err := t.read()
@@ -327,7 +329,7 @@ func (t *Tokenizer) parseGreaterOrGreaterEquals(first rune, location Location) (
 	return &tokenData{TokenGreaterOrEquals, location, builder.String()}, nil
 }
 
-func (t *Tokenizer) parseLessOrLessEqualsOrNotEquals(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseLessOrLessEqualsOrNotEquals(first rune, location compiler.Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
@@ -346,15 +348,15 @@ func (t *Tokenizer) parseLessOrLessEqualsOrNotEquals(first rune, location Locati
 	return &tokenData{TokenNotEquals, location, builder.String()}, nil
 }
 
-func (t *Tokenizer) parseString(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseString(first rune, location compiler.Location) (Token, error) {
 	return t.parseEnclosed(first, location, TokenString)
 }
 
-func (t *Tokenizer) parseChar(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseChar(first rune, location compiler.Location) (Token, error) {
 	return t.parseEnclosed(first, location, TokenCharacter)
 }
 
-func (t *Tokenizer) parseEnclosed(first rune, location Location, tokenId TokenId) (Token, error) {
+func (t *Tokenizer) parseEnclosed(first rune, location compiler.Location, tokenId TokenId) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
@@ -373,7 +375,7 @@ func (t *Tokenizer) parseEnclosed(first rune, location Location, tokenId TokenId
 	}
 }
 
-func (t *Tokenizer) parseWhitespace(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseWhitespace(first rune, location compiler.Location) (Token, error) {
 
 	if first == '\n' {
 		return &tokenData{TokenEOL, location, string(first)}, nil
@@ -396,7 +398,7 @@ func (t *Tokenizer) parseWhitespace(first rune, location Location) (Token, error
 	}
 }
 
-func (t *Tokenizer) parseUnknown(first rune, location Location) (Token, error) {
+func (t *Tokenizer) parseUnknown(first rune, location compiler.Location) (Token, error) {
 	var builder strings.Builder
 	builder.WriteRune(first)
 
@@ -445,8 +447,8 @@ func (t *Tokenizer) unread(r rune) error {
 	}
 	return err
 }
-func (t *Tokenizer) makeLocation() Location {
-	return Location{
+func (t *Tokenizer) makeLocation() compiler.Location {
+	return compiler.Location{
 		Index:  t.index,
 		Line:   t.line,
 		Column: t.column,

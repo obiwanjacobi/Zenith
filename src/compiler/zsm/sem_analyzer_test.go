@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"zenith/compiler"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
 
@@ -12,7 +13,7 @@ import (
 )
 
 // Helper function to parse code and run semantic analysis
-func analyzeCode(t *testing.T, testName string, code string) (*SemCompilationUnit, []*SemError) {
+func analyzeCode(t *testing.T, testName string, code string) (*SemCompilationUnit, []*compiler.Diagnostic) {
 	// Tokenize
 	tokens := lexer.OpenTokenStream(code)
 
@@ -32,7 +33,7 @@ func analyzeCode(t *testing.T, testName string, code string) (*SemCompilationUni
 }
 
 // Helper function to require no errors
-func requireNoErrors(t *testing.T, errors []*SemError) {
+func requireNoErrors(t *testing.T, errors []*compiler.Diagnostic) {
 	if len(errors) > 0 {
 		for _, err := range errors {
 			t.Log(err.Error())

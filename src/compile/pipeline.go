@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"zenith/compiler"
 	"zenith/compiler/cfg"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
@@ -31,9 +32,9 @@ type CompilationResult struct {
 	Instructions map[string][]cfg.MachineInstruction
 
 	// Error tracking
+	Diagnostics    []*compiler.Diagnostic
 	LexerErrors    []error
-	ParserErrors   []parser.ParserError
-	SemanticErrors []*zsm.SemError
+	SemanticErrors []*compiler.Diagnostic
 	CodeGenErrors  []error
 
 	// Success flag
@@ -132,7 +133,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	astNode, parserErrors := parser.Parse(sourceID, result.Tokens)
 	result.AST = astNode
-	result.ParserErrors = parserErrors
+	result.Diagnostics = append(result.Diagnostics, parserErrors...)
 
 	if len(parserErrors) > 0 {
 		if opts.Verbose {
@@ -317,7 +318,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		// Run register allocation (assigns PhysicalReg to each VirtualRegister)
 		needsSecondPass := allocator.Allocate(fnCFG, interference)
-		
+
 		// If there are unallocated VRs, run second pass to resolve them
 		if needsSecondPass {
 			err := allocator.ResolveUnallocated(fnCFG, interference, selector)

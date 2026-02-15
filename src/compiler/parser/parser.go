@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"zenith/compiler"
 	"zenith/compiler/lexer"
 )
 
@@ -9,17 +10,16 @@ type parserContext struct {
 	source  string
 	tokens  lexer.TokenStream
 	current lexer.Token
-	errors  []ParserError
+	errors  []*compiler.Diagnostic
+}
+
+func (ctx *parserContext) appendError(errors *[]*compiler.Diagnostic, msg string) {
+	err := compiler.NewDiagnostic(ctx.source, msg, ctx.current.Location(), compiler.PipelineParser, compiler.SeverityError)
+	*errors = append(*errors, err)
 }
 
 func (ctx *parserContext) error(msg string) {
-	err := ParserError{ctx.source, ctx.current.Location(), msg}
-	ctx.errors = append(ctx.errors, err)
-}
-
-func (ctx *parserContext) appendError(errors *[]ParserError, msg string) {
-	err := ParserError{ctx.source, ctx.current.Location(), msg}
-	*errors = append(*errors, err)
+	ctx.appendError(&ctx.errors, msg)
 }
 
 func (ctx *parserContext) internal_error(err error) {
@@ -136,7 +136,7 @@ func (ctx *parserContext) parseOr(parseFuncs []func() ParserNode) ParserNode {
 //
 
 // collectErrors recursively collects all errors from nodes in the AST
-func collectErrors(node ParserNode, errors []ParserError) []ParserError {
+func collectErrors(node ParserNode, errors []*compiler.Diagnostic) []*compiler.Diagnostic {
 	if node == nil {
 		return errors
 	}
@@ -152,8 +152,8 @@ func collectErrors(node ParserNode, errors []ParserError) []ParserError {
 	return errors
 }
 
-func Parse(source string, tokens lexer.TokenStream) (ParserNode, []ParserError) {
-	ctx := parserContext{source, tokens, nil, make([]ParserError, 0, 10)}
+func Parse(source string, tokens lexer.TokenStream) (ParserNode, []*compiler.Diagnostic) {
+	ctx := parserContext{source, tokens, nil, make([]*compiler.Diagnostic, 0, 10)}
 	if ctx.next(skipEOL) != nil {
 		node := ctx.compilationUnit()
 

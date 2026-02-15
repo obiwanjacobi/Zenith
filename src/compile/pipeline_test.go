@@ -17,7 +17,7 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 	if err != nil {
 		t.Logf("Compilation failed: %s", err)
 	}
-	for _, perr := range result.ParserErrors {
+	for _, perr := range result.Diagnostics {
 		fmt.Printf("  ParseErr: %s\n", perr.Error())
 	}
 	for _, serr := range result.SemanticErrors {
@@ -75,7 +75,7 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 	result, err := Pipeline(opts)
 
 	if err != nil {
-		t.Logf("Compilation errors: %v", result.ParserErrors)
+		t.Logf("Compilation errors: %v", result.Diagnostics)
 	}
 
 	// Check stages completed

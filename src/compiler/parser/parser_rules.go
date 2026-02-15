@@ -47,7 +47,7 @@ func (ctx *parserContext) codeBlock() ParserNode {
 	ctx.next(skipEOL) // consume '{'
 
 	children := []ParserNode{}
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	for !ctx.is(lexer.TokenBracesClose) && !ctx.is(lexer.TokenEOF) {
 		node := ctx.parseOr([]func() ParserNode{
 			ctx.variableDeclaration,
@@ -185,7 +185,7 @@ func (ctx *parserContext) functionDeclaration() ParserNode {
 	ctx.next(skipEOL) // consume '('
 
 	children := []ParserNode{labelNode}
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 
 	// Optional parameter list
 	if !ctx.is(lexer.TokenParenClose) {
@@ -244,7 +244,7 @@ func (ctx *parserContext) functionInvocation() ParserNode {
 	ctx.next(skipEOL) // consume '('
 
 	children := []ParserNode{}
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 
 	// Optional argument list
 	if !ctx.is(lexer.TokenParenClose) {
@@ -281,7 +281,7 @@ func (ctx *parserContext) functionArgumentList() ParserNode {
 	}
 	children = append(children, expr)
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	for ctx.is(lexer.TokenComma) {
 		ctx.next(skipEOL) // consume ','
 		expr := ctx.expression()
@@ -314,7 +314,7 @@ func (ctx *parserContext) typeDeclaration() ParserNode {
 	}
 	ctx.next(skipEOL) // consume 'struct'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	if !ctx.is(lexer.TokenIdentifier) {
 		ctx.appendError(&errors, "expected identifier after 'struct'")
 	} else {
@@ -348,7 +348,7 @@ func (ctx *parserContext) typeDeclarationFields() ParserNode {
 	}
 	ctx.next(skipEOL) // consume '{'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
 	fields := ctx.declarationFieldList()
 	if fields == nil {
@@ -385,7 +385,7 @@ func (ctx *parserContext) typeReference() ParserNode {
 	}
 	ctx.next(skipEOL) // consume identifier
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	// Optional array syntax
 	if ctx.is(lexer.TokenBracketOpen) {
 		ctx.next(skipEOL) // consume '['
@@ -424,7 +424,7 @@ func (ctx *parserContext) typeInitializer() ParserNode {
 	ctx.next(skipEOL) // consume '{'
 
 	children := []ParserNode{}
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 
 	// Optional field list
 	if !ctx.is(lexer.TokenBracesClose) {
@@ -461,7 +461,7 @@ func (ctx *parserContext) typeInitializerFieldList() ParserNode {
 	}
 	children = append(children, field)
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	for ctx.is(lexer.TokenComma) {
 		ctx.next(skipEOL) // consume ','
 		field := ctx.typeInitializerField()
@@ -491,7 +491,7 @@ func (ctx *parserContext) typeInitializerField() ParserNode {
 	}
 	ctx.next(skipEOL) // consume identifier
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
 
 	if !ctx.is(lexer.TokenEquals) {
@@ -528,7 +528,7 @@ func (ctx *parserContext) typeAlias() ParserNode {
 	}
 	ctx.next(skipEOL) // consume 'type'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	if !ctx.is(lexer.TokenIdentifier) {
 		ctx.appendError(&errors, "expected identifier after 'type'")
 	} else {
@@ -573,7 +573,7 @@ func (ctx *parserContext) declarationFieldList() ParserNode {
 	}
 	children = append(children, field)
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	for ctx.is(lexer.TokenComma) {
 		ctx.next(skipEOL) // consume ','
 		field := ctx.declarationField()
@@ -649,7 +649,7 @@ func (ctx *parserContext) statementIf() ParserNode {
 	}
 	ctx.next(skipEOL) // consume 'if'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
 	condition := ctx.expression()
 	if condition == nil {
@@ -703,7 +703,7 @@ func (ctx *parserContext) statementElsif() ParserNode {
 	}
 	ctx.next(skipEOL) // consume 'elsif'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
 	condition := ctx.expression()
 	if condition == nil {
@@ -742,7 +742,7 @@ func (ctx *parserContext) statementFor() ParserNode {
 	ctx.next(skipEOL) // consume 'for'
 
 	children := []ParserNode{}
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 
 	// Optional initializer
 	if !ctx.is(lexer.TokenSemiColon) {
@@ -819,7 +819,7 @@ func (ctx *parserContext) statementSelect() ParserNode {
 	}
 	ctx.next(skipEOL) // consume 'select'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
 	expr := ctx.expression()
 	if expr == nil {
@@ -852,7 +852,8 @@ func (ctx *parserContext) statementSelect() ParserNode {
 	}
 
 	// ensure at least one case or else clause
-	if (len(compiler.OfType[StatementSelectCase](children)) == 0) && len(compiler.OfType[StatementSelectElse](children)) == 0 {
+	if (len(compiler.OfTypeInterface[*statementSelectCase, StatementSelectCase](children)) == 0) &&
+		len(compiler.OfTypeInterface[*statementSelectElse, StatementSelectElse](children)) == 0 {
 		ctx.appendError(&errors, "expected at least one 'case' or 'else' clause in select statement")
 	}
 
@@ -881,7 +882,7 @@ func (ctx *parserContext) statementSelectCase() ParserNode {
 	}
 	ctx.next(skipEOL) // consume 'case'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
 	expr := ctx.expression()
 	if expr == nil {
@@ -916,7 +917,7 @@ func (ctx *parserContext) statementSelectElse() ParserNode {
 	}
 	ctx.next(skipEOL) // consume 'else'
 
-	errors := make([]ParserError, 0)
+	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
 	block := ctx.codeBlock()
 	if block == nil {
@@ -1144,7 +1145,7 @@ func (ctx *parserContext) expressionUnary() ParserNode {
 					parserNodeData: parserNodeData{
 						_children: []ParserNode{expr},
 						_tokens:   ctx.fromMark(mark),
-						_errors:   make([]ParserError, 0),
+						_errors:   make([]*compiler.Diagnostic, 0),
 					},
 				},
 			}
@@ -1154,7 +1155,7 @@ func (ctx *parserContext) expressionUnary() ParserNode {
 					parserNodeData: parserNodeData{
 						_children: []ParserNode{expr},
 						_tokens:   ctx.fromMark(mark),
-						_errors:   make([]ParserError, 0),
+						_errors:   make([]*compiler.Diagnostic, 0),
 					},
 				},
 			}
@@ -1164,7 +1165,7 @@ func (ctx *parserContext) expressionUnary() ParserNode {
 					parserNodeData: parserNodeData{
 						_children: []ParserNode{expr},
 						_tokens:   ctx.fromMark(mark),
-						_errors:   make([]ParserError, 0),
+						_errors:   make([]*compiler.Diagnostic, 0),
 					},
 				},
 			}
@@ -1200,7 +1201,7 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 				parserNodeData: parserNodeData{
 					_children: []ParserNode{left},
 					_tokens:   ctx.fromMark(mark),
-					_errors:   make([]ParserError, 0),
+					_errors:   make([]*compiler.Diagnostic, 0),
 				},
 			}
 			continue
@@ -1228,7 +1229,7 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 				parserNodeData: parserNodeData{
 					_children: []ParserNode{left, indexExpr},
 					_tokens:   ctx.fromMark(mark),
-					_errors:   make([]ParserError, 0),
+					_errors:   make([]*compiler.Diagnostic, 0),
 				},
 			}
 			continue
@@ -1310,7 +1311,7 @@ func (ctx *parserContext) expressionPrecedence() ParserNode {
 		parserNodeData: parserNodeData{
 			_children: []ParserNode{expr},
 			_tokens:   ctx.fromMark(mark),
-			_errors:   make([]ParserError, 0),
+			_errors:   make([]*compiler.Diagnostic, 0),
 		},
 	}
 }
