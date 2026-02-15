@@ -2,7 +2,6 @@ package compile
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"zenith/compiler"
@@ -14,9 +13,6 @@ import (
 
 // CompilationResult contains the output of the compilation pipeline
 type CompilationResult struct {
-	// Source information
-	SourceFile string
-
 	// Intermediate representations
 	Tokens lexer.TokenStream
 	AST    parser.ParserNode
@@ -47,9 +43,8 @@ type CompilationResult struct {
 
 // PipelineOptions configures the compilation pipeline
 type PipelineOptions struct {
-	// Source input
-	SourceFile string
-	SourceCode string
+	// for now...
+	Source string
 
 	// Target architecture
 	TargetArch string // "z80", etc.
@@ -79,7 +74,6 @@ func DefaultPipelineOptions() *PipelineOptions {
 // Pipeline runs the complete compilation pipeline
 func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	result := &CompilationResult{
-		SourceFile:       opts.SourceFile,
 		FunctionCFGs:     make(map[string]*cfg.CFG),
 		LivenessInfo:     make(map[string]*cfg.LivenessInfo),
 		InterferenceInfo: make(map[string]*cfg.InterferenceGraph),
@@ -95,18 +89,9 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	var tokenizer *lexer.Tokenizer
-	// TODO: sourceCode vs sourceFile handling
-	if opts.SourceCode != "" {
-		// Compile from string
-		tokenizer = lexer.TokenizerFromReader(strings.NewReader(opts.SourceCode))
-	} else if opts.SourceFile != "" {
-		// Compile from file
-		file, err := os.Open(opts.SourceFile)
-		if err != nil {
-			return result, fmt.Errorf("failed to open source file: %w", err)
-		}
-		defer file.Close()
-		tokenizer = lexer.TokenizerFromFile(file)
+
+	if opts.Source != "" {
+		tokenizer = lexer.TokenizerFromReader(strings.NewReader(opts.Source))
 	} else {
 		return result, fmt.Errorf("no source provided")
 	}
@@ -126,12 +111,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		fmt.Println("==> Stage 2: Syntax Analysis (Parsing)")
 	}
 
-	sourceID := opts.SourceFile
-	if sourceID == "" {
-		sourceID = "<string>"
-	}
-
-	astNode, parserErrors := parser.Parse(sourceID, result.Tokens)
+	source := &compiler.Source{Name: "pipeline_input"}
+	astNode, parserErrors := parser.Parse(source, result.Tokens)
 	result.AST = astNode
 	result.Diagnostics = append(result.Diagnostics, parserErrors...)
 

@@ -8,6 +8,7 @@ import (
 )
 
 type ParserNode interface {
+	Source() *compiler.Source
 	Children() []ParserNode
 	Tokens() []lexer.Token
 	Errors() []*compiler.Diagnostic
@@ -15,6 +16,7 @@ type ParserNode interface {
 
 // Base parser node data structure
 type parserNodeData struct {
+	_source   *compiler.Source
 	_children []ParserNode
 	_tokens   []lexer.Token
 	_errors   []*compiler.Diagnostic
@@ -30,6 +32,10 @@ func (n *parserNodeData) Tokens() []lexer.Token {
 
 func (n *parserNodeData) Errors() []*compiler.Diagnostic {
 	return n._errors
+}
+
+func (n *parserNodeData) Source() *compiler.Source {
+	return n._source
 }
 
 func (n *parserNodeData) tokensOf(tokenId lexer.TokenId) []lexer.Token {

@@ -3,6 +3,7 @@ package zsm
 import (
 	"testing"
 
+	"zenith/compiler"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
 
@@ -18,7 +19,7 @@ func Test_VariableUsage_Arithmetic(t *testing.T) {
 	}`
 
 	tokens := lexer.OpenTokenStream(code)
-	astNode, parseErrors := parser.Parse("test", tokens)
+	astNode, parseErrors := parser.Parse(&compiler.Source{Name: "test"}, tokens)
 	require.NotNil(t, astNode)
 	require.Equal(t, 0, len(parseErrors))
 
@@ -61,7 +62,7 @@ func Test_VariableUsage_Counter(t *testing.T) {
 	}`
 
 	tokens := lexer.OpenTokenStream(code)
-	astNode, parseErrors := parser.Parse("test", tokens)
+	astNode, parseErrors := parser.Parse(&compiler.Source{Name: "test"}, tokens)
 	require.NotNil(t, astNode)
 	require.Equal(t, 0, len(parseErrors))
 
@@ -102,7 +103,7 @@ func Test_VariableUsage_MemberAccessPointer(t *testing.T) {
 	}`
 
 	tokens := lexer.OpenTokenStream(code)
-	astNode, parseErrors := parser.Parse("test", tokens)
+	astNode, parseErrors := parser.Parse(&compiler.Source{Name: "test"}, tokens)
 	require.NotNil(t, astNode)
 	require.Equal(t, 0, len(parseErrors), "Parse errors: %v", parseErrors)
 
@@ -136,7 +137,7 @@ func Test_VariableUsage_General(t *testing.T) {
 	}`
 
 	tokens := lexer.OpenTokenStream(code)
-	astNode, parseErrors := parser.Parse("test", tokens)
+	astNode, parseErrors := parser.Parse(&compiler.Source{Name: "test"}, tokens)
 	require.NotNil(t, astNode)
 	require.Equal(t, 0, len(parseErrors))
 
@@ -168,7 +169,7 @@ func Test_VariableUsage_MultipleArithmetic(t *testing.T) {
 	}`
 
 	tokens := lexer.OpenTokenStream(code)
-	astNode, parseErrors := parser.Parse("test", tokens)
+	astNode, parseErrors := parser.Parse(&compiler.Source{Name: "test"}, tokens)
 	require.NotNil(t, astNode)
 	require.Equal(t, 0, len(parseErrors))
 

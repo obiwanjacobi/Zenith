@@ -1146,6 +1146,7 @@ func (sa *SemanticAnalyzer) validateReturnType(returnType Type, node parser.Pars
 
 func (sa *SemanticAnalyzer) error(msg string, node parser.ParserNode) {
 	locaction := node.Tokens()[0].Location()
-	err := compiler.NewDiagnostic("SrcUnknown", msg, locaction, compiler.PipelineSemanticAnalysis, compiler.SeverityError)
+	source := node.Source()
+	err := compiler.NewDiagnostic(source, msg, locaction, compiler.PipelineSemanticAnalysis, compiler.SeverityError)
 	sa.errors = append(sa.errors, err)
 }

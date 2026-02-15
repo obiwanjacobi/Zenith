@@ -3,6 +3,7 @@ package cfg
 import (
 	"testing"
 
+	"zenith/compiler"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
 	"zenith/compiler/zsm"
@@ -17,7 +18,7 @@ func buildCFGFromCode(t *testing.T, code string) *CFG {
 	tokens := lexer.OpenTokenStream(code)
 
 	// Parse
-	astNode, parseErrors := parser.Parse("test", tokens)
+	astNode, parseErrors := parser.Parse(&compiler.Source{Name: "cfg-test"}, tokens)
 	require.NotNil(t, astNode)
 	require.Equal(t, 0, len(parseErrors))
 

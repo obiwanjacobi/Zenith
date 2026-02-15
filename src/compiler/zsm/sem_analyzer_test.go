@@ -18,7 +18,7 @@ func analyzeCode(t *testing.T, testName string, code string) (*SemCompilationUni
 	tokens := lexer.OpenTokenStream(code)
 
 	// Parse
-	astNode, parseErrors := parser.Parse(testName, tokens)
+	astNode, parseErrors := parser.Parse(&compiler.Source{Name: testName}, tokens)
 	require.NotNil(t, astNode, "Parser should return a node")
 	require.Equal(t, 0, len(parseErrors), fmt.Sprintf("Parser errors: %v", parseErrors))
 

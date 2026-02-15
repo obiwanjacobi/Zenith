@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"zenith/compiler"
 	"zenith/compiler/lexer"
 
 	"github.com/stretchr/testify/assert"
@@ -13,10 +14,16 @@ import (
 // parseCode is a helper function that parses code and returns the CompilationUnit
 func parseCode(t *testing.T, testName string, code string) CompilationUnit {
 	tokens := lexer.OpenTokenStream(code)
-	node, err := Parse(testName, tokens)
+	node, err := Parse(&compiler.Source{Name: testName}, tokens)
 	assert.NotNil(t, node)
 	assert.Equal(t, 0, len(err), fmt.Sprintf("%v", err))
 	return node.(CompilationUnit)
+}
+
+func parseCodeError(t *testing.T, testName string, code string) (CompilationUnit, []*compiler.Diagnostic) {
+	tokens := lexer.OpenTokenStream(code)
+	node, err := Parse(&compiler.Source{Name: testName}, tokens)
+	return node.(CompilationUnit), err
 }
 
 func Test_ParseVarDeclType(t *testing.T) {
@@ -449,8 +456,7 @@ func Test_ParseStructDeclarationMissingComma(t *testing.T) {
 		x: u8
 		y: u8
 	}`
-	tokens := lexer.OpenTokenStream(code)
-	_, errors := Parse("Test_ParseStructDeclarationMissingComma", tokens)
+	_, errors := parseCodeError(t, "Test_ParseStructDeclarationMissingComma", code)
 
 	require.NotEqual(t, 0, len(errors), "Parser should report error for missing comma")
 }
@@ -462,8 +468,7 @@ func Test_ParseSelectInvalidCaseOrElse(t *testing.T) {
 			}
 		}
 	}`
-	tokens := lexer.OpenTokenStream(code)
-	_, errors := Parse("Test_ParseSelectInvalidCaseOrElse", tokens)
+	_, errors := parseCodeError(t, "Test_ParseSelectInvalidCaseOrElse", code)
 
 	require.NotEqual(t, 0, len(errors), "Parser should report error for missing case or else clause")
 }
@@ -476,8 +481,7 @@ func Test_ParseFuncParamArray(t *testing.T) {
 			ret arr[1]
 		}
 	}`
-	tokens := lexer.OpenTokenStream(code)
-	_, errors := Parse("Test_ParseFuncParamArray", tokens)
+	_, errors := parseCodeError(t, "Test_ParseFuncParamArray", code)
 
 	assert.Empty(t, errors, fmt.Sprintf("Parser should not report error for array parameter: %v", errors))
 }
@@ -488,8 +492,7 @@ func Test_ParseVariables(t *testing.T) {
 		y := x + 42
 		ret x + y
 	}`
-	tokens := lexer.OpenTokenStream(code)
-	_, errors := Parse("Test_ParseVariables", tokens)
+	_, errors := parseCodeError(t, "Test_ParseVariables", code)
 
 	assert.Empty(t, errors, fmt.Sprintf("Parser should not report error for variables: %v", errors))
 }

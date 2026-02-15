@@ -4,6 +4,11 @@ import (
 	"fmt"
 )
 
+type Source struct {
+	Name string
+	Path string
+}
+
 type Location struct {
 	Index  int // file stream index
 	Line   int // code line
@@ -34,14 +39,14 @@ const (
 )
 
 type Diagnostic struct {
-	Source   string
+	Source   *Source
 	Message  string
 	Location Location
 	Phase    PipelinePhase
 	Severity DiagnosticSeverity
 }
 
-func NewDiagnostic(source, message string, location Location, phase PipelinePhase, severity DiagnosticSeverity) *Diagnostic {
+func NewDiagnostic(source *Source, message string, location Location, phase PipelinePhase, severity DiagnosticSeverity) *Diagnostic {
 	return &Diagnostic{
 		Source:   source,
 		Message:  message,
@@ -52,7 +57,7 @@ func NewDiagnostic(source, message string, location Location, phase PipelinePhas
 }
 
 func (d *Diagnostic) Error() string {
-	return fmt.Sprintf("%s:%d:%d: %s", d.Source, d.Location.Line, d.Location.Column, d.Message)
+	return fmt.Sprintf("%s:%d:%d: %s", d.Source.Name, d.Location.Line, d.Location.Column, d.Message)
 }
 
 func (d *Diagnostic) String() string {

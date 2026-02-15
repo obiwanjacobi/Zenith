@@ -8,7 +8,7 @@ import (
 
 func RunPipeline(t *testing.T, source string) *CompilationResult {
 	opts := DefaultPipelineOptions()
-	opts.SourceCode = source
+	opts.Source = source
 	opts.TargetArch = "z80"
 	//opts.Verbose = true
 
@@ -44,7 +44,7 @@ func Example_pipeline() {
 	`
 
 	opts := DefaultPipelineOptions()
-	opts.SourceCode = sourceCode
+	opts.Source = sourceCode
 	opts.TargetArch = "z80"
 	opts.Verbose = true
 
@@ -69,7 +69,7 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 	`
 
 	opts := DefaultPipelineOptions()
-	opts.SourceCode = sourceCode
+	opts.Source = sourceCode
 	opts.TargetArch = "z80"
 
 	result, err := Pipeline(opts)
@@ -105,7 +105,7 @@ func Test_Pipeline_StopAfterParse(t *testing.T) {
 	sourceCode := `test: () u8 { ret 42 }`
 
 	opts := DefaultPipelineOptions()
-	opts.SourceCode = sourceCode
+	opts.Source = sourceCode
 	opts.StopAfterParse = true
 
 	result, err := Pipeline(opts)

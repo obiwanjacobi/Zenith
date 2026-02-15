@@ -7,7 +7,7 @@ import (
 )
 
 type parserContext struct {
-	source  string
+	source  *compiler.Source
 	tokens  lexer.TokenStream
 	current lexer.Token
 	errors  []*compiler.Diagnostic
@@ -152,7 +152,7 @@ func collectErrors(node ParserNode, errors []*compiler.Diagnostic) []*compiler.D
 	return errors
 }
 
-func Parse(source string, tokens lexer.TokenStream) (ParserNode, []*compiler.Diagnostic) {
+func Parse(source *compiler.Source, tokens lexer.TokenStream) (ParserNode, []*compiler.Diagnostic) {
 	ctx := parserContext{source, tokens, nil, make([]*compiler.Diagnostic, 0, 10)}
 	if ctx.next(skipEOL) != nil {
 		node := ctx.compilationUnit()
