@@ -482,6 +482,7 @@ All intrinsics start with a `@`.
 | `@carry(false/true/not)`     | Clear, set or toggle carry flag |
 | `@in`                        | IO input: IN                  |
 | `@out`                       | IO output: OUT                |
+| `@len(any[])`                | Returns the length of an array type |
 
 > TBD: naming. Perhaps `@memory_move()` and `@memory_find()` etc. is better?
 

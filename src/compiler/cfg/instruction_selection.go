@@ -473,9 +473,12 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 	switch op.Op {
 	case zsm.OpNegate:
 		return ctx.selector.SelectNegate(operandVR)
-
 	case zsm.OpBitwiseNot:
 		return ctx.selector.SelectBitwiseNot(operandVR)
+	case zsm.OpIncrement:
+		return ctx.selector.SelectIncrement(operandVR)
+	case zsm.OpDecrement:
+		return ctx.selector.SelectDecrement(operandVR)
 	default:
 		return nil, fmt.Errorf("unknown unary operator: %v", op.Op)
 	}

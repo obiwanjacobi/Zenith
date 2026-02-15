@@ -26,6 +26,10 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 
 	for fnName, funcCFG := range result.FunctionCFGs {
 		cfg.DumpCFG(fnName, funcCFG, cfg.DumpInstructions)
+		// Also dump interference graph
+		if ig, exists := result.InterferenceInfo[fnName]; exists {
+			cfg.DumpInterference(fnName, ig)
+		}
 	}
 
 	if result.VRAllocator != nil {

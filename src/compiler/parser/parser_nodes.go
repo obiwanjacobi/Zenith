@@ -1265,10 +1265,22 @@ func (n *expressionOperatorBinLogical) ExpressionKind() ExpressionKind {
 // expression_operator_unaryprefix (base for unary prefix operators)
 // ============================================================================
 
-type ExpressionOperatorUnaryPrefix interface {
+type UnaryType uint8
+
+const (
+	UnaryPrefix UnaryType = iota
+	UnaryPostfix
+)
+
+type ExpressionOperatorUnary interface {
+	UnaryType() UnaryType
 	Expression
 	Operand() Expression
 	Operator() lexer.Token
+}
+
+func (n *expressionOperatorUnaryPrefix) UnaryType() UnaryType {
+	return UnaryPrefix
 }
 
 type expressionOperatorUnaryPrefix struct {
@@ -1302,11 +1314,15 @@ func (n *expressionOperatorUnaryPrefix) Operator() lexer.Token {
 // ============================================================================
 
 type ExpressionOperatorUnipreArithmetic interface {
-	ExpressionOperatorUnaryPrefix
+	ExpressionOperatorUnary
 }
 
 type expressionOperatorUnipreArithmetic struct {
 	expressionOperatorUnaryPrefix
+}
+
+func (n *expressionOperatorUnipreArithmetic) UnaryType() UnaryType {
+	return UnaryPrefix
 }
 
 func (n *expressionOperatorUnipreArithmetic) Children() []ParserNode {
@@ -1334,11 +1350,15 @@ func (n *expressionOperatorUnipreArithmetic) ExpressionKind() ExpressionKind {
 // ============================================================================
 
 type ExpressionOperatorUnipreBitwise interface {
-	ExpressionOperatorUnaryPrefix
+	ExpressionOperatorUnary
 }
 
 type expressionOperatorUnipreBitwise struct {
 	expressionOperatorUnaryPrefix
+}
+
+func (n *expressionOperatorUnipreBitwise) UnaryType() UnaryType {
+	return UnaryPrefix
 }
 
 func (n *expressionOperatorUnipreBitwise) Children() []ParserNode {
@@ -1366,11 +1386,15 @@ func (n *expressionOperatorUnipreBitwise) ExpressionKind() ExpressionKind {
 // ============================================================================
 
 type ExpressionOperatorUnipreLogical interface {
-	ExpressionOperatorUnaryPrefix
+	ExpressionOperatorUnary
 }
 
 type expressionOperatorUnipreLogical struct {
 	expressionOperatorUnaryPrefix
+}
+
+func (n *expressionOperatorUnipreLogical) UnaryType() UnaryType {
+	return UnaryPrefix
 }
 
 func (n *expressionOperatorUnipreLogical) Children() []ParserNode {
@@ -1397,14 +1421,12 @@ func (n *expressionOperatorUnipreLogical) ExpressionKind() ExpressionKind {
 // expression_operator_unarypostfix (base for unary postfix operators)
 // ============================================================================
 
-type ExpressionOperatorUnaryPostfix interface {
-	Expression
-	Operand() Expression
-	Operator() lexer.Token
-}
-
 type expressionOperatorUnaryPostfix struct {
 	parserNodeData
+}
+
+func (n *expressionOperatorUnaryPostfix) UnaryType() UnaryType {
+	return UnaryPostfix
 }
 
 func (n *expressionOperatorUnaryPostfix) Children() []ParserNode {
@@ -1434,11 +1456,15 @@ func (n *expressionOperatorUnaryPostfix) Operator() lexer.Token {
 // ============================================================================
 
 type ExpressionOperatorUnipostArithmetic interface {
-	ExpressionOperatorUnaryPostfix
+	ExpressionOperatorUnary
 }
 
 type expressionOperatorUnipostArithmetic struct {
 	expressionOperatorUnaryPostfix
+}
+
+func (n *expressionOperatorUnipostArithmetic) UnaryType() UnaryType {
+	return UnaryPostfix
 }
 
 func (n *expressionOperatorUnipostArithmetic) Children() []ParserNode {
@@ -1466,7 +1492,7 @@ func (n *expressionOperatorUnipostArithmetic) ExpressionKind() ExpressionKind {
 // ============================================================================
 
 type ExpressionOperatorUnipostLogical interface {
-	ExpressionOperatorUnaryPostfix
+	ExpressionOperatorUnary
 }
 
 type expressionOperatorUnipostLogical struct {

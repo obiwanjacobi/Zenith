@@ -178,6 +178,32 @@ func (z *instructionSelectorZ80) SelectNegate(operand *VirtualRegister) (*Virtua
 	return result, nil
 }
 
+func (z *instructionSelectorZ80) SelectIncrement(operand *VirtualRegister) (*VirtualRegister, error) {
+	size := operand.Size
+	var result *VirtualRegister
+	if size == 8 {
+		result, _ := z.allocateRegistersFor(Z80_INC_R)
+		z.emit(newInstruction(Z80_INC_R, result, result))
+	} else {
+		return nil, fmt.Errorf("unsupported size for INCREMENT: %d", size)
+	}
+
+	return result, nil
+}
+
+func (z *instructionSelectorZ80) SelectDecrement(operand *VirtualRegister) (*VirtualRegister, error) {
+	size := operand.Size
+	var result *VirtualRegister
+	if size == 8 {
+		result, _ := z.allocateRegistersFor(Z80_DEC_R)
+		z.emit(newInstruction(Z80_DEC_R, result, result))
+	} else {
+		return nil, fmt.Errorf("unsupported size for DECREMENT: %d", size)
+	}
+
+	return result, nil
+}
+
 // ============================================================================
 // Bitwise Operations
 // ============================================================================

@@ -597,8 +597,8 @@ func (sa *SemanticAnalyzer) processExpression(node parser.Expression) SemExpress
 		result = sa.processLiteral(n)
 	case parser.ExpressionOperatorBinary:
 		result = sa.processBinaryOp(n, n.Operator().Id())
-	case parser.ExpressionOperatorUnaryPrefix:
-		result = sa.processUnaryPrefixOp(n)
+	case parser.ExpressionOperatorUnary:
+		result = sa.processUnaryOp(n)
 	case parser.ExpressionFunctionInvocation:
 		result = sa.processFunctionCall(n)
 	case parser.ExpressionMemberAccess:
@@ -692,7 +692,19 @@ func (sa *SemanticAnalyzer) processIdentifier(node parser.ExpressionIdentifier) 
 	}
 }
 
-func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorUnaryPrefix) SemExpression {
+func (sa *SemanticAnalyzer) processUnaryOp(node parser.ExpressionOperatorUnary) SemExpression {
+	switch node.UnaryType() {
+	case parser.UnaryPrefix:
+		return sa.processUnaryPrefixOp(node)
+	case parser.UnaryPostfix:
+		return sa.processUnaryPostfixOp(node)
+	default:
+		sa.error(fmt.Sprintf("unknown unary operator type: %v", node.UnaryType()), node)
+		return nil
+	}
+}
+
+func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorUnary) SemExpression {
 	operand := sa.processExpression(node.Operand())
 	if operand == nil {
 		return nil
@@ -718,11 +730,79 @@ func (sa *SemanticAnalyzer) processUnaryPrefixOp(node parser.ExpressionOperatorU
 				}
 			}
 		}
+
+		// For non-constant operands, we would return a SemUnaryOp node
+		return &SemUnaryOp{
+			Op:       OpNegate,
+			Operand:  operand,
+			TypeInfo: operand.Type(), // TODO: Handle type coercion for unary minus
+			astNode:  node,
+		}
 	}
 
-	// TODO: Handle other unary operators (unary plus, bitwise not, logical not)
-	sa.error(fmt.Sprintf("unary operator %s not yet implemented", node.Operator().Text()), node)
-	return nil
+	var unop UnaryOperator
+	switch opToken {
+	case lexer.TokenTilde:
+		unop = OpBitwiseNot
+	case lexer.TokenNot:
+		unop = OpLogicalNot
+	default:
+		sa.error(fmt.Sprintf("unknown unary-prefix operator: %s", node.Operator().Text()), node)
+		return nil
+	}
+
+	return &SemUnaryOp{
+		Op:       unop,
+		Operand:  operand,
+		TypeInfo: operand.Type(),
+		astNode:  node,
+	}
+}
+
+func (sa *SemanticAnalyzer) processUnaryPostfixOp(node parser.ExpressionOperatorUnary) SemExpression {
+	operand := sa.processExpression(node.Operand())
+	if operand == nil {
+		return nil
+	}
+
+	opToken := node.Operator().Id()
+
+	if opToken == lexer.TokenIncrement || opToken == lexer.TokenDecrement {
+		if constant, ok := operand.(*SemConstant); ok {
+			if numVal, ok := constant.Value.(int); ok {
+				var newVal int
+				switch opToken {
+				case lexer.TokenIncrement:
+					newVal = numVal + 1
+				case lexer.TokenDecrement:
+					newVal = numVal - 1
+				}
+
+				return &SemConstant{
+					Value:    newVal,
+					TypeInfo: operand.Type(),
+					astNode:  node,
+				}
+			}
+		}
+	}
+
+	var unop UnaryOperator
+	switch opToken {
+	case lexer.TokenIncrement:
+		unop = OpIncrement
+	case lexer.TokenDecrement:
+		unop = OpDecrement
+	default:
+		sa.error(fmt.Sprintf("unknown unary-postfix operator: %s", node.Operator().Text()), node)
+		return nil
+	}
+	return &SemUnaryOp{
+		Op:       unop,
+		Operand:  operand,
+		TypeInfo: operand.Type(),
+		astNode:  node,
+	}
 }
 
 func (sa *SemanticAnalyzer) processBinaryOp(node parser.ExpressionOperatorBinary, opToken lexer.TokenId) *SemBinaryOp {

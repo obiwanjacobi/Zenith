@@ -105,6 +105,13 @@ type InstructionSelector interface {
 
 	// SelectNegate generates instructions for negation (-a)
 	SelectNegate(operand *VirtualRegister) (*VirtualRegister, error)
+
+	// SelectIncrement generates instructions for increment (a++)
+	SelectIncrement(operand *VirtualRegister) (*VirtualRegister, error)
+
+	// SelectDecrement generates instructions for decrement (a--)
+	SelectDecrement(operand *VirtualRegister) (*VirtualRegister, error)
+
 	// ============================================================================
 	// Bitwise Operations
 	// ============================================================================

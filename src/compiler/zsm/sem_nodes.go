@@ -240,19 +240,23 @@ type SemUnaryOp struct {
 	Op       UnaryOperator
 	Operand  SemExpression
 	TypeInfo Type
-	astNode  parser.ExpressionOperatorUnaryPrefix
+	astNode  parser.ExpressionOperatorUnary
 }
 
-func (n *SemUnaryOp) ASTNode() parser.ParserNode                { return n.astNode }
-func (n *SemUnaryOp) AST() parser.ExpressionOperatorUnaryPrefix { return n.astNode }
-func (n *SemUnaryOp) Type() Type                                { return n.TypeInfo }
+func (n *SemUnaryOp) ASTNode() parser.ParserNode          { return n.astNode }
+func (n *SemUnaryOp) AST() parser.ExpressionOperatorUnary { return n.astNode }
+func (n *SemUnaryOp) Type() Type                          { return n.TypeInfo }
 
 type UnaryOperator int
 
 const (
+	// prefix
 	OpNegate UnaryOperator = iota
 	OpLogicalNot
 	OpBitwiseNot
+	// postfix
+	OpIncrement
+	OpDecrement
 )
 
 // SemFunctionCall represents a function call
@@ -287,9 +291,9 @@ type SemSubscript struct {
 	astNode  parser.ExpressionSubscript
 }
 
-func (n *SemSubscript) ASTNode() parser.ParserNode        { return n.astNode }
-func (n *SemSubscript) AST() parser.ExpressionSubscript   { return n.astNode }
-func (n *SemSubscript) Type() Type                        { return n.TypeInfo }
+func (n *SemSubscript) ASTNode() parser.ParserNode      { return n.astNode }
+func (n *SemSubscript) AST() parser.ExpressionSubscript { return n.astNode }
+func (n *SemSubscript) Type() Type                      { return n.TypeInfo }
 
 // SemTypeInitializer represents struct initialization
 type SemTypeInitializer struct {
