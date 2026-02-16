@@ -190,6 +190,10 @@ type InstructionSelector interface {
 	// SelectStore generates instructions to store to memory
 	SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error
 
+	// SelectLoadStackAddress generates instructions to load the address of a stack location
+	// stackOffset is the offset from SP, returns a VR containing the address (16-bit)
+	SelectLoadStackAddress(stackOffset int) (*VirtualRegister, error)
+
 	// SelectLoadConstant generates instructions to load an immediate value
 	SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error)
 

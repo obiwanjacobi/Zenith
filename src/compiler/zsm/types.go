@@ -28,11 +28,17 @@ func (t *ArrayType) Name() string {
 	return t.elementType.Name() + "[]"
 }
 
+// Size returns the size of the array variable itself (always a pointer)
 func (t *ArrayType) Size() int {
+	return 2 // Arrays are always represented by a pointer (2 bytes on Z80)
+}
+
+// DataSize returns the size of the actual array data in memory
+func (t *ArrayType) DataSize() int {
 	if t.length > 0 {
 		return t.elementType.Size() * t.length
 	}
-	return 2 // Pointer size for unsized arrays
+	return 0 // Unsized arrays have no fixed data size
 }
 
 func (t *ArrayType) ElementType() Type { return t.elementType }

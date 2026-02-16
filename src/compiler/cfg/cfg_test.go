@@ -65,19 +65,25 @@ func Test_CFG_EmptyFunction(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Should have entry and exit blocks
+	// Should have entry and exit blocks (reserved for prologue/epilogue)
 	assert.NotNil(t, cfg.Entry)
 	assert.NotNil(t, cfg.Exit)
 	assert.Equal(t, LabelEntry, cfg.Entry.Label)
 	assert.Equal(t, LabelExit, cfg.Exit.Label)
 
-	// Entry should connect to exit
-	assert.Equal(t, 1, len(cfg.Entry.Successors))
-	assert.Equal(t, cfg.Exit, cfg.Entry.Successors[0])
+	// Entry and exit should be empty (reserved for prologue/epilogue)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
 
-	// Exit should have entry as predecessor
-	assert.Equal(t, 1, len(cfg.Exit.Predecessors))
-	assert.Equal(t, cfg.Entry, cfg.Exit.Predecessors[0])
+	// Entry should connect to first block (body), which connects to exit
+	assert.Equal(t, 1, len(cfg.Entry.Successors))
+	firstBlock := cfg.Entry.Successors[0]
+	assert.NotEqual(t, cfg.Exit, firstBlock, "Entry should not connect directly to exit")
+	assert.Equal(t, 0, len(firstBlock.Instructions), "Empty function has empty first block")
+
+	// First block should connect to exit
+	assert.Equal(t, 1, len(firstBlock.Successors))
+	assert.Equal(t, cfg.Exit, firstBlock.Successors[0])
 }
 
 func Test_CFG_SimpleStatements(t *testing.T) {
@@ -88,12 +94,18 @@ func Test_CFG_SimpleStatements(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// All statements should be in the entry block
-	assert.Equal(t, 3, len(cfg.Entry.Instructions))
+	// Entry and exit are reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
 
-	// Entry connects to exit
+	// All statements should be in the first block (body)
 	assert.Equal(t, 1, len(cfg.Entry.Successors))
-	assert.Equal(t, cfg.Exit, cfg.Entry.Successors[0])
+	firstBlock := cfg.Entry.Successors[0]
+	assert.Equal(t, 3, len(firstBlock.Instructions))
+
+	// First block connects to exit
+	assert.Equal(t, 1, len(firstBlock.Successors))
+	assert.Equal(t, cfg.Exit, firstBlock.Successors[0])
 }
 
 // ============================================================================
@@ -108,29 +120,37 @@ func Test_CFG_IfStatement(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Should have: entry, if.then, if.merge, exit
-	assert.GreaterOrEqual(t, len(cfg.Blocks), 4)
+	// Should have: entry, function, if.then, if.merge, exit
+	assert.GreaterOrEqual(t, len(cfg.Blocks), 5)
 
 	// Find blocks
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
 	thenBlock := findBlockByLabel(cfg, LabelIfThen)
 	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
 
+	require.NotNil(t, firstBlock, "Should have function block")
 	require.NotNil(t, thenBlock, "Should have if.then block")
 	require.NotNil(t, mergeBlock, "Should have if.merge block")
 
-	// Entry should have if statement
-	assert.Equal(t, 1, len(cfg.Entry.Instructions))
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
+	// First block should have if statement
+	assert.Equal(t, 1, len(firstBlock.Instructions))
 
 	// Then block should have 1 instruction
 	assert.Equal(t, 1, len(thenBlock.Instructions))
 
 	// Check edges:
-	// entry -> then
-	assert.Contains(t, cfg.Entry.Successors, thenBlock)
-	assert.Contains(t, thenBlock.Predecessors, cfg.Entry)
-	// entry -> merge (condition false)
-	assert.Contains(t, cfg.Entry.Successors, mergeBlock)
-	assert.Contains(t, mergeBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> then
+	assert.Contains(t, firstBlock.Successors, thenBlock)
+	assert.Contains(t, thenBlock.Predecessors, firstBlock)
+	// firstBlock -> merge (condition false)
+	assert.Contains(t, firstBlock.Successors, mergeBlock)
+	assert.Contains(t, mergeBlock.Predecessors, firstBlock)
 	// then -> merge
 	assert.Contains(t, thenBlock.Successors, mergeBlock)
 	assert.Contains(t, mergeBlock.Predecessors, thenBlock)
@@ -149,29 +169,37 @@ func Test_CFG_IfElseStatement(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Should have: entry, if.then, if.else, if.merge, exit
-	assert.GreaterOrEqual(t, len(cfg.Blocks), 5)
+	// Should have: entry, function, if.then, if.else, if.merge, exit
+	assert.GreaterOrEqual(t, len(cfg.Blocks), 6)
 
 	// Find blocks
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
 	thenBlock := findBlockByLabel(cfg, LabelIfThen)
 	elseBlock := findBlockByLabel(cfg, LabelIfElse)
 	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
 
+	require.NotNil(t, firstBlock)
 	require.NotNil(t, thenBlock)
 	require.NotNil(t, elseBlock)
 	require.NotNil(t, mergeBlock)
+
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
 
 	// Then and else blocks should each have 1 instruction
 	assert.Equal(t, 1, len(thenBlock.Instructions))
 	assert.Equal(t, 1, len(elseBlock.Instructions))
 
 	// Check edges:
-	// entry -> then
-	assert.Contains(t, cfg.Entry.Successors, thenBlock)
-	assert.Contains(t, thenBlock.Predecessors, cfg.Entry)
-	// entry -> else
-	assert.Contains(t, cfg.Entry.Successors, elseBlock)
-	assert.Contains(t, elseBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> then
+	assert.Contains(t, firstBlock.Successors, thenBlock)
+	assert.Contains(t, thenBlock.Predecessors, firstBlock)
+	// firstBlock -> else
+	assert.Contains(t, firstBlock.Successors, elseBlock)
+	assert.Contains(t, elseBlock.Predecessors, firstBlock)
 	// then -> merge
 	assert.Contains(t, thenBlock.Successors, mergeBlock)
 	assert.Contains(t, mergeBlock.Predecessors, thenBlock)
@@ -195,29 +223,37 @@ func Test_CFG_IfElsifElseStatement(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Should have: entry, if.then, elsif.0.cond, elsif.0.then, if.else, if.merge, exit
-	assert.GreaterOrEqual(t, len(cfg.Blocks), 7)
+	// Should have: entry, function, if.then, elsif.0.cond, elsif.0.then, if.else, if.merge, exit
+	assert.GreaterOrEqual(t, len(cfg.Blocks), 8)
 
 	// Find blocks
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
 	thenBlock := findBlockByLabel(cfg, LabelIfThen)
 	elsifCondBlock := findBlockByLabel(cfg, LabelElsifCond)
 	elsifThenBlock := findBlockByLabel(cfg, LabelElsifThen)
 	elseBlock := findBlockByLabel(cfg, LabelIfElse)
 	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
 
+	require.NotNil(t, firstBlock)
 	require.NotNil(t, thenBlock)
 	require.NotNil(t, elsifCondBlock)
 	require.NotNil(t, elsifThenBlock)
 	require.NotNil(t, elseBlock)
 	require.NotNil(t, mergeBlock)
 
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
 	// Check edges:
-	// entry -> then
-	assert.Contains(t, cfg.Entry.Successors, thenBlock)
-	assert.Contains(t, thenBlock.Predecessors, cfg.Entry)
-	// entry -> elsif.cond
-	assert.Contains(t, cfg.Entry.Successors, elsifCondBlock)
-	assert.Contains(t, elsifCondBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> then
+	assert.Contains(t, firstBlock.Successors, thenBlock)
+	assert.Contains(t, thenBlock.Predecessors, firstBlock)
+	// firstBlock -> elsif.cond
+	assert.Contains(t, firstBlock.Successors, elsifCondBlock)
+	assert.Contains(t, elsifCondBlock.Predecessors, firstBlock)
 	// elsif.cond -> elsif.then
 	assert.Contains(t, elsifCondBlock.Successors, elsifThenBlock)
 	assert.Contains(t, elsifThenBlock.Predecessors, elsifCondBlock)
@@ -250,24 +286,32 @@ func Test_CFG_ForLoop(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Should have: entry, for.cond, for.body, for.inc, for.exit, exit
-	assert.GreaterOrEqual(t, len(cfg.Blocks), 6)
+	// Should have: entry, function, for.cond, for.body, for.inc, for.exit, exit
+	assert.GreaterOrEqual(t, len(cfg.Blocks), 7)
 
 	// Find blocks
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
 	condBlock := findBlockByLabel(cfg, LabelForCond)
 	bodyBlock := findBlockByLabel(cfg, LabelForBody)
 	incBlock := findBlockByLabel(cfg, LabelForInc)
 	exitBlock := findBlockByLabel(cfg, LabelForExit)
 
+	require.NotNil(t, firstBlock)
 	require.NotNil(t, condBlock)
 	require.NotNil(t, bodyBlock)
 	require.NotNil(t, incBlock)
 	require.NotNil(t, exitBlock)
 
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
 	// Check edges:
-	// entry -> cond
-	assert.Contains(t, cfg.Entry.Successors, condBlock)
-	assert.Contains(t, condBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> cond
+	assert.Contains(t, firstBlock.Successors, condBlock)
+	assert.Contains(t, condBlock.Predecessors, firstBlock)
 	// cond -> body (loop continues)
 	assert.Contains(t, condBlock.Successors, bodyBlock)
 	assert.Contains(t, bodyBlock.Predecessors, condBlock)
@@ -294,18 +338,26 @@ func Test_CFG_ForLoopOnlyCondition(t *testing.T) {
 	cfg := buildCFGFromCode(t, code)
 
 	// Should still have loop structure
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
 	condBlock := findBlockByLabel(cfg, LabelForCond)
 	bodyBlock := findBlockByLabel(cfg, LabelForBody)
 	incBlock := findBlockByLabel(cfg, LabelForInc)
 
+	require.NotNil(t, firstBlock)
 	require.NotNil(t, condBlock)
 	require.NotNil(t, bodyBlock)
 	require.NotNil(t, incBlock)
 
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
 	// Check edges:
-	// entry -> cond
-	assert.Contains(t, cfg.Entry.Successors, condBlock)
-	assert.Contains(t, condBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> cond
+	assert.Contains(t, firstBlock.Successors, condBlock)
+	assert.Contains(t, condBlock.Predecessors, firstBlock)
 	// cond -> body
 	assert.Contains(t, condBlock.Successors, bodyBlock)
 	assert.Contains(t, bodyBlock.Predecessors, condBlock)
@@ -364,16 +416,26 @@ func Test_CFG_SelectStatement(t *testing.T) {
 	require.NotNil(t, elseBlock)
 	require.NotNil(t, mergeBlock)
 
+	// Find first block
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
+	require.NotNil(t, firstBlock)
+
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
 	// Check edges:
-	// entry -> case0
-	assert.Contains(t, cfg.Entry.Successors, case0Block)
-	assert.Contains(t, case0Block.Predecessors, cfg.Entry)
-	// entry -> case1
-	assert.Contains(t, cfg.Entry.Successors, case1Block)
-	assert.Contains(t, case1Block.Predecessors, cfg.Entry)
-	// entry -> else
-	assert.Contains(t, cfg.Entry.Successors, elseBlock)
-	assert.Contains(t, elseBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> case0
+	assert.Contains(t, firstBlock.Successors, case0Block)
+	assert.Contains(t, case0Block.Predecessors, firstBlock)
+	// firstBlock -> case1
+	assert.Contains(t, firstBlock.Successors, case1Block)
+	assert.Contains(t, case1Block.Predecessors, firstBlock)
+	// firstBlock -> else
+	assert.Contains(t, firstBlock.Successors, elseBlock)
+	assert.Contains(t, elseBlock.Predecessors, firstBlock)
 	// case0 -> merge
 	assert.Contains(t, case0Block.Successors, mergeBlock)
 	assert.Contains(t, mergeBlock.Predecessors, case0Block)
@@ -419,16 +481,26 @@ func Test_CFG_SelectStatementNoElse(t *testing.T) {
 	require.NotNil(t, case1Block)
 	require.NotNil(t, mergeBlock)
 
+	// Find first block
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
+	require.NotNil(t, firstBlock)
+
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
 	// Check edges:
-	// entry -> case0
-	assert.Contains(t, cfg.Entry.Successors, case0Block)
-	assert.Contains(t, case0Block.Predecessors, cfg.Entry)
-	// entry -> case1
-	assert.Contains(t, cfg.Entry.Successors, case1Block)
-	assert.Contains(t, case1Block.Predecessors, cfg.Entry)
-	// entry -> merge (no match fall-through)
-	assert.Contains(t, cfg.Entry.Successors, mergeBlock)
-	assert.Contains(t, mergeBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> case0
+	assert.Contains(t, firstBlock.Successors, case0Block)
+	assert.Contains(t, case0Block.Predecessors, firstBlock)
+	// firstBlock -> case1
+	assert.Contains(t, firstBlock.Successors, case1Block)
+	assert.Contains(t, case1Block.Predecessors, firstBlock)
+	// firstBlock -> merge (no match fall-through)
+	assert.Contains(t, firstBlock.Successors, mergeBlock)
+	assert.Contains(t, mergeBlock.Predecessors, firstBlock)
 	// case0 -> merge
 	assert.Contains(t, case0Block.Successors, mergeBlock)
 	assert.Contains(t, mergeBlock.Predecessors, case0Block)
@@ -451,14 +523,22 @@ func Test_CFG_ReturnStatement(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Entry should have 2 instructions (variable decl + return)
-	assert.Equal(t, 2, len(cfg.Entry.Instructions))
+	// Find first block
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
+	require.NotNil(t, firstBlock)
 
-	// Entry should connect to exit (via return)
-	assert.Contains(t, cfg.Entry.Successors, cfg.Exit)
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
+	// First block should have 2 instructions (variable decl + return)
+	assert.Equal(t, 2, len(firstBlock.Instructions))
+
+	// First block should connect to exit (via return)
+	assert.Contains(t, firstBlock.Successors, cfg.Exit)
 
 	// Verify the return instruction is present
-	retStmt, ok := cfg.Entry.Instructions[1].(*zsm.SemReturn)
+	retStmt, ok := firstBlock.Instructions[1].(*zsm.SemReturn)
 	require.True(t, ok, "Second instruction should be SemReturn")
 	assert.Nil(t, retStmt.Value, "Return without value should have nil Value")
 }
@@ -470,14 +550,22 @@ func Test_CFG_ReturnStatementWithValue(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Entry should have 2 instructions
-	assert.Equal(t, 2, len(cfg.Entry.Instructions))
+	// Find first block
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
+	require.NotNil(t, firstBlock)
 
-	// Entry should connect to exit
-	assert.Contains(t, cfg.Entry.Successors, cfg.Exit)
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
+	// First block should have 2 instructions
+	assert.Equal(t, 2, len(firstBlock.Instructions))
+
+	// First block should connect to exit
+	assert.Contains(t, firstBlock.Successors, cfg.Exit)
 
 	// Verify the return instruction has a value
-	retStmt, ok := cfg.Entry.Instructions[1].(*zsm.SemReturn)
+	retStmt, ok := firstBlock.Instructions[1].(*zsm.SemReturn)
 	require.True(t, ok, "Second instruction should be SemReturn")
 	assert.NotNil(t, retStmt.Value, "Return with value should have non-nil Value")
 }
@@ -491,9 +579,18 @@ func Test_CFG_ReturnInBranch(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Find the then block
+	// Find blocks
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
 	thenBlock := findBlockByLabel(cfg, LabelIfThen)
+	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
+
+	require.NotNil(t, firstBlock)
 	require.NotNil(t, thenBlock)
+	require.NotNil(t, mergeBlock)
+
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
 
 	// Then block should have return statement
 	require.Equal(t, 1, len(thenBlock.Instructions))
@@ -501,17 +598,15 @@ func Test_CFG_ReturnInBranch(t *testing.T) {
 	require.True(t, ok, "Then block should contain SemReturn")
 	assert.NotNil(t, retStmt.Value)
 
-	// Find merge block
-	mergeBlock := findBlockByLabel(cfg, LabelIfMerge)
-	require.NotNil(t, mergeBlock)
-
 	// Check edges:
-	// entry -> then
-	assert.Contains(t, cfg.Entry.Successors, thenBlock)
-	assert.Contains(t, thenBlock.Predecessors, cfg.Entry)
-	// entry -> merge (condition false)
-	assert.Contains(t, cfg.Entry.Successors, mergeBlock)
-	assert.Contains(t, mergeBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> then
+	assert.Contains(t, firstBlock.Successors, thenBlock)
+	assert.Contains(t, thenBlock.Predecessors, firstBlock)
+	// firstBlock -> merge (condition false)
+	assert.Contains(t, firstBlock.Successors, mergeBlock)
+	assert.Contains(t, mergeBlock.Predecessors, firstBlock)
 	// then -> exit (via return)
 	assert.Contains(t, thenBlock.Successors, cfg.Exit)
 	assert.Contains(t, cfg.Exit.Predecessors, thenBlock)
@@ -534,25 +629,33 @@ func Test_CFG_NestedIfInFor(t *testing.T) {
 	}`
 	cfg := buildCFGFromCode(t, code)
 
-	// Should have loop structure with if inside body
+	// Find blocks
+	firstBlock := findBlockByLabel(cfg, LabelFunction)
 	forBodyBlock := findBlockByLabel(cfg, LabelForBody)
-	require.NotNil(t, forBodyBlock)
 	forCondBlock := findBlockByLabel(cfg, LabelForCond)
-	require.NotNil(t, forCondBlock)
 	forIncBlock := findBlockByLabel(cfg, LabelForInc)
-	require.NotNil(t, forIncBlock)
 	forExitBlock := findBlockByLabel(cfg, LabelForExit)
-	require.NotNil(t, forExitBlock)
-
 	ifBodyBlock := findBlockByLabel(cfg, LabelIfThen)
-	require.NotNil(t, ifBodyBlock)
 	ifMergeBlock := findBlockByLabel(cfg, LabelIfMerge)
+
+	require.NotNil(t, firstBlock)
+	require.NotNil(t, forBodyBlock)
+	require.NotNil(t, forCondBlock)
+	require.NotNil(t, forIncBlock)
+	require.NotNil(t, forExitBlock)
+	require.NotNil(t, ifBodyBlock)
 	require.NotNil(t, ifMergeBlock)
 
+	// Entry/exit reserved (empty)
+	assert.Equal(t, 0, len(cfg.Entry.Instructions))
+	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+
 	// Check loop edges:
-	// entry -> cond
-	assert.Contains(t, cfg.Entry.Successors, forCondBlock)
-	assert.Contains(t, forCondBlock.Predecessors, cfg.Entry)
+	// entry -> firstBlock
+	assert.Contains(t, cfg.Entry.Successors, firstBlock)
+	// firstBlock -> cond
+	assert.Contains(t, firstBlock.Successors, forCondBlock)
+	assert.Contains(t, forCondBlock.Predecessors, firstBlock)
 	// cond -> body
 	assert.Contains(t, forCondBlock.Successors, forBodyBlock)
 	assert.Contains(t, forBodyBlock.Predecessors, forCondBlock)

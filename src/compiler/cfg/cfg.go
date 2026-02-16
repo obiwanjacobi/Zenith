@@ -18,6 +18,7 @@ type BlockLabel int
 const (
 	LabelEntry BlockLabel = iota
 	LabelExit
+	LabelFunction
 	LabelIfThen
 	LabelIfElse
 	LabelIfMerge
@@ -40,6 +41,8 @@ func (l BlockLabel) String() string {
 		return "entry"
 	case LabelExit:
 		return "exit"
+	case LabelFunction:
+		return "function"
 	case LabelIfThen:
 		return "if.then"
 	case LabelIfElse:
@@ -115,12 +118,18 @@ func NewCFGBuilder() *CFGBuilder {
 
 // BuildCFG transforms a function's IR into a CFG
 func (b *CFGBuilder) BuildCFG(funcDecl *zsm.SemFunctionDecl) *CFG {
-	// Create entry block
+	// Create entry block (reserved for prologue only)
 	entry := b.newBlock(LabelEntry, -1)
-	b.currentBlock = entry
 
-	// Create exit block (for returns)
+	// Create exit block (reserved for epilogue + RET only)
 	exit := b.newBlock(LabelExit, -1)
+
+	// Create first "real" block for function body
+	firstBlock := b.newBlock(LabelFunction, 0) // Entry with ID for disambiguation
+	b.currentBlock = firstBlock
+
+	// Entry block flows directly to first block (prologue → body)
+	b.addEdge(entry, firstBlock)
 
 	// Process function body
 	if funcDecl.Body != nil {
@@ -128,6 +137,7 @@ func (b *CFGBuilder) BuildCFG(funcDecl *zsm.SemFunctionDecl) *CFG {
 	}
 
 	// Connect current block to exit if it doesn't already have successors
+	// (handles implicit return at end of function)
 	if len(b.currentBlock.Successors) == 0 {
 		b.addEdge(b.currentBlock, exit)
 	}

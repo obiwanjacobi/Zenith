@@ -23,6 +23,7 @@ var Z80RegL = []*Register{&RegL}
 var Z80RegHL = []*Register{&RegHL}
 var Z80RegDE = []*Register{&RegDE}
 var Z80RegBC = []*Register{&RegBC}
+var Z80RegSP = []*Register{&RegSP}
 
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
 func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSelector {
@@ -621,6 +622,25 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error) {
 	val := value.(int)
 	result := z.vrAlloc.AllocateImmediate(int32(val), size)
+	return result, nil
+}
+
+// SelectLoadStackAddress generates instructions to compute the address of a stack location
+// Returns a VR containing SP + stackOffset
+func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset int) (*VirtualRegister, error) {
+	// On Z80: LD HL, offset; ADD HL, SP
+	// Result is in HL (address of stack location)
+
+	// Load offset into HL
+	offsetVR := z.vrAlloc.AllocateImmediate(int32(stackOffset), Bits16)
+	result := z.vrAlloc.Allocate(Z80RegHL)
+	z.emit(newInstruction(Z80_LD_RR_NN, result, offsetVR))
+
+	// Add SP to HL: HL = HL + SP
+	// Note: Z80 ADD HL, RR adds a register pair to HL
+	vrSP := z.vrAlloc.Allocate(Z80RegSP)
+	z.emit(newInstruction(Z80_ADD_HL_RR, result, vrSP))
+
 	return result, nil
 }
 

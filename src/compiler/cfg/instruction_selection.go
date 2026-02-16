@@ -25,6 +25,10 @@ type InstructionSelectionContext struct {
 
 	// Current basic block being processed
 	currentBlock *BasicBlock
+
+	// Stack space allocated for local variables (arrays, structs)
+	// This tracks space allocated BEFORE register allocation spills
+	localStackOffset int
 }
 
 // NewInstructionSelectionContext creates a new context for instruction selection
@@ -84,19 +88,37 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 		}
 	}
 
-	// TODO: would probably need access to the symbolToVReg map and the CFG
-	ctx.selector.SelectFunctionPrologue(cfg.FunctionDecl)
-
-	// Process each basic block in the CFG
+	// Process each basic block in the CFG (skip entry and exit - they're reserved)
 	for _, block := range cfg.Blocks {
+		// Skip entry and exit blocks - they're reserved for prologue/epilogue only
+		if block == cfg.Entry || block == cfg.Exit {
+			continue
+		}
+
 		if err := ctx.selectBasicBlock(block); err != nil {
 			return err
 		}
 	}
 
+	// Generate prologue in the reserved entry block
+	// Note: Prologue emits instructions to currentBlock, so we set it to entry
+	ctx.selector.SetCurrentBlock(cfg.Entry)
+	ctx.selector.SelectFunctionPrologue(cfg.FunctionDecl)
+
+	// Generate epilogue in the reserved exit block
+	// The exit block is reached by all return statements
+	ctx.selector.SetCurrentBlock(cfg.Exit)
 	ctx.selector.SelectFunctionEpilogue(cfg.FunctionDecl)
 
 	return nil
+}
+
+// allocateStackSpace allocates space on the stack for local data (arrays, structs)
+// Returns the offset from SP where the data is located
+func (ctx *InstructionSelectionContext) allocateStackSpace(size int) int {
+	offset := ctx.localStackOffset
+	ctx.localStackOffset += size
+	return offset
 }
 
 // selectBasicBlock processes a single basic block
@@ -238,15 +260,54 @@ func (ctx *InstructionSelectionContext) selectStatement(stmt zsm.SemStatement) e
 // selectVariableDecl processes a variable declaration
 func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariableDecl) error {
 	// Allocate a VirtualRegister for this variable
+	// For arrays, this will be a pointer (2 bytes) since ArrayType.Size() returns 2
 	regSize := RegisterSize(decl.TypeInfo.Size() * 8) // Convert bytes to bits
-	var regs []*Register
-	if regSize == Bits8 {
-		regs = Z80Registers8
+
+	var vr *VirtualRegister
+
+	// Special handling for array types
+	if arrayType, ok := decl.TypeInfo.(*zsm.ArrayType); ok {
+		if arrayType.Length() > 0 {
+			// Fixed-size array: allocate stack space for array data
+			dataSize := arrayType.DataSize()
+			dataOffset := ctx.allocateStackSpace(dataSize)
+
+			// Allocate stack space for the pointer variable itself
+			pointerOffset := ctx.allocateStackSpace(decl.TypeInfo.Size())
+
+			// Create VR backed by stack location for the pointer
+			vr = ctx.vrAlloc.AllocateWithStackHome(decl.Symbol.Name, regSize, uint8(pointerOffset))
+			ctx.symbolToVReg[decl.Symbol] = vr
+
+			// Compute address of array data: SP + dataOffset
+			addressVR, err := ctx.selector.SelectLoadStackAddress(dataOffset)
+			if err != nil {
+				return err
+			}
+
+			// Initialize the pointer variable with the computed address
+			err = ctx.selector.SelectMove(vr, addressVR, regSize)
+			if err != nil {
+				return err
+			}
+
+			// Array pointer now references the allocated (but uninitialized) array data
+		} else {
+			// Dynamic/zero-length array: allocate as regular VR
+			vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+			ctx.symbolToVReg[decl.Symbol] = vr
+		}
 	} else {
-		regs = Z80Registers16
+		// Non-array types: allocate as regular VR
+		var regs []*Register
+		if regSize == Bits8 {
+			regs = Z80Registers8
+		} else {
+			regs = Z80Registers16
+		}
+		vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regs)
+		ctx.symbolToVReg[decl.Symbol] = vr
 	}
-	vr := ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regs)
-	ctx.symbolToVReg[decl.Symbol] = vr
 
 	// If there's an initializer, evaluate it and assign
 	if decl.Initializer != nil {
@@ -256,6 +317,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 		}
 
 		// Generate move instruction
+		// For arrays, this moves the pointer from the initializer to the variable
 		err = ctx.selector.SelectMove(vr, initVR, regSize)
 		if err != nil {
 			return err

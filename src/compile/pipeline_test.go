@@ -161,7 +161,7 @@ func Test_Pipeline_Max(t *testing.T) {
 
 func Test_Pipeline_ArrMax(t *testing.T) {
 	sourceCode := `
-		max: (arr: u8[]) u8 {
+		arrMax: (arr: u8[]) u8 {
 			if arr[0] > arr[1] {
 				ret arr[0]
 			} else {
@@ -174,10 +174,19 @@ func Test_Pipeline_ArrMax(t *testing.T) {
 }
 
 func Test_Pipeline_Variables(t *testing.T) {
-	sourceCode := `max: (p: u8) u8 {
+	sourceCode := `variables: (p: u8) u8 {
 		x := p + 42
 		y := x + 42
 		ret x + y + p
+	}`
+
+	RunPipeline(t, sourceCode)
+}
+
+func Test_Pipeline_LocalArray(t *testing.T) {
+	sourceCode := `localArr: () {
+		x: u8[]
+		y: u16[2]
 	}`
 
 	RunPipeline(t, sourceCode)
