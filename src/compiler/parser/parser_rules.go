@@ -536,6 +536,74 @@ func (ctx *parserContext) typeInitializerField() ParserNode {
 }
 
 // ============================================================================
+// array_initializer: '[' (expression (',' expression)*)? ']'
+// ============================================================================
+
+func (ctx *parserContext) arrayInitializer() ParserNode {
+	mark := ctx.mark()
+
+	if !ctx.is(lexer.TokenBracketOpen) {
+		return nil
+	}
+	ctx.next(skipEOL) // consume '['
+
+	children := []ParserNode{}
+	errors := make([]*compiler.Diagnostic, 0)
+
+	// Check for empty array: []
+	if ctx.is(lexer.TokenBracketClose) {
+		ctx.next(skipEOL) // consume ']'
+		return &arrayInitializer{
+			parserNodeData: parserNodeData{
+				_source:   ctx.source,
+				_children: children,
+				_tokens:   ctx.fromMark(mark),
+				_errors:   errors,
+			},
+		}
+	}
+
+	// Parse first expression
+	expr := ctx.expression()
+	if expr == nil {
+		ctx.gotoMark(mark)
+		return nil
+	}
+	children = append(children, expr)
+
+	for ctx.is(lexer.TokenComma) {
+		ctx.next(skipEOL) // consume ','
+
+		// Allow trailing comma before ']'
+		if ctx.is(lexer.TokenBracketClose) {
+			break
+		}
+
+		expr := ctx.expression()
+		if expr == nil {
+			ctx.appendError(&errors, "expected expression after ','")
+			break
+		}
+		children = append(children, expr)
+	}
+
+	if !ctx.is(lexer.TokenBracketClose) {
+		ctx.appendError(&errors, "expected ']' to close array initializer")
+	} else {
+		ctx.next(skipEOL) // consume ']'
+	}
+
+	return &arrayInitializer{
+		parserNodeData: parserNodeData{
+			_source:   ctx.source,
+			_children: children,
+			_tokens:   ctx.fromMark(mark),
+			_errors:   errors,
+		},
+	}
+}
+
+// ============================================================================
 // type_alias: 'type' identifier '=' type_ref end
 // ============================================================================
 
@@ -1317,7 +1385,9 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 // expressionPrimary: handles base expressions (literals, identifiers, parentheses, etc.)
 func (ctx *parserContext) expressionPrimary() ParserNode {
 	// Try alternatives in order
+	// Array literals use [] and precedence uses (), so no ambiguity
 	return ctx.parseOr([]func() ParserNode{
+		ctx.expressionArrayInitializer,
 		ctx.expressionPrecedence,
 		ctx.expressionFunctionInvocation,
 		ctx.expressionTypeInitializer,
@@ -1403,6 +1473,24 @@ func (ctx *parserContext) expressionFunctionInvocation() ParserNode {
 		return nil
 	}
 	return node
+}
+
+// expression_array_initializer: array_initializer
+func (ctx *parserContext) expressionArrayInitializer() ParserNode {
+	mark := ctx.mark()
+
+	arrayInit := ctx.arrayInitializer()
+	if arrayInit == nil {
+		return nil
+	}
+
+	return &expressionArrayInitializer{
+		parserNodeData: parserNodeData{
+			_source:   ctx.source,
+			_children: []ParserNode{arrayInit},
+			_tokens:   ctx.fromMark(mark),
+		},
+	}
 }
 
 // expression_type_initializer: type_ref type_initializer

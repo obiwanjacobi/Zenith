@@ -307,6 +307,17 @@ func (n *SemTypeInitializer) ASTNode() parser.ParserNode            { return n.a
 func (n *SemTypeInitializer) AST() parser.ExpressionTypeInitializer { return n.astNode }
 func (n *SemTypeInitializer) Type() Type                            { return n.TypeInfo }
 
+// SemArrayInitializer represents array initialization [1, 2, 3]
+type SemArrayInitializer struct {
+	Elements []SemExpression
+	TypeInfo Type
+	astNode  parser.ExpressionArrayInitializer
+}
+
+func (n *SemArrayInitializer) ASTNode() parser.ParserNode             { return n.astNode }
+func (n *SemArrayInitializer) AST() parser.ExpressionArrayInitializer { return n.astNode }
+func (n *SemArrayInitializer) Type() Type                             { return n.TypeInfo }
+
 // SemFieldInit represents a field initialization in a struct literal
 type SemFieldInit struct {
 	Field *StructField

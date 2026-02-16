@@ -1035,3 +1035,106 @@ func Test_Analyze_CallGraph_NestedFunctionCalls(t *testing.T) {
 	allFuncs := semCU.CallGraph.GetAllFunctions()
 	assert.Equal(t, 3, len(allFuncs))
 }
+
+// ============================================================================
+// Array Initializer Tests
+// ============================================================================
+
+func Test_Analyze_ArrayInitializer(t *testing.T) {
+	code := `arr: u8[] = [1, 2, 3, 4]`
+	semCU, errors := analyzeCode(t, "Test_Analyze_ArrayInitializer", code)
+	requireNoErrors(t, errors)
+
+	require.Equal(t, 1, len(semCU.Declarations))
+	varDecl, ok := semCU.Declarations[0].(*SemVariableDecl)
+	require.True(t, ok, "Should be variable declaration")
+
+	// Check that initializer is array initializer
+	arrayInit, ok := varDecl.Initializer.(*SemArrayInitializer)
+	require.True(t, ok, "Initializer should be array initializer")
+
+	// Check array has 4 elements
+	assert.Equal(t, 4, len(arrayInit.Elements))
+
+	// Check array type
+	arrayType, ok := arrayInit.Type().(*ArrayType)
+	require.True(t, ok, "Type should be array")
+	assert.Equal(t, U8Type, arrayType.ElementType())
+	assert.Equal(t, 4, arrayType.Length())
+}
+
+func Test_Analyze_ArrayInitializerEmpty(t *testing.T) {
+	code := `arr: u8[] = []`
+	semCU, errors := analyzeCode(t, "Test_Analyze_ArrayInitializerEmpty", code)
+	requireNoErrors(t, errors)
+
+	require.Equal(t, 1, len(semCU.Declarations))
+	varDecl, ok := semCU.Declarations[0].(*SemVariableDecl)
+	require.True(t, ok, "Should be variable declaration")
+
+	// Check that initializer is array initializer
+	arrayInit, ok := varDecl.Initializer.(*SemArrayInitializer)
+	require.True(t, ok, "Initializer should be array initializer")
+
+	// Check array is empty
+	assert.Equal(t, 0, len(arrayInit.Elements))
+
+	// Check array type (defaults to u8[])
+	arrayType, ok := arrayInit.Type().(*ArrayType)
+	require.True(t, ok, "Type should be array")
+	assert.Equal(t, U8Type, arrayType.ElementType())
+	assert.Equal(t, 0, arrayType.Length())
+}
+
+func Test_Analyze_ArrayInitializerTypeMismatch(t *testing.T) {
+	code := `arr: u8[] = [1, 256, 3]` // 256 is u16, others are u8
+	_, errors := analyzeCode(t, "Test_Analyze_ArrayInitializerTypeMismatch", code)
+
+	require.NotEqual(t, 0, len(errors), "Should have type mismatch error")
+	assert.Contains(t, errors[0].Error(), "type mismatch")
+}
+
+func Test_Analyze_ArrayInitializerWithSubscript(t *testing.T) {
+	code := `test: () u8 {
+		arr: u8[] = [10, 20, 30, 40]
+		x: u8 = arr[2]
+		ret x
+	}`
+	semCU, errors := analyzeCode(t, "Test_Analyze_ArrayInitializerWithSubscript", code)
+	requireNoErrors(t, errors)
+
+	require.Equal(t, 1, len(semCU.Declarations))
+	funcDecl, ok := semCU.Declarations[0].(*SemFunctionDecl)
+	require.True(t, ok, "Should be function declaration")
+
+	// Check function body has 3 statements (2 var decls + return)
+	require.Equal(t, 3, len(funcDecl.Body.Statements))
+
+	// First statement: array declaration with initializer
+	arrDecl, ok := funcDecl.Body.Statements[0].(*SemVariableDecl)
+	require.True(t, ok, "First statement should be variable declaration")
+
+	arrayInit, ok := arrDecl.Initializer.(*SemArrayInitializer)
+	require.True(t, ok, "Should be array initializer")
+	assert.Equal(t, 4, len(arrayInit.Elements))
+
+	// Second statement: subscript into array
+	xDecl, ok := funcDecl.Body.Statements[1].(*SemVariableDecl)
+	require.True(t, ok, "Second statement should be variable declaration")
+
+	subscript, ok := xDecl.Initializer.(*SemSubscript)
+	require.True(t, ok, "Initializer should be subscript")
+
+	// Verify subscript references the array variable
+	arrayRef, ok := subscript.Array.(*SemSymbolRef)
+	require.True(t, ok, "Array should be symbol reference")
+	assert.Equal(t, "arr", arrayRef.Symbol.Name)
+
+	// Verify index is constant 2
+	indexConst, ok := subscript.Index.(*SemConstant)
+	require.True(t, ok, "Index should be constant")
+	assert.Equal(t, 2, indexConst.Value)
+
+	// Verify result type is u8
+	assert.Equal(t, U8Type, subscript.Type())
+}

@@ -206,11 +206,9 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *Sem
 	var initializer SemExpression
 
 	if typeRef != nil {
-		// Explicit type: lookup symbol registered in pass 1
-		typeName := typeRef.TypeName().Text()
-		symbol = sa.currentScope.Lookup(typeName)
-		if symbol == nil {
-			sa.error(fmt.Sprintf("symbol '%s' not found", typeName), node)
+		// Explicit type: resolve the full type including array brackets
+		varType := sa.resolveTypeRef(typeRef)
+		if varType == nil {
 			return nil
 		}
 
@@ -228,7 +226,7 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *Sem
 			Name:          name,
 			QualifiedName: sa.currentScope.GetQualifiedName(name),
 			Kind:          SymbolVariable,
-			Type:          symbol.Type,
+			Type:          varType,
 		}
 
 		// globals have been registered already
@@ -605,6 +603,8 @@ func (sa *SemanticAnalyzer) processExpression(node parser.Expression) SemExpress
 		result = sa.processMemberAccess(n)
 	case parser.ExpressionSubscript:
 		result = sa.processSubscript(n)
+	case parser.ExpressionArrayInitializer:
+		result = sa.processArrayInitializer(n)
 	case parser.ExpressionTypeInitializer:
 		result = sa.processTypeInitializer(n)
 	case parser.ExpressionIdentifier:
@@ -964,6 +964,56 @@ func (sa *SemanticAnalyzer) processSubscript(node parser.ExpressionSubscript) *S
 		Array:    array,
 		Index:    index,
 		TypeInfo: arrayType.ElementType(),
+		astNode:  node,
+	}
+}
+
+func (sa *SemanticAnalyzer) processArrayInitializer(node parser.ExpressionArrayInitializer) *SemArrayInitializer {
+	// Get the array initializer
+	initializer := node.Initializer()
+	if initializer == nil {
+		sa.error("array initializer has no initializer", node)
+		return nil
+	}
+
+	// Process all element expressions
+	elements := []SemExpression{}
+	var elementType Type
+
+	for i, elemNode := range initializer.Elements() {
+		elemExpr := sa.processExpression(elemNode)
+		if elemExpr == nil {
+			continue
+		}
+
+		// First element determines the array type
+		if i == 0 {
+			elementType = elemExpr.Type()
+		} else {
+			// Verify all elements have the same type
+			// For now, use simple type name comparison
+			// TODO: Implement proper type compatibility checking
+			if elemExpr.Type().Name() != elementType.Name() {
+				sa.error(fmt.Sprintf("array element type mismatch: expected %s, got %s",
+					elementType.Name(), elemExpr.Type().Name()), elemNode)
+				continue
+			}
+		}
+
+		elements = append(elements, elemExpr)
+	}
+
+	// Default to u8 for empty arrays
+	if elementType == nil {
+		elementType = U8Type
+	}
+
+	// Create array type
+	arrayType := NewArrayType(elementType, len(elements))
+
+	return &SemArrayInitializer{
+		Elements: elements,
+		TypeInfo: arrayType,
 		astNode:  node,
 	}
 }

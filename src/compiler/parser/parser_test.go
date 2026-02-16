@@ -496,3 +496,67 @@ func Test_ParseVariables(t *testing.T) {
 
 	assert.Empty(t, errors, fmt.Sprintf("Parser should not report error for variables: %v", errors))
 }
+
+func Test_ParseArrayInitializer(t *testing.T) {
+	code := `arr: u8[] = [1, 2, 3, 4]`
+	cu := parseCode(t, "Test_ParseArrayInitializer", code)
+	assert.Equal(t, 1, len(cu.Declarations()))
+
+	varDecl, ok := cu.Declarations()[0].(VariableDeclaration)
+	require.True(t, ok)
+	assert.Equal(t, "arr", varDecl.Label().Name())
+	assert.NotNil(t, varDecl.TypeRef())
+	assert.NotNil(t, varDecl.Initializer())
+
+	// Check that initializer is an array initializer expression
+	arrayExpr, ok := varDecl.Initializer().(ExpressionArrayInitializer)
+	require.True(t, ok, "Initializer should be an array initializer expression")
+
+	arrayInit := arrayExpr.Initializer()
+	require.NotNil(t, arrayInit)
+
+	elements := arrayInit.Elements()
+	assert.Equal(t, 4, len(elements), "Should have 4 elements")
+}
+
+func Test_ParseArrayInitializerEmpty(t *testing.T) {
+	code := `arr: u8[] = []`
+	cu := parseCode(t, "Test_ParseArrayInitializerEmpty", code)
+	assert.Equal(t, 1, len(cu.Declarations()))
+
+	varDecl, ok := cu.Declarations()[0].(VariableDeclaration)
+	require.True(t, ok)
+
+	arrayExpr, ok := varDecl.Initializer().(ExpressionArrayInitializer)
+	require.True(t, ok)
+
+	arrayInit := arrayExpr.Initializer()
+	require.NotNil(t, arrayInit)
+
+	elements := arrayInit.Elements()
+	assert.Equal(t, 0, len(elements), "Empty array should have 0 elements")
+}
+
+func Test_ParseArrayInitializerSingleElement(t *testing.T) {
+	// Single element array now works with [] syntax
+	code := `arr: u8[] = [42]`
+	cu := parseCode(t, "Test_ParseArrayInitializerSingleElement", code)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
+	arrayExpr, ok := varDecl.Initializer().(ExpressionArrayInitializer)
+	require.True(t, ok, "Should be array initializer")
+
+	elements := arrayExpr.Initializer().Elements()
+	assert.Equal(t, 1, len(elements), "Should have 1 element")
+}
+
+func Test_ParseArrayInitializerTrailingComma(t *testing.T) {
+	// Trailing comma is allowed (useful for multi-line arrays)
+	code := `arr: u8[] = [1, 2, 3,]`
+	cu := parseCode(t, "Test_ParseArrayInitializerTrailingComma", code)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
+	arrayExpr, ok := varDecl.Initializer().(ExpressionArrayInitializer)
+	require.True(t, ok, "Should be array initializer")
+
+	elements := arrayExpr.Initializer().Elements()
+	assert.Equal(t, 3, len(elements), "Should have 3 elements (trailing comma ignored)")
+}

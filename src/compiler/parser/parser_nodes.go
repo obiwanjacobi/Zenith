@@ -468,6 +468,31 @@ func (n *typeInitializerField) Children() []ParserNode {
 	return n.parserNodeData.Children()
 }
 
+// ============================================================================
+// array_initializer: '(' (expression (',' expression)*)? ')'
+// ============================================================================
+
+type ArrayInitializer interface {
+	ParserNode
+	Elements() []Expression
+}
+
+type arrayInitializer struct {
+	parserNodeData
+}
+
+func (n *arrayInitializer) Children() []ParserNode {
+	return n.parserNodeData.Children()
+}
+
+func (n *arrayInitializer) Tokens() []lexer.Token {
+	return n.parserNodeData.Tokens()
+}
+
+func (n *arrayInitializer) Elements() []Expression {
+	return compiler.OfType[Expression](n.parserNodeData._children)
+}
+
 func (n *typeInitializerField) Tokens() []lexer.Token {
 	return n.parserNodeData.Tokens()
 }
@@ -934,6 +959,7 @@ const (
 	ExprUnaryPostfixArithmetic
 	ExprUnaryPostfixLogical
 	ExprFunctionInvocation
+	ExprArrayInitializer
 	ExprTypeInitializer
 	ExprLiteral
 	ExprIdentifier
@@ -1569,6 +1595,38 @@ func (n *expressionFunctionInvocation) Arguments() FunctionArgumentList {
 
 func (n *expressionFunctionInvocation) IsIntrinsic() bool {
 	return n.isIntrinsic
+}
+
+// ============================================================================
+// expression_array_initializer: array_initializer
+// ============================================================================
+
+type ExpressionArrayInitializer interface {
+	Expression
+	Initializer() ArrayInitializer
+}
+
+type expressionArrayInitializer struct {
+	parserNodeData
+}
+
+func (n *expressionArrayInitializer) Children() []ParserNode {
+	return n.parserNodeData.Children()
+}
+
+func (n *expressionArrayInitializer) Tokens() []lexer.Token {
+	return n.parserNodeData.Tokens()
+}
+
+func (n *expressionArrayInitializer) ExpressionKind() ExpressionKind {
+	return ExprArrayInitializer
+}
+
+func (n *expressionArrayInitializer) Initializer() ArrayInitializer {
+	if len(n.parserNodeData._children) > 0 {
+		return n.parserNodeData._children[0].(ArrayInitializer)
+	}
+	return nil
 }
 
 // ============================================================================

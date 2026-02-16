@@ -184,9 +184,10 @@ func Test_Pipeline_Variables(t *testing.T) {
 }
 
 func Test_Pipeline_LocalArray(t *testing.T) {
-	sourceCode := `localArr: () {
-		x: u8[]
-		y: u16[2]
+	sourceCode := `localArr: () u16 {
+		x: u8[] = [1, 2, 3]
+		y: u16[2] = [1234, 5678]
+		ret x[0] + y[0]
 	}`
 
 	RunPipeline(t, sourceCode)
