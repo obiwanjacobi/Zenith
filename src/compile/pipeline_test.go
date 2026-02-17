@@ -192,6 +192,22 @@ func Test_Pipeline_LocalArray(t *testing.T) {
 
 	RunPipeline(t, sourceCode)
 }
+func Test_Pipeline_LocalArray8(t *testing.T) {
+	sourceCode := `localArr8: () u8 {
+		x: u8[] = [1, 2, 3]
+		ret x[1]
+	}`
+
+	RunPipeline(t, sourceCode)
+}
+func Test_Pipeline_LocalArray16(t *testing.T) {
+	sourceCode := `localArr16: () u16 {
+		y: u16[2] = [1234, 5678]
+		ret y[1]
+	}`
+
+	RunPipeline(t, sourceCode)
+}
 
 func Test_Pipeline_Reverse(t *testing.T) {
 	sourceCode := `reverse: (arr: u8[]) {

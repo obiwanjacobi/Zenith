@@ -421,6 +421,9 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *Exp
 	case *zsm.SemSubscript:
 		resultVR, err = ctx.selectSubscript(exprCtx, e)
 
+	case *zsm.SemArrayInitializer:
+		resultVR, err = ctx.selectArrayInitializer(exprCtx, e)
+
 	case *zsm.SemTypeInitializer:
 		resultVR, err = ctx.selectTypeInitializer(exprCtx, e)
 
@@ -624,6 +627,44 @@ func (ctx *InstructionSelectionContext) selectTypeInitializer(exprCtx *ExprConte
 	}
 
 	return structVR, nil
+}
+
+func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprContext, init *zsm.SemArrayInitializer) (*VirtualRegister, error) {
+	arrayType, ok := init.Type().(*zsm.ArrayType)
+	if !ok {
+		return nil, fmt.Errorf("array initializer doesn't have array type")
+	}
+
+	// Allocate stack space for array data
+	dataSize := arrayType.DataSize()
+	dataOffset := ctx.allocateStackSpace(dataSize)
+
+	// Compute address of array data: SP + offset
+	addressVR, err := ctx.selector.SelectLoadStackAddress(dataOffset)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize each element
+	elementSize := arrayType.ElementType().Size()
+	elementRegSize := RegisterSize(elementSize * 8)
+
+	for i, elemExpr := range init.Elements {
+		// Evaluate element expression
+		valueVR, err := ctx.selectExpressionWithContext(exprCtx, elemExpr)
+		if err != nil {
+			return nil, err
+		}
+
+		// Store element at offset i * elementSize
+		offset := i * elementSize
+		if err := ctx.selector.SelectStore(addressVR, valueVR, offset, elementRegSize); err != nil {
+			return nil, err
+		}
+	}
+
+	// Return the pointer to the array
+	return addressVR, nil
 }
 
 func DumpInstructions(instructions []MachineInstruction) {

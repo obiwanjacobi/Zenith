@@ -67,7 +67,7 @@ func (reg *Register) AsPairs() (lowReg *Register, highReg *Register) {
 }
 
 // ToPairs splits 16-bit registers into its low and high byte registers
-// if the register is not a pair, returns the register itself as low and nil as high
+// if the register is not a pair, returns the register itself as low and high
 func ToPairs(regs []*Register) (lowRegs []*Register, highRegs []*Register) {
 	lowRegs = make([]*Register, 0)
 	highRegs = make([]*Register, 0)

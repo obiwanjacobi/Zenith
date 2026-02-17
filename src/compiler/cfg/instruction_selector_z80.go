@@ -559,51 +559,44 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int
 
 // SelectLoadIndexed generates instructions to load from memory with a dynamic index
 func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize int, size RegisterSize) (*VirtualRegister, error) {
-	// For now, implement simple 8-bit element access
-	// TODO: Handle multi-byte elements (multiply index by elementSize)
+	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
+	// TODO: optimize for when index = 0 (imm)
+	indexVR := z.emitLoadIntoReg16(index, Z80RegistersPP)
+
+	// TODO: are 16-bit shifts (custom code) faster than multiple 16-bit adds?
+	// Calculate offset: HL = base + index * elementSize
+	for ; elementSize > 0; elementSize-- {
+		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, indexVR))
+	}
 
 	switch size {
 	case 8:
-		// Load base address into HL
-		vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
-
-		// If element size > 1, need to scale the index
-		scaledIndex := index
-		if elementSize > 1 {
-			// Multiply index by elementSize
-			// For power-of-2 sizes, we could use shifts, but for now use simple add
-			// TODO: Optimize with shifts for powers of 2
-			scaledIndex = z.vrAlloc.Allocate(Z80Registers8)
-
-			// Simple loop: scaledIndex = index * elementSize
-			// For now, just use index directly and document limitation
-			scaledIndex = index
-		}
-
-		// Add index to HL: HL = HL + index
-		// We need index in a register that can be added to HL
-		// Options: BC, DE, or expand via A
-		vrIndexExpanded := z.emitLoadIntoReg16(scaledIndex, Z80RegDE)
-		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrIndexExpanded))
-
 		// Load from (HL)
-		result := z.vrAlloc.Allocate(Z80Registers8)
-		z.emit(newInstruction(Z80_LD_R_HL, result, vrHL))
-		return result, nil
-
+		resultVR := z.vrAlloc.Allocate(Z80Registers8)
+		z.emit(newInstruction(Z80_LD_R_HL, resultVR, vrHL))
+		return resultVR, nil
 	case 16:
-		return nil, fmt.Errorf("16-bit indexed load not yet implemented")
+		resultVR := z.vrAlloc.Allocate(Z80RegistersPP)
+		loRegs, hiRegs := ToPairs(resultVR.AllowedSet)
+		loVR := z.vrAlloc.Allocate(loRegs)
+		hiVR := z.vrAlloc.Allocate(hiRegs)
+		// little endian load: low byte at (HL), high byte at (HL+1)
+		z.emit(newInstruction(Z80_LD_R_HL, loVR, vrHL))
+		z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+		z.emit(newInstruction(Z80_LD_R_HL, hiVR, vrHL))
+		return resultVR, nil
 	}
+
 	return nil, fmt.Errorf("unsupported size for indexed load: %d", size)
 }
 
 // SelectStore generates instructions to store to memory
 func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error {
+	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
+	z.emitAddOffsetToHL(vrHL, int32(offset))
+
 	switch size {
 	case 8:
-		vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
-		z.emitAddOffsetToHL(vrHL, int32(offset))
-
 		var opcode Z80Opcode
 		if value.Type == ImmediateValue {
 			opcode = Z80_LD_HL_N
@@ -613,7 +606,17 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 
 		z.emit(newInstruction(opcode, vrHL, value))
 	case 16:
-		return fmt.Errorf("16-bit store not yet implemented")
+		if value.Type == ImmediateValue {
+			z.emit(newInstruction(Z80_LD_HL_NN, vrHL, value))
+		} else {
+			loRges, hiRegs := ToPairs(value.AllowedSet)
+			loVR := z.vrAlloc.Allocate(loRges)
+			hiVR := z.vrAlloc.Allocate(hiRegs)
+			// little endian store: low byte at (HL), high byte at (HL+1)
+			z.emit(newInstruction(Z80_LD_HL_R, vrHL, loVR))
+			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+			z.emit(newInstruction(Z80_LD_HL_R, vrHL, hiVR))
+		}
 	}
 	return nil // store has no result
 }
