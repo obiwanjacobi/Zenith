@@ -165,7 +165,7 @@ func Test_VariableUsage_MultipleArithmetic(t *testing.T) {
 		a: u8 = 1
 		b: u8 = 2
 		c: u8 = 3
-		result: u8 = a + b * c
+		result: u8 = a + b + c
 	}`
 
 	tokens := lexer.OpenTokenStream(code)

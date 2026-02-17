@@ -25,10 +25,6 @@ type InstructionSelectionContext struct {
 
 	// Current basic block being processed
 	currentBlock *BasicBlock
-
-	// Stack space allocated for local variables (arrays, structs)
-	// This tracks space allocated BEFORE register allocation spills
-	localStackOffset int
 }
 
 // NewInstructionSelectionContext creates a new context for instruction selection
@@ -73,7 +69,7 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 			if useStack {
 				// Parameter is on the stack - allocate VirtualRegister with stack home
 				// The register allocator can use this stack location for spilling
-				vr := ctx.vrAlloc.AllocateWithStackHome(param.Name, regSize, stackOffset)
+				vr := ctx.vrAlloc.AllocateOnStack(param.Name, regSize, stackOffset)
 				ctx.symbolToVReg[param] = vr
 
 				// Note: We don't eagerly load from stack here. The VirtualRegister
@@ -115,9 +111,9 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 
 // allocateStackSpace allocates space on the stack for local data (arrays, structs)
 // Returns the offset from SP where the data is located
-func (ctx *InstructionSelectionContext) allocateStackSpace(size int) int {
-	offset := ctx.localStackOffset
-	ctx.localStackOffset += size
+func (ctx *InstructionSelectionContext) allocateStackSpace(size uint16) uint16 {
+	offset := ctx.currentCFG.StackOffset
+	ctx.currentCFG.StackOffset += size
 	return offset
 }
 
@@ -276,7 +272,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 			pointerOffset := ctx.allocateStackSpace(decl.TypeInfo.Size())
 
 			// Create VR backed by stack location for the pointer
-			vr = ctx.vrAlloc.AllocateWithStackHome(decl.Symbol.Name, regSize, uint8(pointerOffset))
+			vr = ctx.vrAlloc.AllocateOnStack(decl.Symbol.Name, regSize, uint8(pointerOffset))
 			ctx.symbolToVReg[decl.Symbol] = vr
 
 			// Compute address of array data: SP + dataOffset
@@ -289,6 +285,16 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 			err = ctx.selector.SelectMove(vr, addressVR, regSize)
 			if err != nil {
 				return err
+			}
+
+			// If there's an array initializer, handle it specially to avoid double-allocation
+			if arrayInit, ok := decl.Initializer.(*zsm.SemArrayInitializer); ok {
+				// Initialize array elements directly into the allocated space
+				if err := ctx.initializeArrayInPlace(addressVR, arrayInit); err != nil {
+					return err
+				}
+				// Done - no need to do the normal initializer assignment
+				return nil
 			}
 
 			// Array pointer now references the allocated (but uninitialized) array data
@@ -320,6 +326,35 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 		// For arrays, this moves the pointer from the initializer to the variable
 		err = ctx.selector.SelectMove(vr, initVR, regSize)
 		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// initializeArrayInPlace initializes array elements directly at the given address
+// This is used when the array storage has already been allocated
+func (ctx *InstructionSelectionContext) initializeArrayInPlace(addressVR *VirtualRegister, init *zsm.SemArrayInitializer) error {
+	arrayType, ok := init.Type().(*zsm.ArrayType)
+	if !ok {
+		return fmt.Errorf("array initializer doesn't have array type")
+	}
+
+	elementSize := arrayType.ElementType().Size()
+	elementRegSize := RegisterSize(elementSize * 8)
+
+	// Initialize each element
+	for i, elemExpr := range init.Elements {
+		// Evaluate element expression
+		valueVR, err := ctx.selectExpression(elemExpr)
+		if err != nil {
+			return err
+		}
+
+		// Store element at offset i * elementSize
+		offset := uint16(i) * elementSize
+		if err := ctx.selector.SelectStore(addressVR, valueVR, offset, elementRegSize); err != nil {
 			return err
 		}
 	}
@@ -657,7 +692,7 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 		}
 
 		// Store element at offset i * elementSize
-		offset := i * elementSize
+		offset := uint16(i) * elementSize
 		if err := ctx.selector.SelectStore(addressVR, valueVR, offset, elementRegSize); err != nil {
 			return nil, err
 		}

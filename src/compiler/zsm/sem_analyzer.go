@@ -219,7 +219,38 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *Sem
 				sa.error(fmt.Sprintf("initializer for '%s' not valid", node.Label().Name()), node)
 				return nil
 			}
-			// TODO: Check that initializer type matches variable type
+
+			// Check that initializer type matches variable type
+			var typeIsValid bool = false
+			// special case for array types
+			if arrType, ok := varType.(*ArrayType); ok {
+				initType, ok := initializer.(*SemArrayInitializer)
+				if ok {
+					initArrType, _ := initType.TypeInfo.(*ArrayType)
+					arrLen := initArrType.Length()
+					if arrType.Length() == 0 {
+						varType = NewArrayType(arrType.ElementType(), arrLen)
+						typeIsValid = true
+					} else {
+						if arrLen != arrType.Length() {
+							// TODO: allow shorter initializer with padding, or report error?
+							sa.error(fmt.Sprintf("array initializer length %d does not match declared length %d for variable '%s'", arrLen, arrType.Length(), name), node)
+						} else {
+							typeIsValid = true
+						}
+					}
+				}
+			}
+
+			if !typeIsValid {
+				// TODO: write a type compatibility function that handles all cases/rules
+				typeIsValid = initializer.Type().Size() <= varType.Size()
+			}
+
+			if !typeIsValid {
+				sa.error(fmt.Sprintf("initializer type '%s' does not match declared type '%s' for variable '%s'",
+					initializer.Type().Name(), varType.Name(), name), node)
+			}
 		}
 
 		symbol = &Symbol{
@@ -232,7 +263,6 @@ func (sa *SemanticAnalyzer) processVarDecl(node parser.VariableDeclaration) *Sem
 		// globals have been registered already
 		if !sa.currentScope.IsGlobal() {
 			// Create symbol with inferred type
-
 			if !sa.currentScope.Add(symbol) {
 				sa.error(fmt.Sprintf("symbol '%s' already declared in this scope", name), node)
 				return nil
@@ -654,7 +684,7 @@ func (sa *SemanticAnalyzer) processLiteral(node parser.ExpressionLiteral) *SemCo
 	case lexer.TokenString:
 		value = node.String()
 		// String is u8[] array
-		typ = NewArrayType(U8Type, len(node.String()))
+		typ = NewArrayType(U8Type, uint16(len(node.String())))
 	case lexer.TokenTrue, lexer.TokenFalse:
 		value = token.Id() == lexer.TokenTrue
 		typ = BitType
@@ -1009,7 +1039,7 @@ func (sa *SemanticAnalyzer) processArrayInitializer(node parser.ExpressionArrayI
 	}
 
 	// Create array type
-	arrayType := NewArrayType(elementType, len(elements))
+	arrayType := NewArrayType(elementType, uint16(len(elements)))
 
 	return &SemArrayInitializer{
 		Elements: elements,
@@ -1103,7 +1133,7 @@ func (sa *SemanticAnalyzer) resolveTypeRef(typeRef parser.TypeRef) Type {
 
 	// Handle array types
 	if typeRef.IsArray() {
-		length := 0
+		length := uint16(0)
 		if sizeToken := typeRef.ArraySize(); sizeToken != nil {
 			// TODO: Parse array size
 			length = 0 // Placeholder

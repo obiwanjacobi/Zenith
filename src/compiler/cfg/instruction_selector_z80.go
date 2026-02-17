@@ -540,13 +540,13 @@ func (z *instructionSelectorZ80) SelectGreaterEqual(ctx *ExprContext, left, righ
 // ============================================================================
 
 // SelectLoad generates instructions to load from memory
-func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error) {
 	var result *VirtualRegister
 
 	switch size {
 	case 8:
 		vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
-		z.emitAddOffsetToHL(vrHL, int32(offset))
+		z.emitAddOffsetToHL(vrHL, offset)
 
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		z.emit(newInstruction(Z80_LD_R_HL, result, vrHL))
@@ -558,7 +558,7 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset int
 }
 
 // SelectLoadIndexed generates instructions to load from memory with a dynamic index
-func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize int, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size RegisterSize) (*VirtualRegister, error) {
 	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
 	// TODO: optimize for when index = 0 (imm)
 	indexVR := z.emitLoadIntoReg16(index, Z80RegistersPP)
@@ -591,9 +591,9 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 }
 
 // SelectStore generates instructions to store to memory
-func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error {
+func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) error {
 	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
-	z.emitAddOffsetToHL(vrHL, int32(offset))
+	z.emitAddOffsetToHL(vrHL, offset)
 
 	switch size {
 	case 8:
@@ -630,7 +630,7 @@ func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size Regi
 
 // SelectLoadStackAddress generates instructions to compute the address of a stack location
 // Returns a VR containing SP + stackOffset
-func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset int) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error) {
 	// On Z80: LD HL, offset; ADD HL, SP
 	// Result is in HL (address of stack location)
 
@@ -666,11 +666,18 @@ func (z *instructionSelectorZ80) SelectStoreVariable(symbol *zsm.Symbol, value *
 // SelectMove moves a value from source to target
 // Handles size conversions when necessary (e.g., 16-bit to 8-bit extracts low byte)
 func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error {
-	switch size {
-	case 8:
-		z.emitLoadIntoReg8(source, target.AllowedSet)
-	case 16:
-		z.emitLoadIntoReg16(source, target.AllowedSet)
+	switch target.Type {
+	case CandidateRegister:
+		switch size {
+		case 8:
+			z.emitLoadIntoReg8(source, target.AllowedSet)
+		case 16:
+			z.emitLoadIntoReg16(source, target.AllowedSet)
+		}
+	case StackLocation:
+		z.emitStoreOnStack(source, target)
+	default:
+		return fmt.Errorf("unsupported target register type for move: %v", target.Type)
 	}
 	return nil
 }
@@ -873,14 +880,60 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 	return vrTarget
 }
 
+func (z *instructionSelectorZ80) emitStoreOnStack(value *VirtualRegister, stackTarget *VirtualRegister) *VirtualRegister {
+
+	vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	vrSP := z.vrAlloc.Allocate(Z80RegSP)
+	z.emitAddOffsetToHL(vrHL, uint16(stackTarget.Value))
+	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
+
+	switch value.Size {
+	case 8:
+		switch value.Type {
+		case ImmediateValue:
+			z.emit(newInstruction(Z80_LD_HL_N, vrHL, value))
+		case CandidateRegister:
+			z.emit(newInstruction(Z80_LD_HL_R, vrHL, value))
+		default:
+			return nil // unsupported value type
+		}
+	case 16:
+		switch value.Type {
+		case ImmediateValue:
+			loVal := value.Value & 0xFF
+			hiVal := (value.Value >> 8) & 0xFF
+			loVR := z.vrAlloc.AllocateImmediate(int32(loVal), 8)
+			hiVR := z.vrAlloc.AllocateImmediate(int32(hiVal), 8)
+			z.emit(newInstruction(Z80_LD_HL_N, vrHL, loVR))
+			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+			z.emit(newInstruction(Z80_LD_HL_N, vrHL, hiVR))
+		case CandidateRegister:
+			loRegs, hiRegs := ToPairs(value.AllowedSet)
+			loVR := z.vrAlloc.Allocate(loRegs)
+			hiVR := z.vrAlloc.Allocate(hiRegs)
+			// little endian store: low byte at (HL), high byte at (HL+1)
+			z.emit(newInstruction(Z80_LD_HL_R, vrHL, loVR))
+			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+			z.emit(newInstruction(Z80_LD_HL_R, vrHL, hiVR))
+		default:
+			return nil // unsupported value type
+		}
+	default:
+		return nil // unsupported size
+	}
+
+	return vrHL
+}
+
 // emitAddOffsetToHL adds an offset to the address in HL
-func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset int32) {
+func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset uint16) {
 	if offset != 0 {
 		// Add offset to address
-		vrOffset := z.vrAlloc.AllocateImmediate(offset, Bits16)
+		vrOffset := z.vrAlloc.AllocateImmediate(int32(offset), Bits16)
 		vrOffsetReg := z.vrAlloc.Allocate(Z80RegistersPP)
 		z.emit(newInstruction(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
 		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
+
 	}
 }
 

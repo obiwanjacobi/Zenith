@@ -94,17 +94,6 @@ func Test_Analyze_VarDeclInferred(t *testing.T) {
 	assert.Equal(t, varDecl.Initializer.Type(), varDecl.Symbol.Type)
 }
 
-func Test_Analyze_VarDeclInferredNoInit_Error(t *testing.T) {
-	// Note: The parser already rejects "noInit:" (no type, no initializer)
-	// So we test a different error case - this test is now for duplicate declaration
-	code := "value: u8\nvalue: u16"
-	_, errors := analyzeCode(t, "Test_Analyze_VarDeclInferredNoInit_Error", code)
-
-	// Should have error for duplicate declaration
-	require.Greater(t, len(errors), 0, "Expected at least one error")
-	assert.Contains(t, errors[0].Error(), "already declared")
-}
-
 func Test_Analyze_VarDeclDuplicate_Error(t *testing.T) {
 	code := "x: u8\nx: u16"
 	_, errors := analyzeCode(t, "Test_Analyze_VarDeclDuplicate_Error", code)
@@ -1060,7 +1049,7 @@ func Test_Analyze_ArrayInitializer(t *testing.T) {
 	arrayType, ok := arrayInit.Type().(*ArrayType)
 	require.True(t, ok, "Type should be array")
 	assert.Equal(t, U8Type, arrayType.ElementType())
-	assert.Equal(t, 4, arrayType.Length())
+	assert.Equal(t, uint16(4), arrayType.Length())
 }
 
 func Test_Analyze_ArrayInitializerEmpty(t *testing.T) {
@@ -1083,7 +1072,7 @@ func Test_Analyze_ArrayInitializerEmpty(t *testing.T) {
 	arrayType, ok := arrayInit.Type().(*ArrayType)
 	require.True(t, ok, "Type should be array")
 	assert.Equal(t, U8Type, arrayType.ElementType())
-	assert.Equal(t, 0, arrayType.Length())
+	assert.Equal(t, uint16(0), arrayType.Length())
 }
 
 func Test_Analyze_ArrayInitializerTypeMismatch(t *testing.T) {

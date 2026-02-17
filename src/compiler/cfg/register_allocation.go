@@ -197,8 +197,8 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 					// No register from AllowedSet is available - must spill to stack
 					operand.Type = StackLocation
 					stackOffset := cfg.StackOffset
-					cfg.StackOffset += int8(operand.Size / 8)
-					operand.Value = uint32(stackOffset)
+					cfg.StackOffset += uint16(operand.Size / 8)
+					operand.Value = int32(stackOffset)
 
 					// Insert reload from stack before instruction
 					reloadInstrs, err := selector.CreateReload(operand, int8(stackOffset))
@@ -569,7 +569,7 @@ func (ra *RegisterAllocator) Spill(allVRs []*VirtualRegister) int {
 		if vr.Type == CandidateRegister {
 			// VR couldn't be allocated - spill to stack
 			vr.Type = StackLocation
-			vr.Value = uint32(spillCount) // Stack offset
+			vr.Value = int32(spillCount) // Stack offset
 			spillCount++
 		}
 	}

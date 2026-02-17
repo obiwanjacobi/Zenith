@@ -181,18 +181,18 @@ type InstructionSelector interface {
 
 	// SelectLoad generates instructions to load from memory
 	// address is the base address, offset is optional byte offset
-	SelectLoad(address *VirtualRegister, offset int, size RegisterSize) (*VirtualRegister, error)
+	SelectLoad(address *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectLoadIndexed generates instructions to load from memory with a dynamic index
 	// address is the base address, index is the index register, elementSize is bytes per element
-	SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize int, size RegisterSize) (*VirtualRegister, error)
+	SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectStore generates instructions to store to memory
-	SelectStore(address *VirtualRegister, value *VirtualRegister, offset int, size RegisterSize) error
+	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) error
 
 	// SelectLoadStackAddress generates instructions to load the address of a stack location
 	// stackOffset is the offset from SP, returns a VR containing the address (16-bit)
-	SelectLoadStackAddress(stackOffset int) (*VirtualRegister, error)
+	SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error)
 
 	// SelectLoadConstant generates instructions to load an immediate value
 	SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error)

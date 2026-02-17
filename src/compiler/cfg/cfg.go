@@ -94,7 +94,7 @@ type CFG struct {
 	Blocks       []*BasicBlock        // All blocks in the graph
 	FunctionName string               // Name of the function (for qualified variable names)
 	FunctionDecl *zsm.SemFunctionDecl // Original function declaration (for parameters, return type)
-	StackOffset  int8                 // Current stack offset for spills
+	StackOffset  uint16               // Current stack offset for spills
 }
 
 // ============================================================================
@@ -469,12 +469,9 @@ func BuildCFGs(compilationUnit *zsm.SemCompilationUnit) []*CFG {
 }
 
 func DumpCFG(fnName string, fnCFG *CFG, dumpInstructions func([]MachineInstruction)) {
-	fmt.Printf("========== Control Flow Graph: %s ==========\n", fnName)
-	fmt.Printf("Entry: Block %d\n", fnCFG.Entry.ID)
-	fmt.Printf("Exit:  Block %d\n", fnCFG.Exit.ID)
-	fmt.Printf("Blocks: %d\n", len(fnCFG.Blocks))
+	fmt.Printf("========== Control Flow Graph: %s (Stack Offset: %d) ==========\n", fnName, fnCFG.StackOffset)
 	for _, block := range fnCFG.Blocks {
-		fmt.Printf("  Block %d [%s]: %d instructions, %d successors\n",
+		fmt.Printf("  Block %d [%s]: %d sem-instructions, %d successors\n",
 			block.ID, block.Label, len(block.Instructions), len(block.Successors))
 		for _, succ := range block.Successors {
 			fmt.Printf("    -> Block %d [%s]\n", succ.ID, succ.Label)

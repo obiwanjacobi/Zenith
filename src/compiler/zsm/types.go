@@ -3,22 +3,22 @@ package zsm
 // Type represents a resolved type in the IR
 type Type interface {
 	Name() string
-	Size() int // Size in bytes
+	Size() uint16 // Size in bytes
 }
 
 // PrimitiveType represents built-in types like u8, i8, d8, bool
 type PrimitiveType struct {
 	name string
-	size int
+	size uint16
 }
 
 func (t *PrimitiveType) Name() string { return t.name }
-func (t *PrimitiveType) Size() int    { return t.size }
+func (t *PrimitiveType) Size() uint16 { return t.size }
 
 // ArrayType represents fixed-size arrays
 type ArrayType struct {
 	elementType Type
-	length      int // 0 for unsized arrays
+	length      uint16 // 0 for unsized arrays
 }
 
 func (t *ArrayType) Name() string {
@@ -29,36 +29,36 @@ func (t *ArrayType) Name() string {
 }
 
 // Size returns the size of the array variable itself (always a pointer)
-func (t *ArrayType) Size() int {
+func (t *ArrayType) Size() uint16 {
 	return 2 // Arrays are always represented by a pointer (2 bytes on Z80)
 }
 
 // DataSize returns the size of the actual array data in memory
-func (t *ArrayType) DataSize() int {
+func (t *ArrayType) DataSize() uint16 {
 	if t.length > 0 {
-		return t.elementType.Size() * t.length
+		return uint16(t.elementType.Size() * t.length)
 	}
 	return 0 // Unsized arrays have no fixed data size
 }
 
 func (t *ArrayType) ElementType() Type { return t.elementType }
-func (t *ArrayType) Length() int       { return t.length }
+func (t *ArrayType) Length() uint16    { return t.length }
 
 // StructType represents user-defined struct types
 type StructType struct {
 	name   string
 	fields []*StructField
-	size   int // Computed from fields
+	size   uint16 // Computed from fields
 }
 
 type StructField struct {
 	Name   string
 	Type   Type
-	Offset int // Byte offset within struct
+	Offset uint16 // Byte offset within struct
 }
 
 func (t *StructType) Name() string           { return t.name }
-func (t *StructType) Size() int              { return t.size }
+func (t *StructType) Size() uint16           { return t.size }
 func (t *StructType) Fields() []*StructField { return t.fields }
 func (t *StructType) Field(name string) *StructField {
 	for _, f := range t.fields {
@@ -78,7 +78,7 @@ func (t *PointerType) Name() string {
 	return t.pointeeType.Name() + "*"
 }
 
-func (t *PointerType) Size() int {
+func (t *PointerType) Size() uint16 {
 	return 2 // Pointers are always 2 bytes on Z80
 }
 
@@ -95,7 +95,7 @@ func (t *FunctionType) Name() string {
 	return "function"
 }
 
-func (t *FunctionType) Size() int {
+func (t *FunctionType) Size() uint16 {
 	return 2 // Function pointer size
 }
 
@@ -127,7 +127,7 @@ var (
 )
 
 // NewArrayType creates a new array type
-func NewArrayType(elementType Type, length int) *ArrayType {
+func NewArrayType(elementType Type, length uint16) *ArrayType {
 	return &ArrayType{
 		elementType: elementType,
 		length:      length,
@@ -143,7 +143,7 @@ func NewPointerType(pointeeType Type) *PointerType {
 
 // NewStructType creates a new struct type with computed field offsets
 func NewStructType(name string, fields []*StructField) *StructType {
-	offset := 0
+	offset := uint16(0)
 	for _, field := range fields {
 		field.Offset = offset
 		offset += field.Type.Size()

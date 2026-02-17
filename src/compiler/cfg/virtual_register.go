@@ -34,7 +34,7 @@ type VirtualRegister struct {
 	Name string
 
 	// Value holds the value when Type is not CandidateRegister or AllocatedRegister
-	Value uint32
+	Value int32
 }
 
 func (vr *VirtualRegister) Unused() {
@@ -158,15 +158,15 @@ func (vra *VirtualRegisterAllocator) AllocateNamed(name string, allowedSet []*Re
 	return vr
 }
 
-// AllocateWithStackHome creates a virtual register backed by a stack location
+// AllocateOnStack creates a virtual register backed by a stack location
 // This is used for parameters and locals that have a permanent stack home
-func (vra *VirtualRegisterAllocator) AllocateWithStackHome(name string, size RegisterSize, stackOffset uint8) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateOnStack(name string, size RegisterSize, stackOffset uint8) *VirtualRegister {
 	vr := &VirtualRegister{
 		ID:    vra.nextID,
 		Size:  size,
 		Type:  StackLocation,
 		Name:  name,
-		Value: uint32(stackOffset),
+		Value: int32(stackOffset),
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++
@@ -180,7 +180,7 @@ func (vra *VirtualRegisterAllocator) AllocateImmediate(value int32, size Registe
 		ID:    vra.nextID,
 		Size:  size,
 		Type:  ImmediateValue,
-		Value: uint32(value),
+		Value: value,
 	}
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++
