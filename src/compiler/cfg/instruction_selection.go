@@ -264,40 +264,33 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 	// Special handling for array types
 	if arrayType, ok := decl.TypeInfo.(*zsm.ArrayType); ok {
 		if arrayType.Length() > 0 {
-			// Fixed-size array: allocate stack space for array data
-			dataSize := arrayType.DataSize()
-			dataOffset := ctx.allocateStackSpace(dataSize)
+			// Fixed-size array
+			if decl.Initializer == nil {
+				// No initializer: allocate uninitialized array space
+				dataSize := arrayType.DataSize()
+				dataOffset := ctx.allocateStackSpace(dataSize)
 
-			// Allocate stack space for the pointer variable itself
-			pointerOffset := ctx.allocateStackSpace(decl.TypeInfo.Size())
+				// Create VR for the pointer (no dedicated stack space needed)
+				vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+				ctx.symbolToVReg[decl.Symbol] = vr
 
-			// Create VR backed by stack location for the pointer
-			vr = ctx.vrAlloc.AllocateOnStack(decl.Symbol.Name, regSize, uint8(pointerOffset))
-			ctx.symbolToVReg[decl.Symbol] = vr
-
-			// Compute address of array data: SP + dataOffset
-			addressVR, err := ctx.selector.SelectLoadStackAddress(dataOffset)
-			if err != nil {
-				return err
-			}
-
-			// Initialize the pointer variable with the computed address
-			err = ctx.selector.SelectMove(vr, addressVR, regSize)
-			if err != nil {
-				return err
-			}
-
-			// If there's an array initializer, handle it specially to avoid double-allocation
-			if arrayInit, ok := decl.Initializer.(*zsm.SemArrayInitializer); ok {
-				// Initialize array elements directly into the allocated space
-				if err := ctx.initializeArrayInPlace(addressVR, arrayInit); err != nil {
+				// Compute address of array data: SP + dataOffset
+				addressVR, err := ctx.selector.SelectLoadStackAddress(dataOffset)
+				if err != nil {
 					return err
 				}
-				// Done - no need to do the normal initializer assignment
-				return nil
-			}
 
-			// Array pointer now references the allocated (but uninitialized) array data
+				// Move the address into the pointer VR
+				err = ctx.selector.SelectMove(vr, addressVR, regSize)
+				if err != nil {
+					return err
+				}
+			} else {
+				// Has initializer: just allocate the pointer variable
+				// The initializer expression will allocate and initialize the array data
+				vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+				ctx.symbolToVReg[decl.Symbol] = vr
+			}
 		} else {
 			// Dynamic/zero-length array: allocate as regular VR
 			vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
@@ -326,35 +319,6 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 		// For arrays, this moves the pointer from the initializer to the variable
 		err = ctx.selector.SelectMove(vr, initVR, regSize)
 		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// initializeArrayInPlace initializes array elements directly at the given address
-// This is used when the array storage has already been allocated
-func (ctx *InstructionSelectionContext) initializeArrayInPlace(addressVR *VirtualRegister, init *zsm.SemArrayInitializer) error {
-	arrayType, ok := init.Type().(*zsm.ArrayType)
-	if !ok {
-		return fmt.Errorf("array initializer doesn't have array type")
-	}
-
-	elementSize := arrayType.ElementType().Size()
-	elementRegSize := RegisterSize(elementSize * 8)
-
-	// Initialize each element
-	for i, elemExpr := range init.Elements {
-		// Evaluate element expression
-		valueVR, err := ctx.selectExpression(elemExpr)
-		if err != nil {
-			return err
-		}
-
-		// Store element at offset i * elementSize
-		offset := uint16(i) * elementSize
-		if err := ctx.selector.SelectStore(addressVR, valueVR, offset, elementRegSize); err != nil {
 			return err
 		}
 	}
