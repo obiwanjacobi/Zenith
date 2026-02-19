@@ -329,14 +329,38 @@ func Test_ParseTypeInitializer(t *testing.T) {
 	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	typeInit, ok := varDecl.Initializer().(ExpressionTypeInitializer)
+	typeRef := typeInit.TypeRef()
 	assert.True(t, ok)
-	assert.NotNil(t, typeInit.TypeRef())
+	assert.NotNil(t, typeRef)
+	assert.True(t, typeRef.TypeName().Text() == "Point", "Type name should be 'Point'")
 	assert.NotNil(t, typeInit.Initializer())
 }
 
 func Test_ParseArrayType(t *testing.T) {
 	code := `buffer: u8[256]`
 	cu := parseCode(t, "Test_ParseArrayType", code)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
+
+	typeRef := varDecl.TypeRef()
+	assert.NotNil(t, typeRef)
+	// Array syntax should be captured in tokens
+	assert.True(t, len(typeRef.Tokens()) > 0)
+}
+
+func Test_ParseArrayTypeEmptyInitializer(t *testing.T) {
+	code := `buffer: u8[1] = []`
+	cu := parseCode(t, "Test_ParseArrayTypeEmptyInitializer", code)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
+
+	typeRef := varDecl.TypeRef()
+	assert.NotNil(t, typeRef)
+	// Array syntax should be captured in tokens
+	assert.True(t, len(typeRef.Tokens()) > 0)
+}
+
+func Test_ParseArrayTypeInitializer(t *testing.T) {
+	code := `buffer: u8[] = [1, 2, 3]`
+	cu := parseCode(t, "Test_ParseArrayTypeInitializer", code)
 	varDecl := cu.Declarations()[0].(VariableDeclaration)
 
 	typeRef := varDecl.TypeRef()
@@ -391,6 +415,25 @@ func Test_ParseBooleanLiteral(t *testing.T) {
 	literal, ok := varDecl.Initializer().(ExpressionLiteral)
 	assert.True(t, ok)
 	assert.NotNil(t, literal)
+}
+
+func Test_ParsePointer(t *testing.T) {
+	code := `ptr: u8*`
+	cu := parseCode(t, "Test_ParsePointer", code)
+	varDecl := cu.Declarations()[0].(VariableDeclaration)
+	typeRef := varDecl.TypeRef()
+	assert.True(t, typeRef.IsPointer())
+	assert.NotNil(t, typeRef.Tokens())
+}
+
+func Test_ParseFunctionPointerParameter(t *testing.T) {
+	code := `main: (ptr: u8*){}`
+	cu := parseCode(t, "Test_ParseFunctionPointerParameter", code)
+	funcDecl := cu.Declarations()[0].(FunctionDeclaration)
+	params := funcDecl.Parameters()
+	typeRef := params.Fields()[0].TypeRef()
+	assert.True(t, typeRef.IsPointer())
+	assert.NotNil(t, typeRef.Tokens())
 }
 
 func Test_ParseStructDeclarationTopLevel(t *testing.T) {

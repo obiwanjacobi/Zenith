@@ -119,16 +119,42 @@ any*        //  void pointer
 Ref syntax: `&<var>`
 
 ```c
-&val
+val := 42
+ptr := &val
 ```
 
 Deref syntax: `*<var>`
 
 ```c
-*ptr
+val := 42
+ptr := &val
+
+x := *ptr   //42
 ```
 
-Null pointer: `ptr u8* = nil`
+Null pointer: `ptr: u8* = nil`
+
+```c
+ptr: u8*    // default = nil
+if ptr? {
+    // use ptr
+}
+```
+
+Calling members through a pointer:
+
+```c
+struct Point {
+    x: u8
+    y: u8
+}
+
+pt: Point = { x = 42, y = 101 }
+x := pt.x
+
+ptr := &pt  //Point*
+x := ptr.x
+```
 
 #### Function Pointers
 

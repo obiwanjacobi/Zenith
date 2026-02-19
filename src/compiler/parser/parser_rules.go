@@ -27,9 +27,9 @@ func (ctx *parserContext) compilationUnit() ParserNode {
 
 	return &compilationUnit{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -70,10 +70,10 @@ func (ctx *parserContext) codeBlock() ParserNode {
 	}
 	return &codeBlock{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -117,9 +117,9 @@ func (ctx *parserContext) variableDeclaration() ParserNode {
 
 	return &variableDeclaration{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -162,9 +162,9 @@ func (ctx *parserContext) variableAssignment() ParserNode {
 
 	return &variableAssignment{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: []ParserNode{lvalue, rvalue},
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: []ParserNode{lvalue, rvalue},
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -221,10 +221,10 @@ func (ctx *parserContext) functionDeclaration() ParserNode {
 
 	return &functionDeclaration{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -273,10 +273,10 @@ func (ctx *parserContext) functionInvocation() ParserNode {
 
 	return &expressionFunctionInvocation{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 		isIntrinsic: isIntrinsic,
 	}
@@ -307,10 +307,10 @@ func (ctx *parserContext) functionArgumentList() ParserNode {
 
 	return &functionArgumentList{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -345,10 +345,10 @@ func (ctx *parserContext) typeDeclaration() ParserNode {
 
 	return &typeDeclaration{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -380,10 +380,10 @@ func (ctx *parserContext) typeDeclarationFields() ParserNode {
 
 	return &typeDeclarationFields{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -418,11 +418,16 @@ func (ctx *parserContext) typeReference() ParserNode {
 		}
 	}
 
+	// pointer types (e.g. u8*) can be denoted with a trailing '*'
+	if ctx.is(lexer.TokenAsterisk) {
+		ctx.next(skipEOL) // consume '*'
+	}
+
 	return &typeRef{
 		parserNodeData: parserNodeData{
-			_source: ctx.source,
-			_tokens: ctx.fromMark(mark),
-			_errors: errors,
+			source: ctx.source,
+			tokens: ctx.fromMark(mark),
+			errors: errors,
 		},
 	}
 }
@@ -459,10 +464,10 @@ func (ctx *parserContext) typeInitializer() ParserNode {
 
 	return &typeInitializer{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -492,10 +497,10 @@ func (ctx *parserContext) typeInitializerFieldList() ParserNode {
 
 	return &typeInitializerFieldList{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -527,10 +532,10 @@ func (ctx *parserContext) typeInitializerField() ParserNode {
 
 	return &typeInitializerField{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -555,10 +560,10 @@ func (ctx *parserContext) arrayInitializer() ParserNode {
 		ctx.next(skipEOL) // consume ']'
 		return &arrayInitializer{
 			parserNodeData: parserNodeData{
-				_source:   ctx.source,
-				_children: children,
-				_tokens:   ctx.fromMark(mark),
-				_errors:   errors,
+				source:   ctx.source,
+				children: children,
+				tokens:   ctx.fromMark(mark),
+				errors:   errors,
 			},
 		}
 	}
@@ -595,10 +600,10 @@ func (ctx *parserContext) arrayInitializer() ParserNode {
 
 	return &arrayInitializer{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -639,10 +644,10 @@ func (ctx *parserContext) typeAlias() ParserNode {
 
 	return &typeAlias{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -680,10 +685,10 @@ func (ctx *parserContext) declarationFieldList() ParserNode {
 
 	return &declarationFieldList{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -706,9 +711,9 @@ func (ctx *parserContext) declarationField() ParserNode {
 
 	return &declarationField{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: []ParserNode{labelNode, typeRefNode},
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: []ParserNode{labelNode, typeRefNode},
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -777,10 +782,10 @@ func (ctx *parserContext) statementIf() ParserNode {
 
 	return &statementIf{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -813,10 +818,10 @@ func (ctx *parserContext) statementElsif() ParserNode {
 
 	return &statementElsif{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -892,10 +897,10 @@ func (ctx *parserContext) statementFor() ParserNode {
 
 	return &statementFor{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -959,10 +964,10 @@ func (ctx *parserContext) statementSelect() ParserNode {
 
 	return &statementSelect{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -995,10 +1000,10 @@ func (ctx *parserContext) statementSelectCase() ParserNode {
 
 	return &statementSelectCase{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -1024,10 +1029,10 @@ func (ctx *parserContext) statementSelectElse() ParserNode {
 
 	return &statementSelectElse{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: children,
-			_tokens:   ctx.fromMark(mark),
-			_errors:   errors,
+			source:   ctx.source,
+			children: children,
+			tokens:   ctx.fromMark(mark),
+			errors:   errors,
 		},
 	}
 }
@@ -1050,9 +1055,9 @@ func (ctx *parserContext) statementReturn() ParserNode {
 
 	return &statementReturn{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: []ParserNode{expr},
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: []ParserNode{expr},
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -1072,9 +1077,9 @@ func (ctx *parserContext) statementExpression() ParserNode {
 
 	return &statementExpression{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: []ParserNode{expr},
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: []ParserNode{expr},
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -1109,9 +1114,9 @@ func (ctx *parserContext) expressionBinaryLogical() ParserNode {
 		left = &expressionOperatorBinLogical{
 			expressionOperatorBinary: expressionOperatorBinary{
 				parserNodeData: parserNodeData{
-					_source:   ctx.source,
-					_children: []ParserNode{left, right},
-					_tokens:   ctx.fromMark(mark),
+					source:   ctx.source,
+					children: []ParserNode{left, right},
+					tokens:   ctx.fromMark(mark),
 				},
 			},
 		}
@@ -1144,9 +1149,9 @@ func (ctx *parserContext) expressionBinaryComparison() ParserNode {
 		return &expressionOperatorBinComparison{
 			expressionOperatorBinary: expressionOperatorBinary{
 				parserNodeData: parserNodeData{
-					_source:   ctx.source,
-					_children: []ParserNode{left, right},
-					_tokens:   ctx.fromMark(mark),
+					source:   ctx.source,
+					children: []ParserNode{left, right},
+					tokens:   ctx.fromMark(mark),
 				},
 			},
 		}
@@ -1178,9 +1183,9 @@ func (ctx *parserContext) expressionBinaryBitwise() ParserNode {
 		left = &expressionOperatorBinBitwise{
 			expressionOperatorBinary: expressionOperatorBinary{
 				parserNodeData: parserNodeData{
-					_source:   ctx.source,
-					_children: []ParserNode{left, right},
-					_tokens:   ctx.fromMark(mark),
+					source:   ctx.source,
+					children: []ParserNode{left, right},
+					tokens:   ctx.fromMark(mark),
 				},
 			},
 		}
@@ -1212,9 +1217,9 @@ func (ctx *parserContext) expressionBinaryArithmetic() ParserNode {
 		left = &expressionOperatorBinArithmetic{
 			expressionOperatorBinary: expressionOperatorBinary{
 				parserNodeData: parserNodeData{
-					_source:   ctx.source,
-					_children: []ParserNode{left, right},
-					_tokens:   ctx.fromMark(mark),
+					source:   ctx.source,
+					children: []ParserNode{left, right},
+					tokens:   ctx.fromMark(mark),
 				},
 			},
 		}
@@ -1246,10 +1251,10 @@ func (ctx *parserContext) expressionUnary() ParserNode {
 			return &expressionOperatorUnipreArithmetic{
 				expressionOperatorUnaryPrefix: expressionOperatorUnaryPrefix{
 					parserNodeData: parserNodeData{
-						_source:   ctx.source,
-						_children: []ParserNode{expr},
-						_tokens:   ctx.fromMark(mark),
-						_errors:   make([]*compiler.Diagnostic, 0),
+						source:   ctx.source,
+						children: []ParserNode{expr},
+						tokens:   ctx.fromMark(mark),
+						errors:   make([]*compiler.Diagnostic, 0),
 					},
 				},
 			}
@@ -1257,10 +1262,10 @@ func (ctx *parserContext) expressionUnary() ParserNode {
 			return &expressionOperatorUnipreBitwise{
 				expressionOperatorUnaryPrefix: expressionOperatorUnaryPrefix{
 					parserNodeData: parserNodeData{
-						_source:   ctx.source,
-						_children: []ParserNode{expr},
-						_tokens:   ctx.fromMark(mark),
-						_errors:   make([]*compiler.Diagnostic, 0),
+						source:   ctx.source,
+						children: []ParserNode{expr},
+						tokens:   ctx.fromMark(mark),
+						errors:   make([]*compiler.Diagnostic, 0),
 					},
 				},
 			}
@@ -1268,10 +1273,10 @@ func (ctx *parserContext) expressionUnary() ParserNode {
 			return &expressionOperatorUnipreLogical{
 				expressionOperatorUnaryPrefix: expressionOperatorUnaryPrefix{
 					parserNodeData: parserNodeData{
-						_source:   ctx.source,
-						_children: []ParserNode{expr},
-						_tokens:   ctx.fromMark(mark),
-						_errors:   make([]*compiler.Diagnostic, 0),
+						source:   ctx.source,
+						children: []ParserNode{expr},
+						tokens:   ctx.fromMark(mark),
+						errors:   make([]*compiler.Diagnostic, 0),
 					},
 				},
 			}
@@ -1305,10 +1310,10 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 
 			left = &expressionMemberAccess{
 				parserNodeData: parserNodeData{
-					_source:   ctx.source,
-					_children: []ParserNode{left},
-					_tokens:   ctx.fromMark(mark),
-					_errors:   make([]*compiler.Diagnostic, 0),
+					source:   ctx.source,
+					children: []ParserNode{left},
+					tokens:   ctx.fromMark(mark),
+					errors:   make([]*compiler.Diagnostic, 0),
 				},
 			}
 			continue
@@ -1334,10 +1339,10 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 
 			left = &expressionSubscript{
 				parserNodeData: parserNodeData{
-					_source:   ctx.source,
-					_children: []ParserNode{left, indexExpr},
-					_tokens:   ctx.fromMark(mark),
-					_errors:   make([]*compiler.Diagnostic, 0),
+					source:   ctx.source,
+					children: []ParserNode{left, indexExpr},
+					tokens:   ctx.fromMark(mark),
+					errors:   make([]*compiler.Diagnostic, 0),
 				},
 			}
 			continue
@@ -1350,9 +1355,9 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 			left = &expressionOperatorUnipostArithmetic{
 				expressionOperatorUnaryPostfix: expressionOperatorUnaryPostfix{
 					parserNodeData: parserNodeData{
-						_source:   ctx.source,
-						_children: []ParserNode{left},
-						_tokens:   ctx.fromMark(mark),
+						source:   ctx.source,
+						children: []ParserNode{left},
+						tokens:   ctx.fromMark(mark),
 					},
 				},
 			}
@@ -1366,9 +1371,9 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 			left = &expressionOperatorUnipostLogical{
 				expressionOperatorUnaryPostfix: expressionOperatorUnaryPostfix{
 					parserNodeData: parserNodeData{
-						_source:   ctx.source,
-						_children: []ParserNode{left},
-						_tokens:   ctx.fromMark(mark),
+						source:   ctx.source,
+						children: []ParserNode{left},
+						tokens:   ctx.fromMark(mark),
 					},
 				},
 			}
@@ -1421,10 +1426,10 @@ func (ctx *parserContext) expressionPrecedence() ParserNode {
 
 	return &expressionPrecedence{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: []ParserNode{expr},
-			_tokens:   ctx.fromMark(mark),
-			_errors:   make([]*compiler.Diagnostic, 0),
+			source:   ctx.source,
+			children: []ParserNode{expr},
+			tokens:   ctx.fromMark(mark),
+			errors:   make([]*compiler.Diagnostic, 0),
 		},
 	}
 }
@@ -1438,8 +1443,8 @@ func (ctx *parserContext) expressionLiteral() ParserNode {
 		ctx.next(skipEOL) // consume literal
 		return &expressionLiteral{
 			parserNodeData: parserNodeData{
-				_source: ctx.source,
-				_tokens: ctx.fromMark(mark),
+				source: ctx.source,
+				tokens: ctx.fromMark(mark),
 			},
 		}
 	}
@@ -1460,8 +1465,8 @@ func (ctx *parserContext) expressionIdentifier() ParserNode {
 
 	return &expressionIdentifier{
 		parserNodeData: parserNodeData{
-			_source: ctx.source,
-			_tokens: ctx.fromMark(mark),
+			source: ctx.source,
+			tokens: ctx.fromMark(mark),
 		},
 	}
 }
@@ -1486,9 +1491,9 @@ func (ctx *parserContext) expressionArrayInitializer() ParserNode {
 
 	return &expressionArrayInitializer{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: []ParserNode{arrayInit},
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: []ParserNode{arrayInit},
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -1511,9 +1516,9 @@ func (ctx *parserContext) expressionTypeInitializer() ParserNode {
 
 	return &expressionTypeInitializer{
 		parserNodeData: parserNodeData{
-			_source:   ctx.source,
-			_children: []ParserNode{typeRefNode, initNode},
-			_tokens:   ctx.fromMark(mark),
+			source:   ctx.source,
+			children: []ParserNode{typeRefNode, initNode},
+			tokens:   ctx.fromMark(mark),
 		},
 	}
 }
@@ -1538,8 +1543,8 @@ func (ctx *parserContext) label() ParserNode {
 
 	return &label{
 		parserNodeData: parserNodeData{
-			_source: ctx.source,
-			_tokens: ctx.fromMark(mark),
+			source: ctx.source,
+			tokens: ctx.fromMark(mark),
 		},
 	}
 }
@@ -1555,8 +1560,8 @@ func (ctx *parserContext) boolLiteral() ParserNode {
 		ctx.next(skipEOL) // consume bool literal
 		return &boolLiteral{
 			parserNodeData: parserNodeData{
-				_source: ctx.source,
-				_tokens: ctx.fromMark(mark),
+				source: ctx.source,
+				tokens: ctx.fromMark(mark),
 			},
 		}
 	}

@@ -16,41 +16,41 @@ type ParserNode interface {
 
 // Base parser node data structure
 type parserNodeData struct {
-	_source   *compiler.Source
-	_children []ParserNode
-	_tokens   []lexer.Token
-	_errors   []*compiler.Diagnostic
+	source   *compiler.Source
+	children []ParserNode
+	tokens   []lexer.Token
+	errors   []*compiler.Diagnostic
 }
 
 func (n *parserNodeData) Children() []ParserNode {
-	return n._children
+	return n.children
 }
 
 func (n *parserNodeData) Tokens() []lexer.Token {
-	return n._tokens
+	return n.tokens
 }
 
 func (n *parserNodeData) Errors() []*compiler.Diagnostic {
-	return n._errors
+	return n.errors
 }
 
 func (n *parserNodeData) Source() *compiler.Source {
-	return n._source
+	return n.source
 }
 
 func (n *parserNodeData) tokensOf(tokenId lexer.TokenId) []lexer.Token {
 	result := make([]lexer.Token, 0)
-	for i := 0; i < len(n._tokens); i++ {
-		if n._tokens[i].Id() == tokenId {
-			result = append(result, n._tokens[i])
+	for i := 0; i < len(n.tokens); i++ {
+		if n.tokens[i].Id() == tokenId {
+			result = append(result, n.tokens[i])
 		}
 	}
 	return result
 }
 func (n *parserNodeData) childrenOf(t reflect.Type) []interface{} {
 	result := make([]interface{}, 0)
-	for i := 0; i < len(n._children); i++ {
-		child := n._children[i]
+	for i := 0; i < len(n.children); i++ {
+		child := n.children[i]
 		if reflect.TypeOf(child).Implements(t) {
 			result = append(result, child)
 		}
@@ -80,7 +80,7 @@ func (n *compilationUnit) Tokens() []lexer.Token {
 }
 
 func (n *compilationUnit) Declarations() []ParserNode {
-	return n.parserNodeData._children
+	return n.parserNodeData.children
 }
 
 // ============================================================================
@@ -105,7 +105,7 @@ func (n *codeBlock) Tokens() []lexer.Token {
 }
 
 func (n *codeBlock) Statements() []ParserNode {
-	return n.parserNodeData._children
+	return n.parserNodeData.children
 }
 
 // ============================================================================
@@ -188,7 +188,7 @@ func (n *variableAssignment) Identifier() lexer.Token {
 
 func (n *variableAssignment) Operator() lexer.Token {
 	// Return compound operator token if present
-	for _, token := range n.parserNodeData._tokens {
+	for _, token := range n.parserNodeData.tokens {
 		switch token.Id() {
 		case lexer.TokenPlus, lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenSlash,
 			lexer.TokenAmpersant, lexer.TokenPipe, lexer.TokenCaret:
@@ -199,8 +199,8 @@ func (n *variableAssignment) Operator() lexer.Token {
 }
 
 func (n *variableAssignment) Expression() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
@@ -283,7 +283,7 @@ func (n *functionArgumentList) Tokens() []lexer.Token {
 }
 
 func (n *functionArgumentList) Arguments() []Expression {
-	return compiler.OfType[Expression](n.parserNodeData._children)
+	return compiler.OfType[Expression](n.parserNodeData.children)
 }
 
 // ============================================================================
@@ -317,8 +317,8 @@ func (n *typeDeclaration) Name() lexer.Token {
 }
 
 func (n *typeDeclaration) Fields() TypeDeclarationFields {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(TypeDeclarationFields)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(TypeDeclarationFields)
 	}
 	return nil
 }
@@ -345,8 +345,8 @@ func (n *typeDeclarationFields) Tokens() []lexer.Token {
 }
 
 func (n *typeDeclarationFields) Fields() DeclarationFieldList {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(DeclarationFieldList)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(DeclarationFieldList)
 	}
 	return nil
 }
@@ -358,6 +358,8 @@ func (n *typeDeclarationFields) Fields() DeclarationFieldList {
 type TypeRef interface {
 	ParserNode
 	TypeName() lexer.Token
+	IsPointer() bool
+	IsStruct() bool
 	ArraySize() lexer.Token
 	IsArray() bool
 }
@@ -382,6 +384,11 @@ func (n *typeRef) TypeName() lexer.Token {
 	return nil
 }
 
+func (n *typeRef) IsStruct() bool {
+	tokens := n.parserNodeData.tokensOf(lexer.TokenStruct)
+	return len(tokens) > 0
+}
+
 func (n *typeRef) ArraySize() lexer.Token {
 	tokens := n.parserNodeData.tokensOf(lexer.TokenNumber)
 	if len(tokens) > 0 {
@@ -392,6 +399,11 @@ func (n *typeRef) ArraySize() lexer.Token {
 
 func (n *typeRef) IsArray() bool {
 	tokens := n.parserNodeData.tokensOf(lexer.TokenBracketOpen)
+	return len(tokens) > 0
+}
+
+func (n *typeRef) IsPointer() bool {
+	tokens := n.parserNodeData.tokensOf(lexer.TokenAsterisk)
 	return len(tokens) > 0
 }
 
@@ -417,8 +429,8 @@ func (n *typeInitializer) Tokens() []lexer.Token {
 }
 
 func (n *typeInitializer) Fields() TypeInitializerFieldList {
-	if len(n.parserNodeData._children) > 0 {
-		if fields, ok := n.parserNodeData._children[0].(TypeInitializerFieldList); ok {
+	if len(n.parserNodeData.children) > 0 {
+		if fields, ok := n.parserNodeData.children[0].(TypeInitializerFieldList); ok {
 			return fields
 		}
 	}
@@ -447,7 +459,7 @@ func (n *typeInitializerFieldList) Tokens() []lexer.Token {
 }
 
 func (n *typeInitializerFieldList) Fields() []TypeInitializerField {
-	return compiler.OfTypeInterface[*typeInitializerField, TypeInitializerField](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*typeInitializerField, TypeInitializerField](n.parserNodeData.children)
 }
 
 // ============================================================================
@@ -490,7 +502,7 @@ func (n *arrayInitializer) Tokens() []lexer.Token {
 }
 
 func (n *arrayInitializer) Elements() []Expression {
-	return compiler.OfType[Expression](n.parserNodeData._children)
+	return compiler.OfType[Expression](n.parserNodeData.children)
 }
 
 func (n *typeInitializerField) Tokens() []lexer.Token {
@@ -506,8 +518,8 @@ func (n *typeInitializerField) Identifier() lexer.Token {
 }
 
 func (n *typeInitializerField) Expression() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
@@ -543,8 +555,8 @@ func (n *typeAlias) Name() lexer.Token {
 }
 
 func (n *typeAlias) AliasedType() TypeRef {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(TypeRef)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(TypeRef)
 	}
 	return nil
 }
@@ -571,7 +583,7 @@ func (n *declarationFieldList) Tokens() []lexer.Token {
 }
 
 func (n *declarationFieldList) Fields() []DeclarationField {
-	return compiler.OfTypeInterface[*declarationField, DeclarationField](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*declarationField, DeclarationField](n.parserNodeData.children)
 }
 
 // ============================================================================
@@ -597,11 +609,11 @@ func (n *declarationField) Tokens() []lexer.Token {
 }
 
 func (n *declarationField) Label() Label {
-	return n.parserNodeData._children[0].(Label)
+	return n.parserNodeData.children[0].(Label)
 }
 
 func (n *declarationField) TypeRef() TypeRef {
-	return n.parserNodeData._children[1].(TypeRef)
+	return n.parserNodeData.children[1].(TypeRef)
 }
 
 // ============================================================================
@@ -665,12 +677,12 @@ func (n *statementIf) ThenBlock() CodeBlock {
 }
 
 func (n *statementIf) ElsifClauses() []StatementElsif {
-	return compiler.OfTypeInterface[*statementElsif, StatementElsif](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*statementElsif, StatementElsif](n.parserNodeData.children)
 }
 
 func (n *statementIf) ElseBlock() CodeBlock {
 	// The else block is distinct from the main then block
-	blocks := compiler.OfTypeInterface[*codeBlock, CodeBlock](n.parserNodeData._children)
+	blocks := compiler.OfTypeInterface[*codeBlock, CodeBlock](n.parserNodeData.children)
 	if len(blocks) > 1 {
 		return blocks[len(blocks)-1]
 	}
@@ -700,15 +712,15 @@ func (n *statementElsif) Tokens() []lexer.Token {
 }
 
 func (n *statementElsif) Condition() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
 
 func (n *statementElsif) ThenBlock() CodeBlock {
-	if len(n.parserNodeData._children) > 1 {
-		return n.parserNodeData._children[1].(CodeBlock)
+	if len(n.parserNodeData.children) > 1 {
+		return n.parserNodeData.children[1].(CodeBlock)
 	}
 	return nil
 }
@@ -739,8 +751,8 @@ func (n *statementFor) Tokens() []lexer.Token {
 
 func (n *statementFor) Initializer() ParserNode {
 	// First child if it's not an Expression
-	if len(n.parserNodeData._children) > 0 {
-		child := n.parserNodeData._children[0]
+	if len(n.parserNodeData.children) > 0 {
+		child := n.parserNodeData.children[0]
 		exprChildren := n.parserNodeData.childrenOf(reflect.TypeFor[Expression]())
 		// Check if first child is an expression
 		if len(exprChildren) > 0 && exprChildren[0] == child {
@@ -752,7 +764,7 @@ func (n *statementFor) Initializer() ParserNode {
 }
 
 func (n *statementFor) Condition() Expression {
-	expressions := compiler.OfType[Expression](n.parserNodeData._children)
+	expressions := compiler.OfType[Expression](n.parserNodeData.children)
 	if len(expressions) > 0 {
 		return expressions[0]
 	}
@@ -760,7 +772,7 @@ func (n *statementFor) Condition() Expression {
 }
 
 func (n *statementFor) Increment() Expression {
-	expressions := compiler.OfType[Expression](n.parserNodeData._children)
+	expressions := compiler.OfType[Expression](n.parserNodeData.children)
 	if len(expressions) > 1 {
 		return expressions[1]
 	}
@@ -768,7 +780,7 @@ func (n *statementFor) Increment() Expression {
 }
 
 func (n *statementFor) Body() CodeBlock {
-	children := compiler.OfTypeInterface[*codeBlock, CodeBlock](n.parserNodeData._children)
+	children := compiler.OfTypeInterface[*codeBlock, CodeBlock](n.parserNodeData.children)
 	if len(children) > 0 {
 		return children[0]
 	}
@@ -807,12 +819,12 @@ func (n *statementSelect) Expression() Expression {
 }
 
 func (n *statementSelect) Cases() []StatementSelectCase {
-	return compiler.OfTypeInterface[*statementSelectCase, StatementSelectCase](n.parserNodeData._children)
+	return compiler.OfTypeInterface[*statementSelectCase, StatementSelectCase](n.parserNodeData.children)
 }
 
 func (n *statementSelect) Else() StatementSelectElse {
 	// Use concrete type to avoid matching statementSelectCase
-	elseNodes := compiler.OfTypeInterface[*statementSelectElse, StatementSelectElse](n.parserNodeData._children)
+	elseNodes := compiler.OfTypeInterface[*statementSelectElse, StatementSelectElse](n.parserNodeData.children)
 	if len(elseNodes) > 0 {
 		return elseNodes[0]
 	}
@@ -842,15 +854,15 @@ func (n *statementSelectCase) Tokens() []lexer.Token {
 }
 
 func (n *statementSelectCase) Expression() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
 
 func (n *statementSelectCase) Body() CodeBlock {
-	if len(n.parserNodeData._children) > 1 {
-		return n.parserNodeData._children[1].(CodeBlock)
+	if len(n.parserNodeData.children) > 1 {
+		return n.parserNodeData.children[1].(CodeBlock)
 	}
 	return nil
 }
@@ -877,8 +889,8 @@ func (n *statementSelectElse) Tokens() []lexer.Token {
 }
 
 func (n *statementSelectElse) Body() CodeBlock {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(CodeBlock)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(CodeBlock)
 	}
 	return nil
 }
@@ -905,8 +917,8 @@ func (n *statementExpression) Tokens() []lexer.Token {
 }
 
 func (n *statementExpression) Expression() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
@@ -933,8 +945,8 @@ func (n *statementReturn) Tokens() []lexer.Token {
 }
 
 func (n *statementReturn) Value() Expression {
-	if len(n.parserNodeData._children) > 0 && n.parserNodeData._children[0] != nil {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 && n.parserNodeData.children[0] != nil {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
@@ -1012,8 +1024,8 @@ func (n *expressionPrecedence) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionPrecedence) Inner() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
@@ -1045,8 +1057,8 @@ func (n *expressionMemberAccess) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionMemberAccess) Object() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
@@ -1086,15 +1098,15 @@ func (n *expressionSubscript) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionSubscript) Array() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
 
 func (n *expressionSubscript) Index() Expression {
-	if len(n.parserNodeData._children) > 1 {
-		return n.parserNodeData._children[1].(Expression)
+	if len(n.parserNodeData.children) > 1 {
+		return n.parserNodeData.children[1].(Expression)
 	}
 	return nil
 }
@@ -1123,22 +1135,22 @@ func (n *expressionOperatorBinary) Tokens() []lexer.Token {
 }
 
 func (n *expressionOperatorBinary) Left() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
 
 func (n *expressionOperatorBinary) Right() Expression {
-	if len(n.parserNodeData._children) > 1 {
-		return n.parserNodeData._children[1].(Expression)
+	if len(n.parserNodeData.children) > 1 {
+		return n.parserNodeData.children[1].(Expression)
 	}
 	return nil
 }
 
 func (n *expressionOperatorBinary) Operator() lexer.Token {
-	if len(n.parserNodeData._tokens) > 0 {
-		return n.parserNodeData._tokens[0]
+	if len(n.parserNodeData.tokens) > 0 {
+		return n.parserNodeData.tokens[0]
 	}
 	return nil
 }
@@ -1322,15 +1334,15 @@ func (n *expressionOperatorUnaryPrefix) Tokens() []lexer.Token {
 }
 
 func (n *expressionOperatorUnaryPrefix) Operand() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
 
 func (n *expressionOperatorUnaryPrefix) Operator() lexer.Token {
-	if len(n.parserNodeData._tokens) > 0 {
-		return n.parserNodeData._tokens[0]
+	if len(n.parserNodeData.tokens) > 0 {
+		return n.parserNodeData.tokens[0]
 	}
 	return nil
 }
@@ -1464,15 +1476,15 @@ func (n *expressionOperatorUnaryPostfix) Tokens() []lexer.Token {
 }
 
 func (n *expressionOperatorUnaryPostfix) Operand() Expression {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(Expression)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(Expression)
 	}
 	return nil
 }
 
 func (n *expressionOperatorUnaryPostfix) Operator() lexer.Token {
-	if len(n.parserNodeData._tokens) > 0 {
-		return n.parserNodeData._tokens[0]
+	if len(n.parserNodeData.tokens) > 0 {
+		return n.parserNodeData.tokens[0]
 	}
 	return nil
 }
@@ -1585,8 +1597,8 @@ func (n *expressionFunctionInvocation) FunctionName() string {
 }
 
 func (n *expressionFunctionInvocation) Arguments() FunctionArgumentList {
-	if len(n.parserNodeData._children) > 0 {
-		if args, ok := n.parserNodeData._children[0].(FunctionArgumentList); ok {
+	if len(n.parserNodeData.children) > 0 {
+		if args, ok := n.parserNodeData.children[0].(FunctionArgumentList); ok {
 			return args
 		}
 	}
@@ -1623,8 +1635,8 @@ func (n *expressionArrayInitializer) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionArrayInitializer) Initializer() ArrayInitializer {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(ArrayInitializer)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(ArrayInitializer)
 	}
 	return nil
 }
@@ -1656,15 +1668,15 @@ func (n *expressionTypeInitializer) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionTypeInitializer) TypeRef() TypeRef {
-	if len(n.parserNodeData._children) > 0 {
-		return n.parserNodeData._children[0].(TypeRef)
+	if len(n.parserNodeData.children) > 0 {
+		return n.parserNodeData.children[0].(TypeRef)
 	}
 	return nil
 }
 
 func (n *expressionTypeInitializer) Initializer() TypeInitializer {
-	if len(n.parserNodeData._children) > 1 {
-		return n.parserNodeData._children[1].(TypeInitializer)
+	if len(n.parserNodeData.children) > 1 {
+		return n.parserNodeData.children[1].(TypeInitializer)
 	}
 	return nil
 }
@@ -1697,8 +1709,8 @@ func (n *expressionLiteral) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionLiteral) Value() lexer.Token {
-	if len(n.parserNodeData._tokens) > 0 {
-		return n.parserNodeData._tokens[0]
+	if len(n.parserNodeData.tokens) > 0 {
+		return n.parserNodeData.tokens[0]
 	}
 	return nil
 }
@@ -1745,8 +1757,8 @@ func (n *expressionIdentifier) ExpressionKind() ExpressionKind {
 }
 
 func (n *expressionIdentifier) Identifier() lexer.Token {
-	if len(n.parserNodeData._tokens) > 0 {
-		return n.parserNodeData._tokens[0]
+	if len(n.parserNodeData.tokens) > 0 {
+		return n.parserNodeData.tokens[0]
 	}
 	return nil
 }

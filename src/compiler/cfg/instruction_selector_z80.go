@@ -621,6 +621,36 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 	return nil // store has no result
 }
 
+func (z *instructionSelectorZ80) SelectStoreSequential(address *VirtualRegister, value *VirtualRegister, increment uint16, size RegisterSize) error {
+	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
+	z.emitAddOffsetToHL(vrHL, increment)
+
+	switch size {
+	case 8:
+		var opcode Z80Opcode
+		if value.Type == ImmediateValue {
+			opcode = Z80_LD_HL_N
+		} else {
+			opcode = Z80_LD_HL_R
+		}
+
+		z.emit(newInstruction(opcode, vrHL, value))
+	case 16:
+		if value.Type == ImmediateValue {
+			z.emit(newInstruction(Z80_LD_HL_NN, vrHL, value))
+		} else {
+			loRges, hiRegs := ToPairs(value.AllowedSet)
+			loVR := z.vrAlloc.Allocate(loRges)
+			hiVR := z.vrAlloc.Allocate(hiRegs)
+			// little endian store: low byte at (HL), high byte at (HL+1)
+			z.emit(newInstruction(Z80_LD_HL_R, vrHL, loVR))
+			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+			z.emit(newInstruction(Z80_LD_HL_R, vrHL, hiVR))
+		}
+	}
+	return nil // store has no result
+}
+
 // SelectLoadConstant generates instructions to load an immediate value
 func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error) {
 	val := value.(int)
@@ -927,14 +957,23 @@ func (z *instructionSelectorZ80) emitStoreOnStack(value *VirtualRegister, stackT
 
 // emitAddOffsetToHL adds an offset to the address in HL
 func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset uint16) {
-	if offset != 0 {
-		// Add offset to address
-		vrOffset := z.vrAlloc.AllocateImmediate(int32(offset), Bits16)
-		vrOffsetReg := z.vrAlloc.Allocate(Z80RegistersPP)
-		z.emit(newInstruction(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
-		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
-
+	if offset == 0 {
+		return // no offset to add
 	}
+
+	if offset < 4 {
+		// For small offsets, use INC HL multiple times
+		for range offset {
+			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+		}
+		return
+	}
+
+	// Add offset to address
+	vrOffset := z.vrAlloc.AllocateImmediate(int32(offset), Bits16)
+	vrOffsetReg := z.vrAlloc.Allocate(Z80RegistersPP)
+	z.emit(newInstruction(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
+	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
 }
 
 // emitCompare emits instructions to compare two VirtualRegisters

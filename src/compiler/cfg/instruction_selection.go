@@ -288,7 +288,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 			} else {
 				// Has initializer: just allocate the pointer variable
 				// The initializer expression will allocate and initialize the array data
-				vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+				vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80RegHL)
 				ctx.symbolToVReg[decl.Symbol] = vr
 			}
 		} else {
@@ -401,31 +401,22 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *Exp
 	switch e := expr.(type) {
 	case *zsm.SemConstant:
 		resultVR, err = ctx.selectConstant(e)
-
 	case *zsm.SemSymbolRef:
 		resultVR, err = ctx.selectSymbolRef(e)
-
 	case *zsm.SemBinaryOp:
 		resultVR, err = ctx.selectBinaryOp(exprCtx, e)
-
 	case *zsm.SemUnaryOp:
 		resultVR, err = ctx.selectUnaryOp(exprCtx, e)
-
 	case *zsm.SemFunctionCall:
 		resultVR, err = ctx.selectFunctionCall(exprCtx, e)
-
 	case *zsm.SemMemberAccess:
 		resultVR, err = ctx.selectMemberAccess(e)
-
 	case *zsm.SemSubscript:
 		resultVR, err = ctx.selectSubscript(exprCtx, e)
-
 	case *zsm.SemArrayInitializer:
 		resultVR, err = ctx.selectArrayInitializer(exprCtx, e)
-
 	case *zsm.SemTypeInitializer:
 		resultVR, err = ctx.selectTypeInitializer(exprCtx, e)
-
 	default:
 		return nil, fmt.Errorf("unknown expression type: %T", expr)
 	}
@@ -648,16 +639,13 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 	elementSize := arrayType.ElementType().Size()
 	elementRegSize := RegisterSize(elementSize * 8)
 
-	for i, elemExpr := range init.Elements {
+	for _, elemExpr := range init.Elements {
 		// Evaluate element expression
 		valueVR, err := ctx.selectExpressionWithContext(exprCtx, elemExpr)
 		if err != nil {
 			return nil, err
 		}
-
-		// Store element at offset i * elementSize
-		offset := uint16(i) * elementSize
-		if err := ctx.selector.SelectStore(addressVR, valueVR, offset, elementRegSize); err != nil {
+		if err := ctx.selector.SelectStoreSequential(addressVR, valueVR, elementSize, elementRegSize); err != nil {
 			return nil, err
 		}
 	}

@@ -38,7 +38,7 @@ type_declaration:
 type_declaration_fields:
     '{' declaration_fieldlist '}'
 type_ref:
-    identifier ('[' number? ']')?
+    identifier ('[' number? ']' | '*')?
 array_initializer:      # arrays - trailing comma allowed
     '[' (expression (',' expression)* ','?)? ']'
 type_initializer:       # structs

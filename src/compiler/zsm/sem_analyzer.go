@@ -334,10 +334,11 @@ func (sa *SemanticAnalyzer) processFunctionDecl(node parser.FunctionDeclaration)
 	defer sa.popScope()
 
 	// Add parameters to function scope
-	parameters := []*Symbol{}
+	parameters := make([]*Symbol, 0)
 	if params := node.Parameters(); params != nil {
 		for _, field := range params.Fields() {
 			paramType := sa.resolveTypeRef(field.TypeRef())
+
 			paramSymbol := &Symbol{
 				Name: field.Label().Name(),
 				Kind: SymbolVariable,

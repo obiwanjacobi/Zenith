@@ -222,3 +222,15 @@ func Test_Pipeline_Reverse(t *testing.T) {
 
 	RunPipeline(t, sourceCode)
 }
+
+func Test_Pipeline_Struct(t *testing.T) {
+	sourceCode := `struct Point {
+		x: u8,
+		y: u8
+	}
+	pt: (pt: Point*) u8 {
+		ret pt.x + pt.y
+	}`
+
+	RunPipeline(t, sourceCode)
+}
