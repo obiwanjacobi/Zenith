@@ -94,6 +94,7 @@ type CFG struct {
 	Blocks       []*BasicBlock        // All blocks in the graph
 	FunctionName string               // Name of the function (for qualified variable names)
 	FunctionDecl *zsm.SemFunctionDecl // Original function declaration (for parameters, return type)
+	FrameLayout  *FrameLayout         // Stack frame layout for symbol-backed slots
 	StackOffset  uint16               // Current stack offset for spills
 }
 
@@ -148,6 +149,7 @@ func (b *CFGBuilder) BuildCFG(funcDecl *zsm.SemFunctionDecl) *CFG {
 		Blocks:       b.blocks,
 		FunctionName: funcDecl.Name,
 		FunctionDecl: funcDecl,
+		FrameLayout:  NewFrameLayout(),
 	}
 }
 

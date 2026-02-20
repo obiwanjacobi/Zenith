@@ -57,6 +57,7 @@ func SelectInstructions(cfgs []*CFG, vrAlloc *VirtualRegisterAllocator, selector
 // selectCFG processes a single CFG and generates instructions for all its blocks
 func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 	ctx.currentCFG = cfg
+	ctx.allocateFrameSlots()
 
 	// Allocate VirtualRegisters for parameters based on calling convention
 	if cfg.FunctionDecl != nil {
@@ -96,25 +97,36 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 		}
 	}
 
-	// Generate prologue in the reserved entry block
-	// Note: Prologue emits instructions to currentBlock, so we set it to entry
-	ctx.selector.SetCurrentBlock(cfg.Entry)
-	ctx.selector.SelectFunctionPrologue(cfg.FunctionDecl)
+	// check if function needs stack frame
+	if ctx.currentCFG.FrameLayout.nextOffset > 0 {
+		// Generate prologue in the reserved entry block
+		// Note: Prologue emits instructions to currentBlock, so we set it to entry
+		ctx.selector.SetCurrentBlock(cfg.Entry)
+		ctx.selector.SelectFunctionPrologue(cfg.FunctionDecl, ctx.currentCFG.FrameLayout.nextOffset)
 
-	// Generate epilogue in the reserved exit block
-	// The exit block is reached by all return statements
-	ctx.selector.SetCurrentBlock(cfg.Exit)
-	ctx.selector.SelectFunctionEpilogue(cfg.FunctionDecl)
-
+		// Generate epilogue in the reserved exit block
+		// The exit block is reached by all return statements
+		ctx.selector.SetCurrentBlock(cfg.Exit)
+		ctx.selector.SelectFunctionEpilogue(cfg.FunctionDecl, ctx.currentCFG.FrameLayout.nextOffset)
+	}
 	return nil
 }
 
-// allocateStackSpace allocates space on the stack for local data (arrays, structs)
-// Returns the offset from SP where the data is located
-func (ctx *InstructionSelectionContext) allocateStackSpace(size uint16) uint16 {
-	offset := ctx.currentCFG.StackOffset
-	ctx.currentCFG.StackOffset += size
-	return offset
+func (ctx *InstructionSelectionContext) allocateFrameSlots() {
+	for _, block := range ctx.currentCFG.Blocks {
+		for _, stmt := range block.Instructions {
+			// TODO: track arrayInitializer expressions.
+			if varDecl, ok := stmt.(*zsm.SemVariableDecl); ok {
+				var size uint16
+				if arrType, ok := varDecl.TypeInfo.(*zsm.ArrayType); ok {
+					size = arrType.DataSize()
+				} else {
+					size = varDecl.TypeInfo.Size()
+				}
+				ctx.currentCFG.FrameLayout.AddSlot(varDecl.Symbol, size)
+			}
+		}
+	}
 }
 
 // selectBasicBlock processes a single basic block
@@ -258,43 +270,40 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 	// Allocate a VirtualRegister for this variable
 	// For arrays, this will be a pointer (2 bytes) since ArrayType.Size() returns 2
 	regSize := RegisterSize(decl.TypeInfo.Size() * 8) // Convert bytes to bits
-
-	var vr *VirtualRegister
+	var vrVar *VirtualRegister
 
 	// Special handling for array types
 	if arrayType, ok := decl.TypeInfo.(*zsm.ArrayType); ok {
 		if arrayType.Length() > 0 {
 			// Fixed-size array
+			vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+			ctx.symbolToVReg[decl.Symbol] = vrVar
+
 			if decl.Initializer == nil {
-				// No initializer: allocate uninitialized array space
 				dataSize := arrayType.DataSize()
-				dataOffset := ctx.allocateStackSpace(dataSize)
+				offset := ctx.currentCFG.FrameLayout.AddSlot(decl.Symbol, dataSize)
 
-				// Create VR for the pointer (no dedicated stack space needed)
-				vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
-				ctx.symbolToVReg[decl.Symbol] = vr
-
-				// Compute address of array data: SP + dataOffset
-				addressVR, err := ctx.selector.SelectLoadStackAddress(dataOffset)
+				// load value from stack into vrVar
+				vrAddress, err := ctx.selector.SelectLoadStackAddress(offset)
 				if err != nil {
 					return err
 				}
 
 				// Move the address into the pointer VR
-				err = ctx.selector.SelectMove(vr, addressVR, regSize)
+				err = ctx.selector.SelectMove(vrVar, vrAddress, regSize)
 				if err != nil {
 					return err
 				}
 			} else {
-				// Has initializer: just allocate the pointer variable
-				// The initializer expression will allocate and initialize the array data
-				vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80RegHL)
-				ctx.symbolToVReg[decl.Symbol] = vr
+				// Has initializer: do not allocate frame storage here.
+				// The initializer expression allocates and initializes array data.
+
 			}
 		} else {
-			// Dynamic/zero-length array: allocate as regular VR
-			vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
-			ctx.symbolToVReg[decl.Symbol] = vr
+			// Dynamic/zero-length array: allocate a pointer-sized frame slot
+			offset := ctx.currentCFG.FrameLayout.AddSlot(decl.Symbol, uint16(decl.TypeInfo.Size()))
+			vrVar = ctx.vrAlloc.AllocateOnStack(decl.Symbol.Name, regSize, uint8(offset))
+			ctx.symbolToVReg[decl.Symbol] = vrVar
 		}
 	} else {
 		// Non-array types: allocate as regular VR
@@ -304,20 +313,22 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 		} else {
 			regs = Z80Registers16
 		}
-		vr = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regs)
-		ctx.symbolToVReg[decl.Symbol] = vr
+		vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regs)
+		ctx.symbolToVReg[decl.Symbol] = vrVar
 	}
 
 	// If there's an initializer, evaluate it and assign
 	if decl.Initializer != nil {
-		initVR, err := ctx.selectExpression(decl.Initializer)
+		// Pass target symbol to initializer so it can allocate proper frame slot
+		initCtx := NewExprContextSymbol(decl.Symbol)
+		initVR, err := ctx.selectExpressionWithContext(initCtx, decl.Initializer)
 		if err != nil {
 			return err
 		}
 
 		// Generate move instruction
 		// For arrays, this moves the pointer from the initializer to the variable
-		err = ctx.selector.SelectMove(vr, initVR, regSize)
+		err = ctx.selector.SelectMove(vrVar, initVR, regSize)
 		if err != nil {
 			return err
 		}
@@ -541,10 +552,19 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 
 // selectFunctionCall processes function calls
 func (ctx *InstructionSelectionContext) selectFunctionCall(exprCtx *ExprContext, call *zsm.SemFunctionCall) (*VirtualRegister, error) {
-	// Evaluate arguments
+	// Evaluate arguments with parameter symbols for proper stack tracking
 	argVRs := make([]*VirtualRegister, len(call.Arguments))
 	for i, arg := range call.Arguments {
-		vr, err := ctx.selectExpressionWithContext(exprCtx, arg)
+		// Create a synthetic parameter symbol for stack allocation tracking
+		// This allows array literals in arguments to be tracked: foo([1,2,3])
+		paramSymbol := &zsm.Symbol{
+			Name: fmt.Sprintf("%s.arg%d", call.Function.Name, i),
+			Kind: zsm.SymbolVariable,
+		}
+
+		// Pass parameter symbol as target for array initializer tracking
+		argCtx := exprCtx.WithSymbol(paramSymbol)
+		vr, err := ctx.selectExpressionWithContext(argCtx, arg)
 		if err != nil {
 			return nil, err
 		}
@@ -625,9 +645,13 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 		return nil, fmt.Errorf("array initializer doesn't have array type")
 	}
 
-	// Allocate stack space for array data
+	if exprCtx.TargetSymbol == nil {
+		return nil, fmt.Errorf("array initializer missing target symbol in expression context")
+	}
+
+	// Allocate stack space for array data via FrameLayout
 	dataSize := arrayType.DataSize()
-	dataOffset := ctx.allocateStackSpace(dataSize)
+	dataOffset := ctx.currentCFG.FrameLayout.AddSlot(exprCtx.TargetSymbol, dataSize)
 
 	// Compute address of array data: SP + offset
 	addressVR, err := ctx.selector.SelectLoadStackAddress(dataOffset)
@@ -640,8 +664,9 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 	elementRegSize := RegisterSize(elementSize * 8)
 
 	for _, elemExpr := range init.Elements {
-		// Evaluate element expression
-		valueVR, err := ctx.selectExpressionWithContext(exprCtx, elemExpr)
+		// Evaluate element expression with cleared target symbol
+		// (nested expressions should not inherit the array's target)
+		valueVR, err := ctx.selectExpressionWithContext(nil, elemExpr)
 		if err != nil {
 			return nil, err
 		}

@@ -661,8 +661,6 @@ func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size Regi
 // SelectLoadStackAddress generates instructions to compute the address of a stack location
 // Returns a VR containing SP + stackOffset
 func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error) {
-	// On Z80: LD HL, offset; ADD HL, SP
-	// Result is in HL (address of stack location)
 
 	// Load offset into HL
 	offsetVR := z.vrAlloc.AllocateImmediate(int32(stackOffset), Bits16)
@@ -755,16 +753,27 @@ func (z *instructionSelectorZ80) SelectReturn(value *VirtualRegister) error {
 // ============================================================================
 
 // SelectFunctionPrologue generates function entry code
-func (z *instructionSelectorZ80) SelectFunctionPrologue(fn *zsm.SemFunctionDecl) error {
-	// Z80 function prologue typically:
-	// - Save registers that need preserving
-	// - Allocate stack frame if needed
+func (z *instructionSelectorZ80) SelectFunctionPrologue(fn *zsm.SemFunctionDecl, frameSize uint16) error {
+	// Allocate stack frame size needed
+	vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	vrSP := z.vrAlloc.Allocate(Z80RegSP)
+	// negative frameSize: stack grows downwards
+	vrSize := z.vrAlloc.AllocateImmediate(-int32(frameSize), Bits16)
+	z.emit(newInstruction(Z80_LD_HL_NN, vrHL, vrSize))
+	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
+	z.emit(newInstruction(Z80_LD_SP_HL, vrSP, vrHL))
 	return nil
 }
 
 // SelectFunctionEpilogue generates function exit code
-func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl) error {
-	// Restore registers, deallocate stack frame
+func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl, frameSize uint16) error {
+	// Deallocate stack frame size
+	vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	vrSP := z.vrAlloc.Allocate(Z80RegSP)
+	vrSize := z.vrAlloc.AllocateImmediate(int32(frameSize), Bits16)
+	z.emit(newInstruction(Z80_LD_HL_NN, vrHL, vrSize))
+	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
+	z.emit(newInstruction(Z80_LD_SP_HL, vrSP, vrHL))
 	return nil
 }
 
@@ -1196,13 +1205,18 @@ func (z *machineInstructionZ80) GetTargetBlocks() []*BasicBlock {
 }
 
 func (z *machineInstructionZ80) GetCost() InstructionCost {
+	cycles := uint8(0)
+	bytes := uint8(0)
+
 	if desc, ok := Z80InstrDescriptors[z.opcode]; ok {
-		return InstructionCost{
-			Cycles: desc.Cycles,
-			Size:   desc.Size,
-		}
+		cycles += desc.Cycles
+		bytes += desc.Size
+	} else {
+		cycles = 255
+		bytes = 255
 	}
-	return InstructionCost{255, 255} // Unknown cost
+
+	return InstructionCost{Cycles: cycles, Size: bytes}
 }
 
 func (z *machineInstructionZ80) String() string {

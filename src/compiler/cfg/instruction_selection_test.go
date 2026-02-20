@@ -63,6 +63,7 @@ func Test_InstructionSelection_Constant(t *testing.T) {
 	selector.SetCurrentBlock(block)
 	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
+	ctx.currentCFG = &CFG{FrameLayout: NewFrameLayout()}
 
 	constant := &zsm.SemConstant{
 		Value:    42,
@@ -271,6 +272,7 @@ func Test_InstructionSelection_VariableDecl(t *testing.T) {
 	selector.SetCurrentBlock(block)
 	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
+	ctx.currentCFG = &CFG{FrameLayout: NewFrameLayout()}
 
 	symbol := &zsm.Symbol{
 		Name: "x",
@@ -602,6 +604,7 @@ func Test_InstructionSelection_MultipleVariables(t *testing.T) {
 	selector.SetCurrentBlock(block)
 	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
+	ctx.currentCFG = &CFG{FrameLayout: NewFrameLayout()}
 
 	symbol1 := &zsm.Symbol{Name: "x", Type: u8Type()}
 	symbol2 := &zsm.Symbol{Name: "y", Type: u8Type()}
@@ -639,6 +642,7 @@ func Test_InstructionSelection_VariableDecl_NoInitializer(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 	selector := NewInstructionSelectorZ80(vrAlloc)
 	ctx := NewInstructionSelectionContext(selector, vrAlloc)
+	ctx.currentCFG = &CFG{FrameLayout: NewFrameLayout()}
 
 	symbol := &zsm.Symbol{Name: "x", Type: u8Type()}
 

@@ -28,8 +28,8 @@ type ExprContext struct {
 	TrueBlock  *BasicBlock
 	FalseBlock *BasicBlock
 
-	// For future: target VR for assignments (Phase 2)
-	// TargetVR *VirtualRegister
+	// Target symbol for storage allocation (e.g., variable being initialized, parameter receiving argument)
+	TargetSymbol *zsm.Symbol
 }
 
 // NewValueContext creates a context for value-producing expressions
@@ -45,6 +45,27 @@ func NewExprContextBranch(trueBlock, falseBlock *BasicBlock) *ExprContext {
 		Mode:       BranchMode,
 		TrueBlock:  trueBlock,
 		FalseBlock: falseBlock,
+	}
+}
+
+func NewExprContextSymbol(symbol *zsm.Symbol) *ExprContext {
+	return &ExprContext{
+		Mode:         ValueMode,
+		TargetSymbol: symbol,
+	}
+}
+
+// WithSymbol creates a copy of the context with a new target symbol.
+// Preserves all other fields (Mode, TrueBlock, FalseBlock).
+func (ctx *ExprContext) WithSymbol(symbol *zsm.Symbol) *ExprContext {
+	if ctx == nil {
+		return NewExprContextSymbol(symbol)
+	}
+	return &ExprContext{
+		Mode:         ctx.Mode,
+		TrueBlock:    ctx.TrueBlock,
+		FalseBlock:   ctx.FalseBlock,
+		TargetSymbol: symbol,
 	}
 }
 
@@ -194,7 +215,6 @@ type InstructionSelector interface {
 	SelectStoreSequential(address *VirtualRegister, value *VirtualRegister, increment uint16, size RegisterSize) error
 
 	// SelectLoadStackAddress generates instructions to load the address of a stack location
-	// stackOffset is the offset from SP, returns a VR containing the address (16-bit)
 	SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error)
 
 	// SelectLoadConstant generates instructions to load an immediate value
@@ -229,10 +249,10 @@ type InstructionSelector interface {
 	// ============================================================================
 
 	// SelectFunctionPrologue generates function entry code (stack frame setup)
-	SelectFunctionPrologue(fn *zsm.SemFunctionDecl) error
+	SelectFunctionPrologue(fn *zsm.SemFunctionDecl, frameSize uint16) error
 
 	// SelectFunctionEpilogue generates function exit code (stack frame teardown)
-	SelectFunctionEpilogue(fn *zsm.SemFunctionDecl) error
+	SelectFunctionEpilogue(fn *zsm.SemFunctionDecl, frameSize uint16) error
 
 	// ============================================================================
 	// Register Management
