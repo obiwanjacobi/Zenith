@@ -579,27 +579,30 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset uin
 
 // SelectLoadIndexed generates instructions to load from memory with a dynamic index
 func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size RegisterSize) (*VirtualRegister, error) {
-	// Always create a fresh VR for HL to avoid reusing a VR whose value may have been modified
-	vrHL := z.vrAlloc.Allocate(Z80RegHL)
-	
-	// Emit move from address to HL
-	if address.Type == ImmediateValue {
-		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, address))
-	} else {
-		// Move 16-bit address by decomposing into 8-bit component moves
-		loVR, hiVR := z.vrAlloc.AllocateComponents(vrHL)
-		addressLoVR, addressHiVR := z.vrAlloc.AllocateComponents(address)
-		z.emit(newInstruction(Z80_LD_R_R, loVR, addressLoVR))
-		z.emit(newInstruction(Z80_LD_R_R, hiVR, addressHiVR))
-	}
-	
-	// TODO: optimize for when index = 0 (imm)
-	indexVR := z.emitLoadIntoReg16(index, Z80RegistersPP)
+	// TODO: incorporate index*elementSize offset into address calculation instead of adding after loading base address
 
-	// TODO: are 16-bit shifts (custom code) faster than multiple 16-bit adds?
-	// Calculate offset: HL = base + index * elementSize
-	for ; elementSize > 0; elementSize-- {
-		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, indexVR))
+	// Materialize stack addresses
+	if address.Type == StackAddress {
+		var err error
+		address, err = z.SelectLoadStackAddress(uint16(address.Value))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
+
+	if index.Type == ImmediateValue {
+		// If index is an immediate, we can calculate offset directly
+		offset := uint16(index.Value) * elementSize
+		z.emitAddOffsetToHL(vrHL, offset)
+	} else {
+		indexVR := z.emitLoadIntoReg16(index, Z80RegistersPP)
+		// TODO: are 16-bit shifts (custom code) faster than multiple 16-bit adds?
+		// Calculate offset: HL = base + index * elementSize
+		for ; elementSize > 0; elementSize-- {
+			z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, indexVR))
+		}
 	}
 
 	switch size {
@@ -655,60 +658,27 @@ func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*Vi
 
 // SelectStore generates instructions to store to memory
 func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error) {
-	// Always create a fresh VR for HL to avoid reusing a VR whose value may have been modified
-	vrHL := z.vrAlloc.Allocate(Z80RegHL)
-	
-	// Emit move from address to HL
-	if address.Type == ImmediateValue {
-		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, address))
-	} else {
-		// Move 16-bit address by decomposing into 8-bit component moves
-		loVR, hiVR := z.vrAlloc.AllocateComponents(vrHL)
-		addressLoVR, addressHiVR := z.vrAlloc.AllocateComponents(address)
-		z.emit(newInstruction(Z80_LD_R_R, loVR, addressLoVR))
-		z.emit(newInstruction(Z80_LD_R_R, hiVR, addressHiVR))
-	}
-	
+	// // Materialize stack addresses
+	// if address.Type == StackAddress {
+	// 	var err error
+	// 	address, err = z.SelectLoadStackAddress(uint16(address.Value))
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
 	z.emitAddOffsetToHL(vrHL, offset)
 
-	switch size {
-	case 8:
-		var opcode Z80Opcode
-		if value.Type == ImmediateValue {
-			opcode = Z80_LD_HL_N
-		} else {
-			opcode = Z80_LD_HL_R
-		}
-
-		z.emit(newInstruction(opcode, vrHL, value))
-	case 16:
-		var vrLo, vrHi *VirtualRegister
-		if value.Type == ImmediateValue {
-			vrLo, vrHi = z.splitImmediateValue16(value)
-		} else {
-			vrLo, vrHi = z.vrAlloc.AllocateComponents(value)
-		}
-
-		// emitStore16AtHL stores lo, increments, stores hi, leaving HL at next element position
-		z.emitStore16AtHL(vrHL, vrLo, vrHi, Z80_LD_HL_R)
+	var opcode Z80Opcode
+	if value.Type == ImmediateValue {
+		opcode = Z80_LD_HL_N
+	} else {
+		opcode = Z80_LD_HL_R
 	}
-	return vrHL, nil
-}
-
-func (z *instructionSelectorZ80) SelectStoreIncremental(address *VirtualRegister, value *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
-	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
-	// Pre-increment: increment address before storing
-	z.emit(newInstructionResult(Z80_INC_HL, vrHL))
 
 	switch size {
 	case 8:
-		var opcode Z80Opcode
-		if value.Type == ImmediateValue {
-			opcode = Z80_LD_HL_N
-		} else {
-			opcode = Z80_LD_HL_R
-		}
-
 		z.emit(newInstruction(opcode, vrHL, value))
 	case 16:
 		var vrLo, vrHi *VirtualRegister
@@ -718,8 +688,7 @@ func (z *instructionSelectorZ80) SelectStoreIncremental(address *VirtualRegister
 			vrLo, vrHi = z.vrAlloc.AllocateComponents(value)
 		}
 
-		// emitStore16AtHL stores lo, increments, stores hi, leaving HL at next element position
-		z.emitStore16AtHL(vrHL, vrLo, vrHi, Z80_LD_HL_R)
+		z.emitStore16AtHL(vrHL, vrLo, vrHi, opcode)
 	}
 	return vrHL, nil
 }

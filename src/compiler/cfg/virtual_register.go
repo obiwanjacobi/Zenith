@@ -8,6 +8,7 @@ const (
 	Unused            VirtualRegisterType = iota // Unused VR
 	CandidateRegister                            // General-purpose virtual register
 	StackLocation                                // Stack location (for parameters/locals)
+	StackAddress                                 // Stack address (SP + offset) that needs recomputation
 	ImmediateValue                               // Immediate/literal value
 	AllocatedRegister                            // Physical register assigned after allocation
 )
@@ -33,7 +34,10 @@ type VirtualRegister struct {
 	// Name for debugging (optional, e.g., variable name)
 	Name string
 
-	// Value holds the value when Type is not CandidateRegister or AllocatedRegister
+	// Value has different meanings based on Type:
+	// - ImmediateValue: the immediate/literal value
+	// - StackLocation: the stack offset for stack-based variables
+	// - StackAddress: the stack offset (SP + Value) to recompute
 	Value int32
 
 	// ParentVR links component VRs (e.g., E, D) to their parent 16-bit VR (e.g., DE)
@@ -141,6 +145,8 @@ func (vr *VirtualRegister) String() string {
 		return fmt.Sprintf("%s = #%d", name, vr.Value)
 	case StackLocation:
 		return fmt.Sprintf("%s = [SP+%d]", name, vr.Value)
+	case StackAddress:
+		return fmt.Sprintf("%s = SP+%d {%s}", name, vr.Value, candidates)
 	}
 
 	return name
@@ -254,6 +260,20 @@ func (vra *VirtualRegisterAllocator) AllocateComponents(parentVR *VirtualRegiste
 	parentVR.ComponentVRs = []*VirtualRegister{loVR, hiVR}
 
 	return loVR, hiVR
+}
+
+// AllocateStackAddress creates a VR marker representing a stack address (SP + offset)
+// This VR must be materialized via SelectLoadStackAddress before use.
+func (vra *VirtualRegisterAllocator) AllocateStackAddress(stackOffset uint16) *VirtualRegister {
+	vr := &VirtualRegister{
+		ID:    vra.nextID,
+		Size:  16,
+		Type:  StackAddress,
+		Value: int32(stackOffset),
+	}
+	vra.virtRegs[vra.nextID] = vr
+	vra.nextID++
+	return vr
 }
 
 // GetAll returns all allocated virtual registers

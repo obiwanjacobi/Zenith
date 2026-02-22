@@ -659,11 +659,8 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 	dataSize := arrayType.DataSize()
 	dataOffset := ctx.currentCFG.FrameLayout.AddSlot(exprCtx.TargetSymbol, dataSize)
 
-	// Compute address of array data: SP + offset
-	vrAddress, err := ctx.selector.SelectLoadStackAddress(dataOffset)
-	if err != nil {
-		return nil, err
-	}
+	// Create a stack address VR marker
+	vrAddress := ctx.vrAlloc.AllocateStackAddress(dataOffset)
 
 	// Initialize each element
 	elementSize := arrayType.ElementType().Size()
@@ -673,21 +670,28 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 		return vrAddress, nil
 	}
 
+	ctx.selector.SelectLoadStackAddress(dataOffset)
+
+	valueVR, err := ctx.selectExpression(init.Elements[0])
+	if err != nil {
+		return nil, err
+	}
+	_, err = ctx.selector.SelectStore(vrAddress, valueVR, 0, regSize)
+
 	// Store each element at its offset from the base address
-	for i := 0; i < len(init.Elements); i++ {
+	for i := 1; i < len(init.Elements); i++ {
 		valueVR, err := ctx.selectExpression(init.Elements[i])
 		if err != nil {
 			return nil, err
 		}
 
-		offset := uint16(i) * elementSize
-		_, err = ctx.selector.SelectStore(vrAddress, valueVR, offset, regSize)
+		_, err = ctx.selector.SelectStore(vrAddress, valueVR, 1, regSize)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Return the pointer to the array
+	// Return the stack address marker
 	return vrAddress, nil
 }
 
