@@ -363,8 +363,8 @@ func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
 	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
-	vrStack := vrAlloc.AllocateOnStack("param", Bits8, 4)
-	vrImm := vrAlloc.AllocateImmediate(42, Bits8)
+	vrStack := vrAlloc.AllocateOnStack("param", 8, 4)
+	vrImm := vrAlloc.AllocateImmediate(42, 8)
 
 	block0 := &BasicBlock{
 		ID: 0,

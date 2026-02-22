@@ -202,23 +202,23 @@ type InstructionSelector interface {
 
 	// SelectLoad generates instructions to load from memory
 	// address is the base address, offset is optional byte offset
-	SelectLoad(address *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error)
+	SelectLoad(address *VirtualRegister, offset uint16, size uint8) (*VirtualRegister, error)
 
 	// SelectLoadIndexed generates instructions to load from memory with a dynamic index
 	// address is the base address, index is the index register, elementSize is bytes per element
-	SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size RegisterSize) (*VirtualRegister, error)
+	SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size uint8) (*VirtualRegister, error)
 
 	// SelectLoadStackAddress generates instructions to load the address of a stack location
 	SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error)
 
 	// SelectLoadConstant generates instructions to load an immediate value
-	SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error)
+	SelectLoadConstant(value interface{}, size uint8) (*VirtualRegister, error)
 
 	// SelectStore generates instructions to store to memory
-	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error)
+	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size uint8) (*VirtualRegister, error)
 
 	// Move register value -of size- from source to target
-	SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error
+	SelectMove(target *VirtualRegister, source *VirtualRegister, size uint8) error
 
 	// ============================================================================
 	// Control Flow
@@ -230,7 +230,7 @@ type InstructionSelector interface {
 	// SelectCall generates a function call
 	// returnSize is the size of the return value in bits (0 for void functions)
 	// Returns the virtual register containing the return value (nil if void)
-	SelectCall(functionName string, args []*VirtualRegister, returnSize RegisterSize) (*VirtualRegister, error)
+	SelectCall(funcName string, args []*VirtualRegister, returnSize uint8) (*VirtualRegister, error)
 
 	// SelectReturn generates a return statement
 	// value is nil for void functions
@@ -270,7 +270,7 @@ type InstructionSelector interface {
 	SetCurrentBlock(block *BasicBlock)
 
 	// GetCallingConvention returns the calling convention used by this selector
-	GetCallingConvention() CallingConvention
+	GetCallingConvention(fn *zsm.SemFunctionDecl) CallingConvention
 
 	// GetTargetRegisters returns the set of physical registers available on the target
 	GetTargetRegisters() []*Register
@@ -318,10 +318,3 @@ type MachineInstruction interface {
 	// String returns a human-readable representation of the instruction
 	String() string
 }
-
-type RegisterSize uint8
-
-const (
-	Bits8  RegisterSize = 8
-	Bits16 RegisterSize = 16
-)

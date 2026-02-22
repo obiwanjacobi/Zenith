@@ -460,7 +460,7 @@ func TestInterference_IgnoresImmediates(t *testing.T) {
 	vrAlloc := NewVirtualRegisterAllocator()
 
 	vr1 := vrAlloc.AllocateNamed("x", Z80Registers8)
-	vrImm := vrAlloc.AllocateImmediate(42, Bits8)
+	vrImm := vrAlloc.AllocateImmediate(42, 8)
 
 	block0 := &BasicBlock{
 		ID: 0,

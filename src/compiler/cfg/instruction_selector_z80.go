@@ -8,9 +8,8 @@ import (
 
 // instructionSelectorZ80 implements InstructionSelector for the Z80
 type instructionSelectorZ80 struct {
-	vrAlloc           *VirtualRegisterAllocator
-	currentBlock      *BasicBlock // Current block for instruction emission
-	callingConvention CallingConvention
+	vrAlloc      *VirtualRegisterAllocator
+	currentBlock *BasicBlock // Current block for instruction emission
 }
 
 var Z80RegA = []*Register{&RegA}
@@ -28,8 +27,7 @@ var Z80RegSP = []*Register{&RegSP}
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
 func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSelector {
 	return &instructionSelectorZ80{
-		vrAlloc:           vrAlloc,
-		callingConvention: NewCallingConventionZ80(),
+		vrAlloc: vrAlloc,
 	}
 }
 
@@ -560,7 +558,7 @@ func (z *instructionSelectorZ80) SelectGreaterEqual(ctx *ExprContext, left, righ
 // 	| Stack16 | Reg16   |
 
 // SelectLoad generates instructions to load from memory
-func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset uint16, size uint8) (*VirtualRegister, error) {
 	var result *VirtualRegister
 
 	switch size {
@@ -578,7 +576,7 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset uin
 }
 
 // SelectLoadIndexed generates instructions to load from memory with a dynamic index
-func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size uint8) (*VirtualRegister, error) {
 	// TODO: incorporate index*elementSize offset into address calculation instead of adding after loading base address
 
 	// Materialize stack addresses
@@ -633,7 +631,7 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 }
 
 // SelectLoadConstant generates instructions to load an immediate value
-func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size uint8) (*VirtualRegister, error) {
 	val := value.(int)
 	result := z.vrAlloc.AllocateImmediate(int32(val), size)
 	return result, nil
@@ -644,7 +642,7 @@ func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size Regi
 func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error) {
 
 	// Load offset into HL
-	offsetVR := z.vrAlloc.AllocateImmediate(int32(stackOffset), Bits16)
+	offsetVR := z.vrAlloc.AllocateImmediate(int32(stackOffset), 16)
 	result := z.vrAlloc.Allocate(Z80RegHL)
 	z.emit(newInstruction(Z80_LD_RR_NN, result, offsetVR))
 
@@ -657,7 +655,7 @@ func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*Vi
 }
 
 // SelectStore generates instructions to store to memory
-func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size uint8) (*VirtualRegister, error) {
 	// // Materialize stack addresses
 	// if address.Type == StackAddress {
 	// 	var err error
@@ -695,7 +693,7 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 
 // SelectMove moves a value from source to target
 // Handles size conversions when necessary (e.g., 16-bit to 8-bit extracts low byte)
-func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error {
+func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *VirtualRegister, size uint8) error {
 	switch target.Type {
 	case CandidateRegister:
 		switch size {
@@ -739,7 +737,7 @@ func (z *instructionSelectorZ80) SelectJump(target *BasicBlock) error {
 }
 
 // SelectCall generates a function call
-func (z *instructionSelectorZ80) SelectCall(functionName string, args []*VirtualRegister, returnSize RegisterSize) (*VirtualRegister, error) {
+func (z *instructionSelectorZ80) SelectCall(functionName string, args []*VirtualRegister, returnSize uint8) (*VirtualRegister, error) {
 	// Set up arguments according to calling convention
 	// For now, assume simple convention: pass in registers/stack
 
@@ -747,7 +745,8 @@ func (z *instructionSelectorZ80) SelectCall(functionName string, args []*Virtual
 
 	// Get return value if non-void
 	if returnSize > 0 {
-		returnReg := z.callingConvention.GetReturnValueRegister(returnSize)
+		callConv := z.GetCallingConvention(nil)
+		returnReg := callConv.GetReturnValueRegister(returnSize)
 		result := z.vrAlloc.Allocate([]*Register{returnReg})
 		// Associate the result VR with the CALL instruction for proper liveness tracking
 		callInstr.result = result
@@ -776,7 +775,7 @@ func (z *instructionSelectorZ80) SelectFunctionPrologue(fn *zsm.SemFunctionDecl,
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrSP := z.vrAlloc.Allocate(Z80RegSP)
 	// negative frameSize: stack grows downwards
-	vrSize := z.vrAlloc.AllocateImmediate(-int32(frameSize), Bits16)
+	vrSize := z.vrAlloc.AllocateImmediate(-int32(frameSize), 16)
 	z.emit(newInstruction(Z80_LD_HL_NN, vrHL, vrSize))
 	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
 	z.emit(newInstruction(Z80_LD_SP_HL, vrSP, vrHL))
@@ -788,7 +787,7 @@ func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl,
 	// Deallocate stack frame size
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrSP := z.vrAlloc.Allocate(Z80RegSP)
-	vrSize := z.vrAlloc.AllocateImmediate(int32(frameSize), Bits16)
+	vrSize := z.vrAlloc.AllocateImmediate(int32(frameSize), 16)
 	z.emit(newInstruction(Z80_LD_HL_NN, vrHL, vrSize))
 	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
 	z.emit(newInstruction(Z80_LD_SP_HL, vrSP, vrHL))
@@ -870,8 +869,8 @@ func (z *instructionSelectorZ80) emit(instr MachineInstruction) {
 }
 
 // GetCallingConvention returns the calling convention
-func (z *instructionSelectorZ80) GetCallingConvention() CallingConvention {
-	return z.callingConvention
+func (z *instructionSelectorZ80) GetCallingConvention(funcDecl *zsm.SemFunctionDecl) CallingConvention {
+	return NewCallingConventionZ80()
 }
 
 // GetTargetRegisters returns the set of physical registers available on Z80
@@ -1069,7 +1068,7 @@ func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset
 	}
 
 	// Add offset to address
-	vrOffset := z.vrAlloc.AllocateImmediate(int32(offset), Bits16)
+	vrOffset := z.vrAlloc.AllocateImmediate(int32(offset), 16)
 	vrOffsetReg := z.vrAlloc.Allocate(Z80RegistersPP)
 	z.emit(newInstruction(Z80_LD_RR_NN, vrOffsetReg, vrOffset))
 	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrOffsetReg))
@@ -1146,8 +1145,8 @@ func (z *instructionSelectorZ80) emitFlagToRegA(conditionCode ConditionCode) (*V
 	return result, nil
 }
 
-// largestSize returns the larger of two RegisterSizes
-func largestSize(a, b *VirtualRegister) RegisterSize {
+// largestSize returns the larger of two uint8s
+func largestSize(a, b *VirtualRegister) uint8 {
 	if a.Size >= b.Size {
 		return a.Size
 	}

@@ -312,7 +312,7 @@ func (ra *RegisterAllocator) findValueSource(cfg *CFG, vrID int) *VirtualRegiste
 }
 
 // findFreeRegister finds a register that's not live at the given instruction point
-func findFreeRegister(block *BasicBlock, li *LivenessInfo, availableRegs []*Register, size RegisterSize) *Register {
+func findFreeRegister(block *BasicBlock, li *LivenessInfo, availableRegs []*Register, size uint8) *Register {
 	// Get liveness at this point
 	liveVRs := li.LiveIn[block.ID]
 	if liveVRs == nil {

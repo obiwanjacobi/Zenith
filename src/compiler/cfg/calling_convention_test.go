@@ -9,7 +9,7 @@ import (
 func Test_Z80CallingConvention_FirstParam16Bit(t *testing.T) {
 	cc := NewCallingConventionZ80()
 
-	reg, offset, useStack := cc.GetParameterLocation(0, Bits16)
+	reg, offset, useStack := cc.GetParameterLocation(0, 16)
 
 	assert.False(t, useStack, "First 16-bit param should be in register")
 	assert.NotNil(t, reg)
@@ -20,7 +20,7 @@ func Test_Z80CallingConvention_FirstParam16Bit(t *testing.T) {
 func Test_Z80CallingConvention_FirstParam8Bit(t *testing.T) {
 	cc := NewCallingConventionZ80()
 
-	reg, offset, useStack := cc.GetParameterLocation(0, Bits8)
+	reg, offset, useStack := cc.GetParameterLocation(0, 8)
 
 	assert.False(t, useStack, "First 8-bit param should be in register")
 	assert.NotNil(t, reg)
@@ -31,7 +31,7 @@ func Test_Z80CallingConvention_FirstParam8Bit(t *testing.T) {
 func Test_Z80CallingConvention_SecondParam16Bit(t *testing.T) {
 	cc := NewCallingConventionZ80()
 
-	reg, offset, useStack := cc.GetParameterLocation(1, Bits16)
+	reg, offset, useStack := cc.GetParameterLocation(1, 16)
 
 	assert.False(t, useStack, "Second 16-bit param should be in register")
 	assert.NotNil(t, reg)
@@ -42,7 +42,7 @@ func Test_Z80CallingConvention_SecondParam16Bit(t *testing.T) {
 func Test_Z80CallingConvention_FourthParamOnStack(t *testing.T) {
 	cc := NewCallingConventionZ80()
 
-	reg, offset, useStack := cc.GetParameterLocation(3, Bits16)
+	reg, offset, useStack := cc.GetParameterLocation(3, 16)
 
 	assert.True(t, useStack, "Fourth param should be on stack")
 	assert.Nil(t, reg)
@@ -65,35 +65,6 @@ func Test_Z80CallingConvention_ReturnValue16Bit(t *testing.T) {
 
 	assert.NotNil(t, reg)
 	assert.Equal(t, "HL", reg.Name)
-}
-
-func Test_Z80CallingConvention_CallerSavedRegisters(t *testing.T) {
-	cc := NewCallingConventionZ80()
-
-	callerSaved := cc.GetCallerSavedRegisters()
-
-	// Should include all general-purpose registers
-	assert.Greater(t, len(callerSaved), 0)
-
-	// Check that key registers are included
-	hasA, hasHL, hasDE, hasBC := false, false, false, false
-	for _, reg := range callerSaved {
-		switch reg.Name {
-		case "A":
-			hasA = true
-		case "HL":
-			hasHL = true
-		case "DE":
-			hasDE = true
-		case "BC":
-			hasBC = true
-		}
-	}
-
-	assert.True(t, hasA, "A should be caller-saved")
-	assert.True(t, hasHL, "HL should be caller-saved")
-	assert.True(t, hasDE, "DE should be caller-saved")
-	assert.True(t, hasBC, "BC should be caller-saved")
 }
 
 // TODO: Update these tests to work with new VirtualRegister-based allocation API

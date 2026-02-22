@@ -19,7 +19,7 @@ type VirtualRegister struct {
 	ID int
 
 	// Size in bits - determines which physical registers are compatible
-	Size RegisterSize
+	Size uint8
 
 	// Type of virtual register
 	Type VirtualRegisterType
@@ -173,7 +173,7 @@ func NewVirtualRegisterAllocator() *VirtualRegisterAllocator {
 // AllocateConstrained creates a virtual register with specific constraints
 func (vra *VirtualRegisterAllocator) Allocate(allowedSet []*Register) *VirtualRegister {
 	// TODO: check all allowed registers have the same size
-	size := RegisterSize(allowedSet[0].Size)
+	size := uint8(allowedSet[0].Size)
 	vr := &VirtualRegister{
 		ID:         vra.nextID,
 		Size:       size,
@@ -194,7 +194,7 @@ func (vra *VirtualRegisterAllocator) AllocateNamed(name string, allowedSet []*Re
 
 // AllocateOnStack creates a virtual register backed by a stack location
 // This is used for parameters and locals that have a permanent stack home
-func (vra *VirtualRegisterAllocator) AllocateOnStack(name string, size RegisterSize, stackOffset uint8) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateOnStack(name string, size uint8, stackOffset uint8) *VirtualRegister {
 	vr := &VirtualRegister{
 		ID:    vra.nextID,
 		Size:  size,
@@ -209,7 +209,7 @@ func (vra *VirtualRegisterAllocator) AllocateOnStack(name string, size RegisterS
 
 // AllocateImmediate creates a virtual register representing a constant immediate value
 // This is used for constant values that don't need physical register allocation
-func (vra *VirtualRegisterAllocator) AllocateImmediate(value int32, size RegisterSize) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateImmediate(value int32, size uint8) *VirtualRegister {
 	vr := &VirtualRegister{
 		ID:    vra.nextID,
 		Size:  size,

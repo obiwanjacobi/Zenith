@@ -7,9 +7,8 @@ import (
 
 // InstructionSelectionContext manages the state during instruction selection
 type InstructionSelectionContext struct {
-	selector          InstructionSelector
-	vrAlloc           *VirtualRegisterAllocator
-	callingConvention CallingConvention
+	selector InstructionSelector
+	vrAlloc  *VirtualRegisterAllocator
 
 	// Maps zsm symbols to their VirtualRegisters
 	symbolToVReg map[*zsm.Symbol]*VirtualRegister
@@ -30,11 +29,10 @@ type InstructionSelectionContext struct {
 // NewInstructionSelectionContext creates a new context for instruction selection
 func NewInstructionSelectionContext(selector InstructionSelector, vrAlloc *VirtualRegisterAllocator) *InstructionSelectionContext {
 	return &InstructionSelectionContext{
-		selector:          selector,
-		vrAlloc:           vrAlloc,
-		callingConvention: selector.GetCallingConvention(),
-		symbolToVReg:      make(map[*zsm.Symbol]*VirtualRegister),
-		exprToVReg:        make(map[zsm.SemExpression]*VirtualRegister),
+		selector:     selector,
+		vrAlloc:      vrAlloc,
+		symbolToVReg: make(map[*zsm.Symbol]*VirtualRegister),
+		exprToVReg:   make(map[zsm.SemExpression]*VirtualRegister),
 	}
 }
 
@@ -61,11 +59,13 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 
 	// Allocate VirtualRegisters for parameters based on calling convention
 	if cfg.FunctionDecl != nil {
+		callConv := ctx.selector.GetCallingConvention(cfg.FunctionDecl)
+
 		for i, param := range cfg.FunctionDecl.Parameters {
-			regSize := RegisterSize(param.Type.Size() * 8) // Convert bytes to bits
+			regSize := uint8(param.Type.Size() * 8) // Convert bytes to bits
 
 			// Ask calling convention where this parameter should be
-			reg, stackOffset, useStack := ctx.callingConvention.GetParameterLocation(i, regSize)
+			reg, stackOffset, useStack := callConv.GetParameterLocation(i, regSize)
 
 			if useStack {
 				// Parameter is on the stack - allocate VirtualRegister with stack home
@@ -269,7 +269,7 @@ func (ctx *InstructionSelectionContext) selectStatement(stmt zsm.SemStatement) e
 func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariableDecl) error {
 	// Allocate a VirtualRegister for this variable
 	// For arrays, this will be a pointer (2 bytes) since ArrayType.Size() returns 2
-	regSize := RegisterSize(decl.TypeInfo.Size() * 8) // Convert bytes to bits
+	regSize := uint8(decl.TypeInfo.Size() * 8) // Convert bytes to bits
 	var vrVar *VirtualRegister
 
 	// Special handling for array types
@@ -307,7 +307,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 	} else {
 		// Non-array types: allocate as regular VR
 		var regs []*Register
-		if regSize == Bits8 {
+		if regSize == 8 {
 			regs = Z80Registers8
 		} else {
 			regs = Z80Registers16
@@ -358,7 +358,7 @@ func (ctx *InstructionSelectionContext) selectAssignment(assign *zsm.SemAssignme
 	}
 
 	// Generate move instruction
-	regSize := RegisterSize(assign.Target.Type.Size() * 8)
+	regSize := uint8(assign.Target.Type.Size() * 8)
 	err = ctx.selector.SelectMove(targetVR, valueVR, regSize)
 	return err
 }
@@ -374,14 +374,15 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 
 		// Get the return register from calling convention
 		// Use the function's declared return type size, not the expression's type size
-		var returnSize RegisterSize
+		var returnSize uint8
 		if ctx.currentCFG != nil && ctx.currentCFG.FunctionDecl != nil && ctx.currentCFG.FunctionDecl.ReturnType != nil {
-			returnSize = RegisterSize(ctx.currentCFG.FunctionDecl.ReturnType.Size() * 8)
+			returnSize = uint8(ctx.currentCFG.FunctionDecl.ReturnType.Size() * 8)
 		} else {
 			// Fallback to expression type if function context not available
-			returnSize = RegisterSize(ret.Value.Type().Size() * 8)
+			returnSize = uint8(ret.Value.Type().Size() * 8)
 		}
-		returnReg := ctx.callingConvention.GetReturnValueRegister(returnSize)
+		callConv := ctx.selector.GetCallingConvention(ctx.currentCFG.FunctionDecl)
+		returnReg := callConv.GetReturnValueRegister(returnSize)
 
 		// Move value to the return register
 		returnVR := ctx.vrAlloc.Allocate([]*Register{returnReg})
@@ -451,7 +452,7 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *Exp
 
 // selectConstant loads a constant value
 func (ctx *InstructionSelectionContext) selectConstant(constant *zsm.SemConstant) (*VirtualRegister, error) {
-	regSize := RegisterSize(constant.Type().Size() * 8)
+	regSize := uint8(constant.Type().Size() * 8)
 	return ctx.selector.SelectLoadConstant(constant.Value, regSize)
 }
 
@@ -578,10 +579,13 @@ func (ctx *InstructionSelectionContext) selectFunctionCall(exprCtx *ExprContext,
 	}
 
 	// Get return size
-	returnSize := RegisterSize(0)
+	returnSize := uint8(0)
 	if call.Type() != nil {
-		returnSize = RegisterSize(call.Type().Size() * 8)
+		returnSize = uint8(call.Type().Size() * 8)
 	}
+
+	// TODO: retrieve function decl of the callee
+	//funcDecl := ctx.currentCFG.FunctionDecl.Scope.Lookup(call.Function.Name)
 
 	// Generate call
 	return ctx.selector.SelectCall(call.Function.Name, argVRs, returnSize)
@@ -597,7 +601,7 @@ func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMember
 
 	// Load member at offset
 	offset := access.Field.Offset
-	regSize := RegisterSize(access.Type().Size() * 8)
+	regSize := uint8(access.Type().Size() * 8)
 	return ctx.selector.SelectLoad(objectVR, offset, regSize)
 }
 
@@ -617,7 +621,7 @@ func (ctx *InstructionSelectionContext) selectSubscript(exprCtx *ExprContext, su
 
 	// Calculate element size
 	elementSize := subscript.Type().Size()
-	regSize := RegisterSize(subscript.Type().Size() * 8)
+	regSize := uint8(subscript.Type().Size() * 8)
 
 	// Generate indexed load
 	return ctx.selector.SelectLoadIndexed(arrayVR, indexVR, elementSize, regSize)
@@ -636,7 +640,7 @@ func (ctx *InstructionSelectionContext) selectTypeInitializer(exprCtx *ExprConte
 		}
 
 		offset := fieldInit.Field.Offset
-		fieldRegSize := RegisterSize(fieldInit.Field.Type.Size() * 8)
+		fieldRegSize := uint8(fieldInit.Field.Type.Size() * 8)
 		if _, err := ctx.selector.SelectStore(structVR, valueVR, offset, fieldRegSize); err != nil {
 			return nil, err
 		}
@@ -664,7 +668,7 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 
 	// Initialize each element
 	elementSize := arrayType.ElementType().Size()
-	regSize := RegisterSize(elementSize * 8)
+	regSize := uint8(elementSize * 8)
 
 	if len(init.Elements) == 0 {
 		return vrAddress, nil
