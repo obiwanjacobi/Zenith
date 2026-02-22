@@ -248,6 +248,32 @@ func (ctx *InstructionSelectionContext) selectStatement(stmt zsm.SemStatement) e
 		return ctx.selectAssignment(s)
 
 	case *zsm.SemExpressionStmt:
+		// Special handling for increment/decrement on variables
+		if unaryOp, ok := s.Expression.(*zsm.SemUnaryOp); ok {
+			if unaryOp.Op == zsm.OpIncrement || unaryOp.Op == zsm.OpDecrement {
+				// Check if we're incrementing/decrementing a symbol
+				if symRef, ok := unaryOp.Operand.(*zsm.SemSymbolRef); ok {
+					// Get the original VR for the variable
+					originalVR, ok := ctx.symbolToVReg[symRef.Symbol]
+					if !ok {
+						return fmt.Errorf("undefined variable: %s", symRef.Symbol.Name)
+					}
+					// Evaluate the increment/decrement (creates a new VR with result)
+					resultVR, err := ctx.selectExpression(s.Expression)
+					if err != nil {
+						return err
+					}
+					// Move the result back to the original VR so next iteration sees the update
+					regSize := uint8(symRef.Symbol.Type.Size() * 8)
+					err = ctx.selector.SelectMove(originalVR, resultVR, regSize)
+					if err != nil {
+						return err
+					}
+					// Keep the symbol mapping pointing to the original VR
+					return nil
+				}
+			}
+		}
 		// Evaluate expression for side effects
 		_, err := ctx.selectExpression(s.Expression)
 		return err

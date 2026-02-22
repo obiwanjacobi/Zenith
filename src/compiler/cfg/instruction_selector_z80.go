@@ -180,7 +180,10 @@ func (z *instructionSelectorZ80) SelectIncrement(operand *VirtualRegister) (*Vir
 	size := operand.Size
 	var result *VirtualRegister
 	if size == 8 {
-		result, _ := z.allocateRegistersFor(Z80_INC_R)
+		result, _ = z.allocateRegistersFor(Z80_INC_R)
+		// Load the operand value first
+		z.emit(newInstruction(Z80_LD_R_R, result, operand))
+		// Then increment it
 		z.emit(newInstruction(Z80_INC_R, result, result))
 	} else {
 		return nil, fmt.Errorf("unsupported size for INCREMENT: %d", size)
@@ -193,7 +196,10 @@ func (z *instructionSelectorZ80) SelectDecrement(operand *VirtualRegister) (*Vir
 	size := operand.Size
 	var result *VirtualRegister
 	if size == 8 {
-		result, _ := z.allocateRegistersFor(Z80_DEC_R)
+		result, _ = z.allocateRegistersFor(Z80_DEC_R)
+		// Load the operand value first
+		z.emit(newInstruction(Z80_LD_R_R, result, operand))
+		// Then decrement it
 		z.emit(newInstruction(Z80_DEC_R, result, result))
 	} else {
 		return nil, fmt.Errorf("unsupported size for DECREMENT: %d", size)
@@ -694,6 +700,11 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 // SelectMove moves a value from source to target
 // Handles size conversions when necessary (e.g., 16-bit to 8-bit extracts low byte)
 func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *VirtualRegister, size uint8) error {
+	// Skip no-op moves where source and target are the same VR
+	if target == source {
+		return nil
+	}
+
 	switch target.Type {
 	case CandidateRegister:
 		switch size {
@@ -713,10 +724,31 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 			// For 16-bit moves, create component VRs and emit component moves
 			// The register allocator will handle any AllowedSet constraints
 			vrTargetLo, vrTargetHi := z.vrAlloc.AllocateComponents(target)
-			vrSourceLo, vrSourceHi := z.getOrAllocateComponents(source)
+			var vrSourceLo, vrSourceHi *VirtualRegister
+
+			if (source.Size == 8) && (source.Type == CandidateRegister) {
+				vrSourceLo = source
+				vrSourceHi = z.vrAlloc.AllocateImmediate(0, 8)
+			} else {
+				vrSourceLo, vrSourceHi = z.getOrAllocateComponents(source)
+			}
 
 			z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrSourceLo))
 			z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrSourceHi))
+
+		}
+	case AllocatedRegister:
+		// target is already allocated => we're moving data into a pointer param
+		switch size {
+		case 16:
+			// For 16-bit moves, only support HL <-> SP for now
+			if target.PhysicalReg == &RegSP && source.PhysicalReg == &RegHL {
+				z.emit(newInstruction(Z80_LD_SP_HL, target, source))
+			} else {
+				return fmt.Errorf("unsupported 16-bit move from %v to allocated %v", source, target)
+			}
+		default:
+			return fmt.Errorf("unsupported size for move to allocated register: %d", size)
 		}
 	// case StackLocation:
 	// 	z.emitStoreOnStack(source, target)

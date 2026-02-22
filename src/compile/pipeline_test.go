@@ -209,6 +209,19 @@ func Test_Pipeline_LocalArray16(t *testing.T) {
 	RunPipeline(t, sourceCode)
 }
 
+func Test_Pipeline_ArraySum(t *testing.T) {
+	sourceCode := `arrSum: (arr: u8[]) u8 {
+		l := @len(arr)
+		sum := 0
+		for i := 0; i < l; i++ {
+			sum = sum + arr[i]
+		}
+		ret sum
+	}`
+
+	RunPipeline(t, sourceCode)
+}
+
 func Test_Pipeline_Reverse(t *testing.T) {
 	sourceCode := `reverse: (arr: u8[]) {
 		l := @len(arr)
