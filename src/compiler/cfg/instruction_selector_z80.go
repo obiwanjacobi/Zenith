@@ -538,6 +538,27 @@ func (z *instructionSelectorZ80) SelectGreaterEqual(ctx *ExprContext, left, righ
 // Memory Operations
 // ============================================================================
 
+// 	Move
+// 	| Source  | Target  |
+// 	|---------|---------|
+// 	| Reg8    | Reg8    |
+// 	| Reg8    | Reg16   | H=0
+// 	| Reg16   | Reg16   |
+
+// 	Store
+// 	| Source  | Target  |
+// 	|---------|---------|
+// 	| Reg8    | Stack8  |
+// 	| Reg8    | Stack16 | H=0
+// 	| Reg16   | Stack16 |
+
+// 	Load
+// 	| Source  | Target  |
+// 	|---------|---------|
+// 	| Stack8  | Reg8    |
+// 	| Stack8  | Reg16   | H=0
+// 	| Stack16 | Reg16   |
+
 // SelectLoad generates instructions to load from memory
 func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error) {
 	var result *VirtualRegister
@@ -597,6 +618,30 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 	return nil, fmt.Errorf("unsupported size for indexed load: %d", size)
 }
 
+// SelectLoadConstant generates instructions to load an immediate value
+func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error) {
+	val := value.(int)
+	result := z.vrAlloc.AllocateImmediate(int32(val), size)
+	return result, nil
+}
+
+// SelectLoadStackAddress generates instructions to compute the address of a stack location
+// Returns a VR containing SP + stackOffset
+func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error) {
+
+	// Load offset into HL
+	offsetVR := z.vrAlloc.AllocateImmediate(int32(stackOffset), Bits16)
+	result := z.vrAlloc.Allocate(Z80RegHL)
+	z.emit(newInstruction(Z80_LD_RR_NN, result, offsetVR))
+
+	// Add SP to HL: HL = HL + SP
+	// Note: Z80 ADD HL, RR adds a register pair to HL
+	vrSP := z.vrAlloc.Allocate(Z80RegSP)
+	z.emit(newInstruction(Z80_ADD_HL_RR, result, vrSP))
+
+	return result, nil
+}
+
 // SelectStore generates instructions to store to memory
 func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) error {
 	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
@@ -643,59 +688,23 @@ func (z *instructionSelectorZ80) SelectStoreIncremental(address *VirtualRegister
 
 		z.emit(newInstruction(opcode, vrHL, value))
 	case 16:
+		var vrLo, vrHi *VirtualRegister
 		if value.Type == ImmediateValue {
-			z.emit(newInstruction(Z80_LD_HL_NN, vrHL, value))
+			valueLo := value.Value & 0xFF
+			valueHi := (value.Value >> 8) & 0xFF
+			vrLo = z.vrAlloc.AllocateImmediate(int32(valueLo), 8)
+			vrHi = z.vrAlloc.AllocateImmediate(int32(valueHi), 8)
 		} else {
-			loRges, hiRegs := ToPairs(value.AllowedSet)
-			loVR := z.vrAlloc.Allocate(loRges)
-			hiVR := z.vrAlloc.Allocate(hiRegs)
-			// little endian store: low byte at (HL), high byte at (HL+1)
-			z.emit(newInstruction(Z80_LD_HL_R, vrHL, loVR))
-			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
-			z.emit(newInstruction(Z80_LD_HL_R, vrHL, hiVR))
+			loRegs, hiRegs := ToPairs(value.AllowedSet)
+			vrLo = z.vrAlloc.Allocate(loRegs)
+			vrHi = z.vrAlloc.Allocate(hiRegs)
 		}
+
+		z.emit(newInstruction(Z80_LD_HL_R, vrHL, vrLo))
+		z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+		z.emit(newInstruction(Z80_LD_HL_R, vrHL, vrHi))
 	}
 	return vrHL, nil
-}
-
-// SelectLoadConstant generates instructions to load an immediate value
-func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error) {
-	val := value.(int)
-	result := z.vrAlloc.AllocateImmediate(int32(val), size)
-	return result, nil
-}
-
-// SelectLoadStackAddress generates instructions to compute the address of a stack location
-// Returns a VR containing SP + stackOffset
-func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error) {
-
-	// Load offset into HL
-	offsetVR := z.vrAlloc.AllocateImmediate(int32(stackOffset), Bits16)
-	result := z.vrAlloc.Allocate(Z80RegHL)
-	z.emit(newInstruction(Z80_LD_RR_NN, result, offsetVR))
-
-	// Add SP to HL: HL = HL + SP
-	// Note: Z80 ADD HL, RR adds a register pair to HL
-	vrSP := z.vrAlloc.Allocate(Z80RegSP)
-	z.emit(newInstruction(Z80_ADD_HL_RR, result, vrSP))
-
-	return result, nil
-}
-
-// SelectLoadVariable generates instructions to load a variable's value
-func (z *instructionSelectorZ80) SelectLoadVariable(symbol *zsm.Symbol) (*VirtualRegister, error) {
-	// TODO: Variable load not yet implemented
-	// Decision needed: Use SP-relative addressing, HL indirection, or runtime helpers
-	// IX/IY indexed addressing avoided due to instruction overhead
-	return nil, fmt.Errorf("variable load not yet implemented for symbol '%s'", symbol.Name)
-}
-
-// SelectStoreVariable generates instructions to store to a variable
-func (z *instructionSelectorZ80) SelectStoreVariable(symbol *zsm.Symbol, value *VirtualRegister) error {
-	// TODO: Variable store not yet implemented
-	// Decision needed: Use SP-relative addressing, HL indirection, or runtime helpers
-	// IX/IY indexed addressing avoided due to instruction overhead
-	return fmt.Errorf("variable store not yet implemented for symbol '%s'", symbol.Name)
 }
 
 // SelectMove moves a value from source to target
@@ -740,8 +749,8 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 				z.emitLoadIntoReg16(source, target.AllowedSet)
 			}
 		}
-	case StackLocation:
-		z.emitStoreOnStack(source, target)
+	// case StackLocation:
+	// 	z.emitStoreOnStack(source, target)
 	default:
 		return fmt.Errorf("unsupported target register type for move: %v", target.Type)
 	}

@@ -300,9 +300,8 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 				// Don't pre-allocate vrVar - use the initializer's result directly
 			}
 		} else {
-			// Dynamic/zero-length array: allocate a pointer-sized frame slot
-			offset := ctx.currentCFG.FrameLayout.AddSlot(decl.Symbol, uint16(decl.TypeInfo.Size()))
-			vrVar = ctx.vrAlloc.AllocateOnStack(decl.Symbol.Name, regSize, uint8(offset))
+			// Dynamic/zero-length array:
+			vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
 			ctx.symbolToVReg[decl.Symbol] = vrVar
 		}
 	} else {

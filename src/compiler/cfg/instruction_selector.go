@@ -208,26 +208,21 @@ type InstructionSelector interface {
 	// address is the base address, index is the index register, elementSize is bytes per element
 	SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size RegisterSize) (*VirtualRegister, error)
 
-	// SelectStore generates instructions to store to memory
-	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) error
-
-	// SelectStoreIncremental generates instructions to store to memory sequentially
-	SelectStoreIncremental(address *VirtualRegister, increment uint16, value *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
-
 	// SelectLoadStackAddress generates instructions to load the address of a stack location
 	SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error)
 
 	// SelectLoadConstant generates instructions to load an immediate value
 	SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error)
 
-	// SelectLoadVariable generates instructions to load a variable's value
-	SelectLoadVariable(symbol *zsm.Symbol) (*VirtualRegister, error)
+	// SelectStore generates instructions to store to memory
+	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) error
 
-	// SelectStoreVariable generates instructions to store to a variable
-	SelectStoreVariable(symbol *zsm.Symbol, value *VirtualRegister) error
+	// SelectStoreIncremental generates instructions to store to memory sequentially
+	SelectStoreIncremental(address *VirtualRegister, increment uint16, value *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
 
 	// Move register value -of size- from source to target
 	SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error
+
 	// ============================================================================
 	// Control Flow
 	// ============================================================================
