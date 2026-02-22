@@ -35,6 +35,18 @@ type VirtualRegister struct {
 
 	// Value holds the value when Type is not CandidateRegister or AllocatedRegister
 	Value int32
+
+	// ParentVR links component VRs (e.g., E, D) to their parent 16-bit VR (e.g., DE)
+	// This allows the allocator to coordinate allocation of related VRs
+	ParentVR *VirtualRegister
+
+	// ComponentVRs links a parent VR to its component VRs [low, high]
+	// e.g., DE parent would have [VR_for_E, VR_for_D]
+	ComponentVRs []*VirtualRegister
+
+	// ComponentIndex indicates which component this VR represents: 0=low byte, 1=high byte
+	// Only used when ParentVR is set
+	ComponentIndex int
 }
 
 func (vr *VirtualRegister) Unused() {
@@ -201,6 +213,47 @@ func (vra *VirtualRegisterAllocator) AllocateImmediate(value int32, size Registe
 	vra.virtRegs[vra.nextID] = vr
 	vra.nextID++
 	return vr
+}
+
+// AllocateComponents creates component VRs (lo, hi) linked to a parent 16-bit VR
+// This maintains the relationship so the register allocator can coordinate their allocation
+// Returns (lowVR, highVR)
+func (vra *VirtualRegisterAllocator) AllocateComponents(parentVR *VirtualRegister) (loVR, hiVR *VirtualRegister) {
+	if parentVR.Size != 16 {
+		panic("AllocateComponents requires a 16-bit parent VR")
+	}
+
+	// Derive component registers from parent's AllowedSet
+	loRegs, hiRegs := ToPairs(parentVR.AllowedSet)
+
+	// Create low byte component
+	loVR = &VirtualRegister{
+		ID:             vra.nextID,
+		Size:           8,
+		Type:           CandidateRegister,
+		AllowedSet:     loRegs,
+		ParentVR:       parentVR,
+		ComponentIndex: 0,
+	}
+	vra.virtRegs[vra.nextID] = loVR
+	vra.nextID++
+
+	// Create high byte component
+	hiVR = &VirtualRegister{
+		ID:             vra.nextID,
+		Size:           8,
+		Type:           CandidateRegister,
+		AllowedSet:     hiRegs,
+		ParentVR:       parentVR,
+		ComponentIndex: 1,
+	}
+	vra.virtRegs[vra.nextID] = hiVR
+	vra.nextID++
+
+	// Link components to parent
+	parentVR.ComponentVRs = []*VirtualRegister{loVR, hiVR}
+
+	return loVR, hiVR
 }
 
 // GetAll returns all allocated virtual registers

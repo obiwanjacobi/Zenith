@@ -215,10 +215,7 @@ type InstructionSelector interface {
 	SelectLoadConstant(value interface{}, size RegisterSize) (*VirtualRegister, error)
 
 	// SelectStore generates instructions to store to memory
-	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) error
-
-	// SelectStoreIncremental generates instructions to store to memory sequentially
-	SelectStoreIncremental(address *VirtualRegister, increment uint16, value *VirtualRegister, size RegisterSize) (*VirtualRegister, error)
+	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error)
 
 	// Move register value -of size- from source to target
 	SelectMove(target *VirtualRegister, source *VirtualRegister, size RegisterSize) error

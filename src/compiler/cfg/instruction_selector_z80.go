@@ -579,7 +579,20 @@ func (z *instructionSelectorZ80) SelectLoad(address *VirtualRegister, offset uin
 
 // SelectLoadIndexed generates instructions to load from memory with a dynamic index
 func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, index *VirtualRegister, elementSize uint16, size RegisterSize) (*VirtualRegister, error) {
-	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
+	// Always create a fresh VR for HL to avoid reusing a VR whose value may have been modified
+	vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	
+	// Emit move from address to HL
+	if address.Type == ImmediateValue {
+		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, address))
+	} else {
+		// Move 16-bit address by decomposing into 8-bit component moves
+		loVR, hiVR := z.vrAlloc.AllocateComponents(vrHL)
+		addressLoVR, addressHiVR := z.vrAlloc.AllocateComponents(address)
+		z.emit(newInstruction(Z80_LD_R_R, loVR, addressLoVR))
+		z.emit(newInstruction(Z80_LD_R_R, hiVR, addressHiVR))
+	}
+	
 	// TODO: optimize for when index = 0 (imm)
 	indexVR := z.emitLoadIntoReg16(index, Z80RegistersPP)
 
@@ -599,11 +612,9 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 		// For 16-bit loads from memory, we can only load into defined component registers
 		// Return the flexible result that can be allocated to any 16-bit register
 		resultVR := z.vrAlloc.Allocate(Z80Registers16)
-		loRegs, hiRegs := ToPairs(resultVR.AllowedSet)
 
-		// Create component VRs for the actual loads
-		resultL := z.vrAlloc.Allocate(loRegs)
-		resultH := z.vrAlloc.Allocate(hiRegs)
+		// Create linked component VRs for the actual loads
+		resultL, resultH := z.vrAlloc.AllocateComponents(resultVR)
 
 		// Load low byte at (HL), high byte at (HL+1)
 		z.emit(newInstruction(Z80_LD_R_HL, resultL, vrHL))
@@ -643,39 +654,22 @@ func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*Vi
 }
 
 // SelectStore generates instructions to store to memory
-func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) error {
-	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
-	z.emitAddOffsetToHL(vrHL, offset)
-
-	switch size {
-	case 8:
-		var opcode Z80Opcode
-		if value.Type == ImmediateValue {
-			opcode = Z80_LD_HL_N
-		} else {
-			opcode = Z80_LD_HL_R
-		}
-
-		z.emit(newInstruction(opcode, vrHL, value))
-	case 16:
-		if value.Type == ImmediateValue {
-			z.emit(newInstruction(Z80_LD_HL_NN, vrHL, value))
-		} else {
-			loRges, hiRegs := ToPairs(value.AllowedSet)
-			loVR := z.vrAlloc.Allocate(loRges)
-			hiVR := z.vrAlloc.Allocate(hiRegs)
-			// little endian store: low byte at (HL), high byte at (HL+1)
-			z.emit(newInstruction(Z80_LD_HL_R, vrHL, loVR))
-			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
-			z.emit(newInstruction(Z80_LD_HL_R, vrHL, hiVR))
-		}
+func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size RegisterSize) (*VirtualRegister, error) {
+	// Always create a fresh VR for HL to avoid reusing a VR whose value may have been modified
+	vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	
+	// Emit move from address to HL
+	if address.Type == ImmediateValue {
+		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, address))
+	} else {
+		// Move 16-bit address by decomposing into 8-bit component moves
+		loVR, hiVR := z.vrAlloc.AllocateComponents(vrHL)
+		addressLoVR, addressHiVR := z.vrAlloc.AllocateComponents(address)
+		z.emit(newInstruction(Z80_LD_R_R, loVR, addressLoVR))
+		z.emit(newInstruction(Z80_LD_R_R, hiVR, addressHiVR))
 	}
-	return nil // store has no result
-}
-
-func (z *instructionSelectorZ80) SelectStoreIncremental(address *VirtualRegister, increment uint16, value *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
-	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
-	z.emitAddOffsetToHL(vrHL, increment)
+	
+	z.emitAddOffsetToHL(vrHL, offset)
 
 	switch size {
 	case 8:
@@ -690,19 +684,42 @@ func (z *instructionSelectorZ80) SelectStoreIncremental(address *VirtualRegister
 	case 16:
 		var vrLo, vrHi *VirtualRegister
 		if value.Type == ImmediateValue {
-			valueLo := value.Value & 0xFF
-			valueHi := (value.Value >> 8) & 0xFF
-			vrLo = z.vrAlloc.AllocateImmediate(int32(valueLo), 8)
-			vrHi = z.vrAlloc.AllocateImmediate(int32(valueHi), 8)
+			vrLo, vrHi = z.splitImmediateValue16(value)
 		} else {
-			loRegs, hiRegs := ToPairs(value.AllowedSet)
-			vrLo = z.vrAlloc.Allocate(loRegs)
-			vrHi = z.vrAlloc.Allocate(hiRegs)
+			vrLo, vrHi = z.vrAlloc.AllocateComponents(value)
 		}
 
-		z.emit(newInstruction(Z80_LD_HL_R, vrHL, vrLo))
-		z.emit(newInstructionResult(Z80_INC_HL, vrHL))
-		z.emit(newInstruction(Z80_LD_HL_R, vrHL, vrHi))
+		// emitStore16AtHL stores lo, increments, stores hi, leaving HL at next element position
+		z.emitStore16AtHL(vrHL, vrLo, vrHi, Z80_LD_HL_R)
+	}
+	return vrHL, nil
+}
+
+func (z *instructionSelectorZ80) SelectStoreIncremental(address *VirtualRegister, value *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
+	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
+	// Pre-increment: increment address before storing
+	z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+
+	switch size {
+	case 8:
+		var opcode Z80Opcode
+		if value.Type == ImmediateValue {
+			opcode = Z80_LD_HL_N
+		} else {
+			opcode = Z80_LD_HL_R
+		}
+
+		z.emit(newInstruction(opcode, vrHL, value))
+	case 16:
+		var vrLo, vrHi *VirtualRegister
+		if value.Type == ImmediateValue {
+			vrLo, vrHi = z.splitImmediateValue16(value)
+		} else {
+			vrLo, vrHi = z.vrAlloc.AllocateComponents(value)
+		}
+
+		// emitStore16AtHL stores lo, increments, stores hi, leaving HL at next element position
+		z.emitStore16AtHL(vrHL, vrLo, vrHi, Z80_LD_HL_R)
 	}
 	return vrHL, nil
 }
@@ -726,28 +743,13 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 				}
 			}
 		case 16:
-			// For 16-bit, check if source is compatible with target constraints
-			if source.MatchAnyRegisters(target.AllowedSet) {
-				// Source is compatible - emit component moves from source to target
-				loRegsTarget, hiRegsTarget := ToPairs(target.AllowedSet)
-				loRegsSource, hiRegsSource := ToPairs(source.AllowedSet)
+			// For 16-bit moves, create component VRs and emit component moves
+			// The register allocator will handle any AllowedSet constraints
+			vrTargetLo, vrTargetHi := z.vrAlloc.AllocateComponents(target)
+			vrSourceLo, vrSourceHi := z.getOrAllocateComponents(source)
 
-				vrTargetLo := z.vrAlloc.Allocate(loRegsTarget)
-				vrSourceLo := z.vrAlloc.Allocate(loRegsSource)
-				z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrSourceLo))
-
-				vrTargetHi := z.vrAlloc.Allocate(hiRegsTarget)
-				vrSourceHi := z.vrAlloc.Allocate(hiRegsSource)
-				z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrSourceHi))
-			} else {
-				// Source not compatible - emitLoadIntoReg16 already handles the conversion
-				// It will create component VRs and emit the necessary moves
-				// Note: this creates a different VR than 'target', but since we now reuse
-				// initializer VRs directly for arrays (see instruction_selection.go:328),
-				// this path typically isn't used. For proper implementation, we'd need
-				// a mechanism to alias VRs or use SSA phi nodes.
-				z.emitLoadIntoReg16(source, target.AllowedSet)
-			}
+			z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrSourceLo))
+			z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrSourceHi))
 		}
 	// case StackLocation:
 	// 	z.emitStoreOnStack(source, target)
@@ -858,17 +860,11 @@ func (z *instructionSelectorZ80) CreateMove(target *VirtualRegister, source *Vir
 			len(source.PhysicalReg.Composition) > 0 && len(target.PhysicalReg.Composition) > 0 {
 
 			// Create VRs for components
-			srcLow := z.vrAlloc.Allocate([]*Register{source.PhysicalReg.Composition[0]})
-			srcLow.Assign(source.PhysicalReg.Composition[0])
+			srcLow := z.allocateComponentForPhysicalReg(source.PhysicalReg, 0)
+			srcHigh := z.allocateComponentForPhysicalReg(source.PhysicalReg, 1)
 
-			srcHigh := z.vrAlloc.Allocate([]*Register{source.PhysicalReg.Composition[1]})
-			srcHigh.Assign(source.PhysicalReg.Composition[1])
-
-			dstLow := z.vrAlloc.Allocate([]*Register{target.PhysicalReg.Composition[0]})
-			dstLow.Assign(target.PhysicalReg.Composition[0])
-
-			dstHigh := z.vrAlloc.Allocate([]*Register{target.PhysicalReg.Composition[1]})
-			dstHigh.Assign(target.PhysicalReg.Composition[1])
+			dstLow := z.allocateComponentForPhysicalReg(target.PhysicalReg, 0)
+			dstHigh := z.allocateComponentForPhysicalReg(target.PhysicalReg, 1)
 
 			// Emit component moves
 			instrs = append(instrs, newInstruction(Z80_LD_R_R, dstLow, srcLow))
@@ -947,6 +943,41 @@ func (z *instructionSelectorZ80) allocateRegistersFor(opcode Z80Opcode) (result 
 	return result, operand
 }
 
+// getOrAllocateComponents returns the component VRs for a 16-bit VR, reusing existing ones if available
+func (z *instructionSelectorZ80) getOrAllocateComponents(vr *VirtualRegister) (loVR, hiVR *VirtualRegister) {
+	if len(vr.ComponentVRs) == 2 {
+		// Reuse existing components
+		return vr.ComponentVRs[0], vr.ComponentVRs[1]
+	}
+	// Create new components
+	return z.vrAlloc.AllocateComponents(vr)
+}
+
+// allocateComponentForPhysicalReg creates and assigns a VR for a specific physical register component
+func (z *instructionSelectorZ80) allocateComponentForPhysicalReg(physReg *Register, componentIndex int) *VirtualRegister {
+	componentReg := physReg.Composition[componentIndex]
+	vr := z.vrAlloc.Allocate([]*Register{componentReg})
+	vr.Assign(componentReg)
+	return vr
+}
+
+// splitImmediateValue16 splits a 16-bit immediate value into low and high byte VRs
+func (z *instructionSelectorZ80) splitImmediateValue16(value *VirtualRegister) (loVR, hiVR *VirtualRegister) {
+	valueLo := value.Value & 0xFF
+	valueHi := (value.Value >> 8) & 0xFF
+	loVR = z.vrAlloc.AllocateImmediate(int32(valueLo), 8)
+	hiVR = z.vrAlloc.AllocateImmediate(int32(valueHi), 8)
+	return loVR, hiVR
+}
+
+// emitStore16AtHL emits instructions to store a 16-bit value at (HL) in little-endian format
+// Uses the specified opcode (Z80_LD_HL_R for registers, Z80_LD_HL_N for immediates)
+func (z *instructionSelectorZ80) emitStore16AtHL(vrHL *VirtualRegister, loVR, hiVR *VirtualRegister, opcode Z80Opcode) {
+	z.emit(newInstruction(opcode, vrHL, loVR))
+	z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+	z.emit(newInstruction(opcode, vrHL, hiVR))
+}
+
 func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, targetRegs []*Register) *VirtualRegister {
 	if targetRegs[0].Size != 8 {
 		return nil // Target register must be 8-bit
@@ -995,21 +1026,19 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 			// marks the parent VR as used via Register.Composition relationships.
 			// The parent VR (vrTarget) will be marked as used by MarkUnusedVirtualRegisters
 			// because its components are used.
-			loRegsValue, hiRegsValue := ToPairs(value.AllowedSet)
-			loRegsTarget, hiRegsTarget := ToPairs(targetRegs)
 
-			// LD targetReg[Lo], valueReg[Lo]
-			vrTargetLo := z.vrAlloc.Allocate(loRegsTarget)
-			vrValueLo := z.vrAlloc.Allocate(loRegsValue)
-			z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrValueLo))
+			// Create linked component VRs for target
+			vrTargetLo, vrTargetHi := z.vrAlloc.AllocateComponents(vrTarget)
 
-			// LD targetReg[Hi], value[Hi]
-			vrTargetHi := z.vrAlloc.Allocate(hiRegsTarget)
-			if len(hiRegsValue) != 0 {
-				vrValueHi := z.vrAlloc.Allocate(hiRegsValue)
+			// LD targetReg[Lo], value[Lo]
+			if value.Size == 16 {
+				// Source is 16-bit - create linked component VRs
+				vrValueLo, vrValueHi := z.vrAlloc.AllocateComponents(value)
+				z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrValueLo))
 				z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrValueHi))
 			} else {
-				// Source is 8-bit, zero-extend the high byte
+				// Source is 8-bit - just use it directly for low byte, zero-extend high byte
+				z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, value))
 				vrZero := z.vrAlloc.AllocateImmediate(0, 8)
 				z.emit(newInstruction(Z80_LD_R_N, vrTargetHi, vrZero))
 			}
@@ -1041,21 +1070,11 @@ func (z *instructionSelectorZ80) emitStoreOnStack(value *VirtualRegister, stackT
 	case 16:
 		switch value.Type {
 		case ImmediateValue:
-			loVal := value.Value & 0xFF
-			hiVal := (value.Value >> 8) & 0xFF
-			loVR := z.vrAlloc.AllocateImmediate(int32(loVal), 8)
-			hiVR := z.vrAlloc.AllocateImmediate(int32(hiVal), 8)
-			z.emit(newInstruction(Z80_LD_HL_N, vrHL, loVR))
-			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
-			z.emit(newInstruction(Z80_LD_HL_N, vrHL, hiVR))
+			loVR, hiVR := z.splitImmediateValue16(value)
+			z.emitStore16AtHL(vrHL, loVR, hiVR, Z80_LD_HL_N)
 		case CandidateRegister:
-			loRegs, hiRegs := ToPairs(value.AllowedSet)
-			loVR := z.vrAlloc.Allocate(loRegs)
-			hiVR := z.vrAlloc.Allocate(hiRegs)
-			// little endian store: low byte at (HL), high byte at (HL+1)
-			z.emit(newInstruction(Z80_LD_HL_R, vrHL, loVR))
-			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
-			z.emit(newInstruction(Z80_LD_HL_R, vrHL, hiVR))
+			loVR, hiVR := z.vrAlloc.AllocateComponents(value)
+			z.emitStore16AtHL(vrHL, loVR, hiVR, Z80_LD_HL_R)
 		default:
 			return nil // unsupported value type
 		}

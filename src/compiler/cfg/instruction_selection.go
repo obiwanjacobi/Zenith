@@ -637,7 +637,7 @@ func (ctx *InstructionSelectionContext) selectTypeInitializer(exprCtx *ExprConte
 
 		offset := fieldInit.Field.Offset
 		fieldRegSize := RegisterSize(fieldInit.Field.Type.Size() * 8)
-		if err := ctx.selector.SelectStore(structVR, valueVR, offset, fieldRegSize); err != nil {
+		if _, err := ctx.selector.SelectStore(structVR, valueVR, offset, fieldRegSize); err != nil {
 			return nil, err
 		}
 	}
@@ -668,21 +668,23 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 	// Initialize each element
 	elementSize := arrayType.ElementType().Size()
 	regSize := RegisterSize(elementSize * 8)
-	vrCurrentAddress := vrAddress
-	elemOffset := uint16(0)
-	for _, elemExpr := range init.Elements {
-		valueVR, err := ctx.selectExpression(elemExpr)
+
+	if len(init.Elements) == 0 {
+		return vrAddress, nil
+	}
+
+	// Store each element at its offset from the base address
+	for i := 0; i < len(init.Elements); i++ {
+		valueVR, err := ctx.selectExpression(init.Elements[i])
 		if err != nil {
 			return nil, err
 		}
 
-		vrNewAddress, err := ctx.selector.SelectStoreIncremental(vrCurrentAddress, elemOffset, valueVR, regSize)
+		offset := uint16(i) * elementSize
+		_, err = ctx.selector.SelectStore(vrAddress, valueVR, offset, regSize)
 		if err != nil {
 			return nil, err
 		}
-
-		elemOffset = elementSize
-		vrCurrentAddress = vrNewAddress
 	}
 
 	// Return the pointer to the array
