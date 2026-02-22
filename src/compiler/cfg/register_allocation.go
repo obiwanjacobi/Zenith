@@ -592,6 +592,35 @@ func MarkUnusedVirtualRegisters(allVRs []*VirtualRegister, instructions []Machin
 		}
 	}
 
+	// Mark parent 16-bit VRs as used if any of their component VRs are used
+	// This handles composition-based register allocation where 16-bit moves
+	// are decomposed into 8-bit component moves
+	for _, parentVR := range allVRs {
+		if parentVR.Size == 16 && len(parentVR.AllowedSet) > 0 {
+			// Check if any component register is used
+			for _, parentReg := range parentVR.AllowedSet {
+				if len(parentReg.Composition) == 0 {
+					continue
+				}
+				// Check if any 8-bit VR using this parent's components is used
+				for _, componentVR := range allVRs {
+					if componentVR.Size == 8 && usedVRs[componentVR.ID] && len(componentVR.AllowedSet) > 0 {
+						// Check if componentVR can be allocated to one of parentReg's components
+						for _, compReg := range componentVR.AllowedSet {
+							for _, parentComp := range parentReg.Composition {
+								if compReg == parentComp {
+									usedVRs[parentVR.ID] = true
+									goto nextParentVR
+								}
+							}
+						}
+					}
+				}
+			}
+		nextParentVR:
+		}
+	}
+
 	// check all VRs against used list and mark unused ones
 	for _, vr := range allVRs {
 		if !usedVRs[vr.ID] {

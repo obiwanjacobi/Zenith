@@ -73,6 +73,22 @@ func (vr *VirtualRegister) HasRegister(register *Register) bool {
 	return false
 }
 
+func (vr *VirtualRegister) MatchRegisters(registers []*Register) bool {
+	if vr.Type != CandidateRegister && vr.Type != AllocatedRegister {
+		return false
+	}
+
+	for _, reg := range registers {
+		for _, allowed := range vr.AllowedSet {
+			if reg != allowed {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 func (vr *VirtualRegister) MatchAnyRegisters(registers []*Register) bool {
 	if vr.Type != CandidateRegister && vr.Type != AllocatedRegister {
 		return false

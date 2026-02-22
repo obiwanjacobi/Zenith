@@ -29,7 +29,7 @@ func NewLivenessInfo() *LivenessInfo {
 }
 
 // ComputeLiveness performs liveness analysis on a CFG with MachineInstructions
-func ComputeLiveness(cfg *CFG) *LivenessInfo {
+func ComputeLiveness(cfg *CFG, allVRs []*VirtualRegister) *LivenessInfo {
 	info := NewLivenessInfo()
 
 	// Step 1: Compute use and def sets for each block from machine instructions
@@ -39,7 +39,7 @@ func ComputeLiveness(cfg *CFG) *LivenessInfo {
 		info.LiveIn[block.ID] = make(map[int]bool)
 		info.LiveOut[block.ID] = make(map[int]bool)
 
-		computeUseDefSetsFromMachineInstructions(block, info.Use[block.ID], info.Def[block.ID])
+		computeUseDefSetsFromMachineInstructions(block, info.Use[block.ID], info.Def[block.ID], allVRs)
 	}
 
 	// Step 2: Iterate until live-in/live-out sets converge
@@ -85,7 +85,7 @@ func ComputeLiveness(cfg *CFG) *LivenessInfo {
 
 // computeUseDefSets analyzes a basic block to find used and defined variables
 // computeUseDefSetsFromMachineInstructions analyzes machine instructions to find used and defined VirtualRegisters
-func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[int]bool) {
+func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[int]bool, allVRs []*VirtualRegister) {
 	for _, instr := range block.MachineInstructions {
 		// Get VirtualRegisters used by this instruction (operands)
 		for _, operand := range instr.GetOperands() {
@@ -95,6 +95,8 @@ func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[in
 				if !def[vrID] {
 					use[vrID] = true
 				}
+				// Also mark any parent VRs as used (via Register.Composition)
+				markRelatedParentVRsAsUsed(operand, allVRs, use, def)
 			}
 		}
 
@@ -102,6 +104,69 @@ func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[in
 		result := instr.GetResult()
 		if result != nil && shouldTrackForLiveness(result) {
 			def[result.ID] = true
+			// Also mark any parent VRs as defined
+			markRelatedParentVRsAsDefined(result, allVRs, def)
+		}
+	}
+}
+
+// markRelatedParentVRsAsUsed finds any 16-bit VRs that contain the component registers
+// used by this 8-bit VR, and marks them as used via Register.Composition
+func markRelatedParentVRsAsUsed(componentVR *VirtualRegister, allVRs []*VirtualRegister, use, def map[int]bool) {
+	if componentVR.Size != 8 || len(componentVR.AllowedSet) == 0 {
+		return // Only check 8-bit VRs with constraints
+	}
+
+	// Find any 16-bit VRs whose registers contain these component registers
+	for _, vr := range allVRs {
+		if vr.Size == 16 && shouldTrackForLiveness(vr) {
+			// Check if any of this VR's allowed registers contain the component register
+			for _, parentReg := range vr.AllowedSet {
+				if len(parentReg.Composition) == 0 {
+					continue // Not a composite register
+				}
+				// Check if this parent register contains any of the component registers
+				for _, componentReg := range componentVR.AllowedSet {
+					for _, comp := range parentReg.Composition {
+						if comp == componentReg {
+							if !def[vr.ID] {
+								use[vr.ID] = true
+							}
+							goto nextVR // Found a match, move to next VR
+						}
+					}
+				}
+			}
+		nextVR:
+		}
+	}
+}
+
+// markRelatedParentVRsAsDefined marks any parent 16-bit VRs as defined when component is defined
+func markRelatedParentVRsAsDefined(componentVR *VirtualRegister, allVRs []*VirtualRegister, def map[int]bool) {
+	if componentVR.Size != 8 || len(componentVR.AllowedSet) == 0 {
+		return
+	}
+
+	// Find any 16-bit VRs whose registers contain these component registers
+	for _, vr := range allVRs {
+		if vr.Size == 16 && shouldTrackForLiveness(vr) {
+			// Check if any of this VR's allowed registers contain the component register
+			for _, parentReg := range vr.AllowedSet {
+				if len(parentReg.Composition) == 0 {
+					continue
+				}
+				// Check if this parent register contains any of the component registers
+				for _, componentReg := range componentVR.AllowedSet {
+					for _, comp := range parentReg.Composition {
+						if comp == componentReg {
+							def[vr.ID] = true
+							goto nextVR2
+						}
+					}
+				}
+			}
+		nextVR2:
 		}
 	}
 }

@@ -167,22 +167,15 @@ func (ig *InterferenceGraph) GetNodes() []int {
 // BuildInterferenceGraph constructs an interference graph from liveness information
 // Two VirtualRegisters interfere if they are both live at the same point in the program
 // Uses instruction-level liveness for precision and considers register composition
-func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo) *InterferenceGraph {
+func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo, allVRs []*VirtualRegister) *InterferenceGraph {
 	ig := NewInterferenceGraph()
 
 	// Build a map of VR ID to VR object for composition checking
+	// Include ALL VRs, not just those in instructions, since liveness tracking
+	// can mark parent VRs as live even if they don't appear in instructions directly
 	vrMap := make(map[int]*VirtualRegister)
-	for _, block := range cfg.Blocks {
-		for _, instr := range block.MachineInstructions {
-			if result := instr.GetResult(); result != nil {
-				vrMap[result.ID] = result
-			}
-			for _, operand := range instr.GetOperands() {
-				if operand != nil {
-					vrMap[operand.ID] = operand
-				}
-			}
-		}
+	for _, vr := range allVRs {
+		vrMap[vr.ID] = vr
 	}
 
 	// For each block, compute precise per-instruction liveness

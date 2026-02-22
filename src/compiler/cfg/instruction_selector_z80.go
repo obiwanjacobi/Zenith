@@ -63,13 +63,12 @@ func (z *instructionSelectorZ80) SelectAdd(left, right *VirtualRegister) (*Virtu
 		result = z.vrAlloc.Allocate(Z80Registers8)
 		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	case 16:
-		// TODO: refactor to handle immediate 16-bit addition
-		// 16-bit add: ADD HL, rr
-		result = z.vrAlloc.Allocate(Z80Registers16)
-		vrHL := z.vrAlloc.Allocate(Z80RegHL)
-		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, left))
-		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, right))
-		z.emit(newInstruction(Z80_LD_RR_NN, result, vrHL))
+		// 16-bit add: ADD HL, rr (HL is destination and first operand)
+		vrHL := z.emitLoadIntoReg16(left, Z80RegHL)
+		vrRight := z.emitLoadIntoReg16(right, Z80Registers16)
+		z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrRight))
+		// Result is in HL
+		result = vrHL
 	default:
 		return nil, fmt.Errorf("unsupported size for ADD: %d", size)
 	}
@@ -576,14 +575,22 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 		z.emit(newInstruction(Z80_LD_R_HL, resultVR, vrHL))
 		return resultVR, nil
 	case 16:
-		resultVR := z.vrAlloc.Allocate(Z80RegistersPP)
+		// For 16-bit loads from memory, we can only load into defined component registers
+		// Return the flexible result that can be allocated to any 16-bit register
+		resultVR := z.vrAlloc.Allocate(Z80Registers16)
 		loRegs, hiRegs := ToPairs(resultVR.AllowedSet)
-		loVR := z.vrAlloc.Allocate(loRegs)
-		hiVR := z.vrAlloc.Allocate(hiRegs)
-		// little endian load: low byte at (HL), high byte at (HL+1)
-		z.emit(newInstruction(Z80_LD_R_HL, loVR, vrHL))
+
+		// Create component VRs for the actual loads
+		resultL := z.vrAlloc.Allocate(loRegs)
+		resultH := z.vrAlloc.Allocate(hiRegs)
+
+		// Load low byte at (HL), high byte at (HL+1)
+		z.emit(newInstruction(Z80_LD_R_HL, resultL, vrHL))
 		z.emit(newInstructionResult(Z80_INC_HL, vrHL))
-		z.emit(newInstruction(Z80_LD_R_HL, hiVR, vrHL))
+		z.emit(newInstruction(Z80_LD_R_HL, resultH, vrHL))
+
+		// Return the composite parent VR
+		// Liveness will connect resultL/resultH usage to resultVR via Register.Composition
 		return resultVR, nil
 	}
 
@@ -621,7 +628,7 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 	return nil // store has no result
 }
 
-func (z *instructionSelectorZ80) SelectStoreSequential(address *VirtualRegister, value *VirtualRegister, increment uint16, size RegisterSize) error {
+func (z *instructionSelectorZ80) SelectStoreIncremental(address *VirtualRegister, increment uint16, value *VirtualRegister, size RegisterSize) (*VirtualRegister, error) {
 	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
 	z.emitAddOffsetToHL(vrHL, increment)
 
@@ -648,7 +655,7 @@ func (z *instructionSelectorZ80) SelectStoreSequential(address *VirtualRegister,
 			z.emit(newInstruction(Z80_LD_HL_R, vrHL, hiVR))
 		}
 	}
-	return nil // store has no result
+	return vrHL, nil
 }
 
 // SelectLoadConstant generates instructions to load an immediate value
@@ -698,9 +705,40 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 	case CandidateRegister:
 		switch size {
 		case 8:
-			z.emitLoadIntoReg8(source, target.AllowedSet)
+			// For 8-bit, check if source is compatible with target constraints
+			if source.MatchAnyRegisters(target.AllowedSet) {
+				// Source is already compatible, just emit a move from source to target
+				z.emit(newInstruction(Z80_LD_R_R, target, source))
+			} else {
+				// Need to load source into target's allowed register set first
+				vrTemp := z.emitLoadIntoReg8(source, target.AllowedSet)
+				if vrTemp != target {
+					z.emit(newInstruction(Z80_LD_R_R, target, vrTemp))
+				}
+			}
 		case 16:
-			z.emitLoadIntoReg16(source, target.AllowedSet)
+			// For 16-bit, check if source is compatible with target constraints
+			if source.MatchAnyRegisters(target.AllowedSet) {
+				// Source is compatible - emit component moves from source to target
+				loRegsTarget, hiRegsTarget := ToPairs(target.AllowedSet)
+				loRegsSource, hiRegsSource := ToPairs(source.AllowedSet)
+
+				vrTargetLo := z.vrAlloc.Allocate(loRegsTarget)
+				vrSourceLo := z.vrAlloc.Allocate(loRegsSource)
+				z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrSourceLo))
+
+				vrTargetHi := z.vrAlloc.Allocate(hiRegsTarget)
+				vrSourceHi := z.vrAlloc.Allocate(hiRegsSource)
+				z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrSourceHi))
+			} else {
+				// Source not compatible - emitLoadIntoReg16 already handles the conversion
+				// It will create component VRs and emit the necessary moves
+				// Note: this creates a different VR than 'target', but since we now reuse
+				// initializer VRs directly for arrays (see instruction_selection.go:328),
+				// this path typically isn't used. For proper implementation, we'd need
+				// a mechanism to alias VRs or use SSA phi nodes.
+				z.emitLoadIntoReg16(source, target.AllowedSet)
+			}
 		}
 	case StackLocation:
 		z.emitStoreOnStack(source, target)
@@ -774,6 +812,9 @@ func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl,
 	z.emit(newInstruction(Z80_LD_HL_NN, vrHL, vrSize))
 	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
 	z.emit(newInstruction(Z80_LD_SP_HL, vrSP, vrHL))
+
+	// return from function
+	z.emit(newInstruction0(Z80_RET))
 	return nil
 }
 
@@ -782,7 +823,54 @@ func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl,
 // ============================================================================
 
 func (z *instructionSelectorZ80) CreateMove(target *VirtualRegister, source *VirtualRegister) ([]MachineInstruction, error) {
-	return nil, fmt.Errorf("Not implemented")
+	var instrs []MachineInstruction
+
+	// No-op: same register
+	if target.PhysicalReg == source.PhysicalReg {
+		return instrs, nil // Empty list = no instructions needed
+	}
+
+	// Handle 8-bit register moves
+	if target.Size == 8 && source.Size == 8 {
+		instrs = append(instrs, newInstruction(Z80_LD_R_R, target, source))
+		return instrs, nil
+	}
+
+	// Handle 16-bit register moves
+	if target.Size == 16 && source.Size == 16 {
+		// Special case: HL -> SP (only valid 16-bit move instruction on Z80)
+		if target.PhysicalReg == &RegSP && source.PhysicalReg == &RegHL {
+			instrs = append(instrs, newInstruction(Z80_LD_SP_HL, target, source))
+			return instrs, nil
+		}
+
+		// For other 16-bit moves where both have composition, decompose into 8-bit component moves
+		if source.PhysicalReg != nil && target.PhysicalReg != nil &&
+			len(source.PhysicalReg.Composition) > 0 && len(target.PhysicalReg.Composition) > 0 {
+
+			// Create VRs for components
+			srcLow := z.vrAlloc.Allocate([]*Register{source.PhysicalReg.Composition[0]})
+			srcLow.Assign(source.PhysicalReg.Composition[0])
+
+			srcHigh := z.vrAlloc.Allocate([]*Register{source.PhysicalReg.Composition[1]})
+			srcHigh.Assign(source.PhysicalReg.Composition[1])
+
+			dstLow := z.vrAlloc.Allocate([]*Register{target.PhysicalReg.Composition[0]})
+			dstLow.Assign(target.PhysicalReg.Composition[0])
+
+			dstHigh := z.vrAlloc.Allocate([]*Register{target.PhysicalReg.Composition[1]})
+			dstHigh.Assign(target.PhysicalReg.Composition[1])
+
+			// Emit component moves
+			instrs = append(instrs, newInstruction(Z80_LD_R_R, dstLow, srcLow))
+			instrs = append(instrs, newInstruction(Z80_LD_R_R, dstHigh, srcHigh))
+			return instrs, nil
+		}
+
+		return nil, fmt.Errorf("cannot create 16-bit move from %v to %v", source.PhysicalReg, target.PhysicalReg)
+	}
+
+	return nil, fmt.Errorf("cannot create move from size %d to size %d", source.Size, target.Size)
 }
 
 func (z *instructionSelectorZ80) CreateSpill(vr *VirtualRegister, stackOffset int8) ([]MachineInstruction, error) {
@@ -856,7 +944,7 @@ func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, target
 	}
 
 	var vrTarget *VirtualRegister
-	if !value.MatchAnyRegisters(targetRegs) {
+	if !value.MatchRegisters(targetRegs) {
 		vrTarget = z.vrAlloc.Allocate(targetRegs)
 		if value.Type == ImmediateValue {
 			// Load immediate value into targetReg
@@ -885,18 +973,23 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 	}
 
 	var vrTarget *VirtualRegister
-	if !value.MatchAnyRegisters(targetRegs) {
+	// Check if value is already constrained to exactly the target registers
+	if !value.MatchRegisters(targetRegs) {
 		vrTarget = z.vrAlloc.Allocate(targetRegs)
 		if value.Type == ImmediateValue {
 			// Load immediate value into targetReg
 			// Create instruction with immediate as operand, target as result
 			z.emit(newInstruction(Z80_LD_RR_NN, vrTarget, value))
 		} else if len(value.AllowedSet) > 0 {
-			// extract the low and hi value registers
+			// Move 16-bit register by decomposing into component 8-bit moves.
+			// The liveness analysis will track that using component registers
+			// marks the parent VR as used via Register.Composition relationships.
+			// The parent VR (vrTarget) will be marked as used by MarkUnusedVirtualRegisters
+			// because its components are used.
 			loRegsValue, hiRegsValue := ToPairs(value.AllowedSet)
 			loRegsTarget, hiRegsTarget := ToPairs(targetRegs)
 
-			// LD targetReg[Lo], value[Lo]
+			// LD targetReg[Lo], valueReg[Lo]
 			vrTargetLo := z.vrAlloc.Allocate(loRegsTarget)
 			vrValueLo := z.vrAlloc.Allocate(loRegsValue)
 			z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrValueLo))
@@ -907,7 +1000,7 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 				vrValueHi := z.vrAlloc.Allocate(hiRegsValue)
 				z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrValueHi))
 			} else {
-				// reset high byte to 0 - not used
+				// Source is 8-bit, zero-extend the high byte
 				vrZero := z.vrAlloc.AllocateImmediate(0, 8)
 				z.emit(newInstruction(Z80_LD_R_N, vrTargetHi, vrZero))
 			}

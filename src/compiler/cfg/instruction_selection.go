@@ -276,10 +276,11 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 	if arrayType, ok := decl.TypeInfo.(*zsm.ArrayType); ok {
 		if arrayType.Length() > 0 {
 			// Fixed-size array
-			vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
-			ctx.symbolToVReg[decl.Symbol] = vrVar
-
 			if decl.Initializer == nil {
+				// No initializer: allocate VR and get stack address
+				vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+				ctx.symbolToVReg[decl.Symbol] = vrVar
+
 				dataSize := arrayType.DataSize()
 				offset := ctx.currentCFG.FrameLayout.AddSlot(decl.Symbol, dataSize)
 
@@ -295,9 +296,8 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 					return err
 				}
 			} else {
-				// Has initializer: do not allocate frame storage here.
-				// The initializer expression allocates and initializes array data.
-
+				// Has initializer: the initializer will allocate storage and return the address
+				// Don't pre-allocate vrVar - use the initializer's result directly
 			}
 		} else {
 			// Dynamic/zero-length array: allocate a pointer-sized frame slot
@@ -326,11 +326,18 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 			return err
 		}
 
-		// Generate move instruction
-		// For arrays, this moves the pointer from the initializer to the variable
-		err = ctx.selector.SelectMove(vrVar, initVR, regSize)
-		if err != nil {
-			return err
+		if vrVar == nil {
+			// For arrays with initializers, use the initializer result VR directly
+			vrVar = initVR
+			vrVar.Name = decl.Symbol.Name
+			ctx.symbolToVReg[decl.Symbol] = vrVar
+		} else {
+			// Generate move instruction
+			// For non-arrays and arrays without initializers
+			err = ctx.selector.SelectMove(vrVar, initVR, regSize)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -654,29 +661,33 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 	dataOffset := ctx.currentCFG.FrameLayout.AddSlot(exprCtx.TargetSymbol, dataSize)
 
 	// Compute address of array data: SP + offset
-	addressVR, err := ctx.selector.SelectLoadStackAddress(dataOffset)
+	vrAddress, err := ctx.selector.SelectLoadStackAddress(dataOffset)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize each element
 	elementSize := arrayType.ElementType().Size()
-	elementRegSize := RegisterSize(elementSize * 8)
-
+	regSize := RegisterSize(elementSize * 8)
+	vrCurrentAddress := vrAddress
+	elemOffset := uint16(0)
 	for _, elemExpr := range init.Elements {
-		// Evaluate element expression with cleared target symbol
-		// (nested expressions should not inherit the array's target)
-		valueVR, err := ctx.selectExpressionWithContext(nil, elemExpr)
+		valueVR, err := ctx.selectExpression(elemExpr)
 		if err != nil {
 			return nil, err
 		}
-		if err := ctx.selector.SelectStoreSequential(addressVR, valueVR, elementSize, elementRegSize); err != nil {
+
+		vrNewAddress, err := ctx.selector.SelectStoreIncremental(vrCurrentAddress, elemOffset, valueVR, regSize)
+		if err != nil {
 			return nil, err
 		}
+
+		elemOffset = elementSize
+		vrCurrentAddress = vrNewAddress
 	}
 
 	// Return the pointer to the array
-	return addressVR, nil
+	return vrAddress, nil
 }
 
 func DumpInstructions(instructions []MachineInstruction) {

@@ -242,7 +242,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	for fnName, fnCFG := range result.FunctionCFGs {
-		liveness := cfg.ComputeLiveness(fnCFG)
+		liveness := cfg.ComputeLiveness(fnCFG, result.VRAllocator.GetAll())
 		result.LivenessInfo[fnName] = liveness
 
 		if opts.Verbose {
@@ -264,7 +264,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	for fnName, liveness := range result.LivenessInfo {
 		fnCFG := result.FunctionCFGs[fnName]
-		interference := cfg.BuildInterferenceGraph(fnCFG, liveness)
+		interference := cfg.BuildInterferenceGraph(fnCFG, liveness, result.VRAllocator.GetAll())
 		result.InterferenceInfo[fnName] = interference
 
 		if opts.Verbose {
