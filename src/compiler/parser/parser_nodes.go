@@ -3,6 +3,7 @@ package parser
 import (
 	"reflect"
 	"strconv"
+	"strings"
 	"zenith/compiler"
 	"zenith/compiler/lexer"
 )
@@ -56,6 +57,14 @@ func (n *parserNodeData) childrenOf(t reflect.Type) []interface{} {
 		}
 	}
 	return result
+}
+
+func (n *parserNodeData) String() string {
+	var sb strings.Builder
+	for _, token := range n.tokens {
+		sb.WriteString(token.Text())
+	}
+	return sb.String()
 }
 
 // ============================================================================
@@ -199,8 +208,8 @@ func (n *variableAssignment) Operator() lexer.Token {
 }
 
 func (n *variableAssignment) Expression() Expression {
-	if len(n.parserNodeData.children) > 0 {
-		return n.parserNodeData.children[0].(Expression)
+	if len(n.parserNodeData.children) > 1 {
+		return n.parserNodeData.children[1].(Expression)
 	}
 	return nil
 }

@@ -740,6 +740,18 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 	case AllocatedRegister:
 		// target is already allocated => we're moving data into a pointer param
 		switch size {
+		case 8:
+			// For 8-bit, check if source is compatible with target constraints
+			if source.MatchAnyRegisters(target.AllowedSet) {
+				// Source is already compatible, just emit a move from source to target
+				z.emit(newInstruction(Z80_LD_R_R, target, source))
+			} else {
+				// Need to load source into target's allowed register set first
+				vrTemp := z.emitLoadIntoReg8(source, target.AllowedSet)
+				if vrTemp != target {
+					z.emit(newInstruction(Z80_LD_R_R, target, vrTemp))
+				}
+			}
 		case 16:
 			// For 16-bit moves, only support HL <-> SP for now
 			if target.PhysicalReg == &RegSP && source.PhysicalReg == &RegHL {

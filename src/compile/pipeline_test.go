@@ -173,6 +173,19 @@ func Test_Pipeline_ArrMax(t *testing.T) {
 	RunPipeline(t, sourceCode)
 }
 
+func Test_Pipeline_ForLoop(t *testing.T) {
+	sourceCode := `
+		forLoop: (n: u8) u8 {
+			for i := 0; i < n; i++ {
+				n = n + i
+			}
+			ret n
+		}
+	`
+
+	RunPipeline(t, sourceCode)
+}
+
 func Test_Pipeline_Variables(t *testing.T) {
 	sourceCode := `variables: (p: u8) u8 {
 		x := p + 42
