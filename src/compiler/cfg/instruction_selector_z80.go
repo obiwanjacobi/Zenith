@@ -355,11 +355,11 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right 
 
 	// ValueMode: for now, use runtime helper
 	// TODO: Implement proper short-circuit with phi nodes
-	leftVR, err := evaluateExpr(ctx, left)
+	vrLeft, err := evaluateExpr(ctx, left)
 	if err != nil {
 		return nil, err
 	}
-	rightVR, err := evaluateExpr(ctx, right)
+	vrRight, err := evaluateExpr(ctx, right)
 	if err != nil {
 		return nil, err
 	}
@@ -367,8 +367,8 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right 
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, leftVR))
-	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, rightVR))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, vrLeft))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, vrRight))
 	z.emit(newCall("__logical_and"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
@@ -393,11 +393,11 @@ func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, left, right z
 	}
 
 	// ValueMode: for now, use runtime helper
-	leftVR, err := evaluateExpr(ctx, left)
+	vrLeft, err := evaluateExpr(ctx, left)
 	if err != nil {
 		return nil, err
 	}
-	rightVR, err := evaluateExpr(ctx, right)
+	vrRight, err := evaluateExpr(ctx, right)
 	if err != nil {
 		return nil, err
 	}
@@ -405,8 +405,8 @@ func (z *instructionSelectorZ80) SelectLogicalOr(ctx *ExprContext, left, right z
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrDE := z.vrAlloc.Allocate(Z80RegDE)
 
-	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, leftVR))
-	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, rightVR))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, vrLeft))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrDE, vrRight))
 	z.emit(newCall("__logical_or"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
@@ -423,13 +423,13 @@ func (z *instructionSelectorZ80) SelectLogicalNot(ctx *ExprContext, operand zsm.
 	}
 
 	// ValueMode: use runtime helper
-	operandVR, err := evaluateExpr(ctx, operand)
+	vrOperand, err := evaluateExpr(ctx, operand)
 	if err != nil {
 		return nil, err
 	}
 
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
-	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, operandVR))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, vrOperand))
 	z.emit(newCall("__logical_not"))
 
 	result := z.vrAlloc.Allocate(Z80RegA)
@@ -601,36 +601,36 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 		offset := uint16(index.Value) * elementSize
 		z.emitAddOffsetToHL(vrHL, offset)
 	} else {
-		indexVR := z.emitLoadIntoReg16(index, Z80RegistersPP)
+		vrIndex := z.emitLoadIntoReg16(index, Z80RegistersPP)
 		// TODO: are 16-bit shifts (custom code) faster than multiple 16-bit adds?
 		// Calculate offset: HL = base + index * elementSize
 		for ; elementSize > 0; elementSize-- {
-			z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, indexVR))
+			z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrIndex))
 		}
 	}
 
 	switch size {
 	case 8:
 		// Load from (HL)
-		resultVR := z.vrAlloc.Allocate(Z80Registers8)
-		z.emit(newInstruction(Z80_LD_R_HL, resultVR, vrHL))
-		return resultVR, nil
+		vrResult := z.vrAlloc.Allocate(Z80Registers8)
+		z.emit(newInstruction(Z80_LD_R_HL, vrResult, vrHL))
+		return vrResult, nil
 	case 16:
 		// For 16-bit loads from memory, we can only load into defined component registers
 		// Return the flexible result that can be allocated to any 16-bit register
-		resultVR := z.vrAlloc.Allocate(Z80Registers16)
+		vrResult := z.vrAlloc.Allocate(Z80Registers16)
 
 		// Create linked component VRs for the actual loads
-		resultL, resultH := z.vrAlloc.AllocateComponents(resultVR)
+		vrResultLo, vrResultHi := z.vrAlloc.AllocateComponents(vrResult)
 
 		// Load low byte at (HL), high byte at (HL+1)
-		z.emit(newInstruction(Z80_LD_R_HL, resultL, vrHL))
+		z.emit(newInstruction(Z80_LD_R_HL, vrResultLo, vrHL))
 		z.emit(newInstructionResult(Z80_INC_HL, vrHL))
-		z.emit(newInstruction(Z80_LD_R_HL, resultH, vrHL))
+		z.emit(newInstruction(Z80_LD_R_HL, vrResultHi, vrHL))
 
 		// Return the composite parent VR
-		// Liveness will connect resultL/resultH usage to resultVR via Register.Composition
-		return resultVR, nil
+		// Liveness will connect vrResultLo/vrResultHi usage to vrResult via Register.Composition
+		return vrResult, nil
 	}
 
 	return nil, fmt.Errorf("unsupported size for indexed load: %d", size)
@@ -648,16 +648,16 @@ func (z *instructionSelectorZ80) SelectLoadConstant(value interface{}, size uint
 func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*VirtualRegister, error) {
 
 	// Load offset into HL
-	offsetVR := z.vrAlloc.AllocateImmediate(int32(stackOffset), 16)
-	result := z.vrAlloc.Allocate(Z80RegHL)
-	z.emit(newInstruction(Z80_LD_RR_NN, result, offsetVR))
+	vrOffset := z.vrAlloc.AllocateImmediate(int32(stackOffset), 16)
+	vrResult := z.vrAlloc.Allocate(Z80RegHL)
+	z.emit(newInstruction(Z80_LD_RR_NN, vrResult, vrOffset))
 
 	// Add SP to HL: HL = HL + SP
 	// Note: Z80 ADD HL, RR adds a register pair to HL
 	vrSP := z.vrAlloc.Allocate(Z80RegSP)
-	z.emit(newInstruction(Z80_ADD_HL_RR, result, vrSP))
+	z.emit(newInstruction(Z80_ADD_HL_RR, vrResult, vrSP))
 
-	return result, nil
+	return vrResult, nil
 }
 
 // SelectStore generates instructions to store to memory

@@ -10,23 +10,31 @@ type FrameSlot struct {
 	Size   uint16
 }
 
-// FrameLayout manages stack-frame slots and tracks the next free offset.
-type FrameLayout struct {
+// StackFrame manages stack-frame slots and tracks the next free offset.
+type StackFrame struct {
 	slots      map[*zsm.Symbol]*FrameSlot
 	nextOffset uint16
 }
 
-// NewFrameLayout creates an empty frame layout starting at offset 0.
-func NewFrameLayout() *FrameLayout {
-	return &FrameLayout{
+// NewStackFrame creates an empty stack frame starting at offset 0.
+func NewStackFrame() *StackFrame {
+	return &StackFrame{
 		slots:      make(map[*zsm.Symbol]*FrameSlot),
 		nextOffset: 0,
 	}
 }
 
+func (fl *StackFrame) IsEmpty() bool {
+	return fl.nextOffset == 0
+}
+
+func (fl *StackFrame) Size() uint16 {
+	return fl.nextOffset
+}
+
 // AddSlot adds a frame slot for a symbol and advances nextOffset.
 // If the symbol already has a slot, the existing slot-offset is returned unchanged.
-func (fl *FrameLayout) AddSlot(symbol *zsm.Symbol, size uint16) uint16 {
+func (fl *StackFrame) AddSlot(symbol *zsm.Symbol, size uint16) uint16 {
 	if slot, ok := fl.slots[symbol]; ok {
 		return slot.Offset
 	}
@@ -44,13 +52,13 @@ func (fl *FrameLayout) AddSlot(symbol *zsm.Symbol, size uint16) uint16 {
 }
 
 // GetSlot returns the frame slot for a symbol.
-func (fl *FrameLayout) GetSlot(symbol *zsm.Symbol) (*FrameSlot, bool) {
+func (fl *StackFrame) GetSlot(symbol *zsm.Symbol) (*FrameSlot, bool) {
 	slot, ok := fl.slots[symbol]
 	return slot, ok
 }
 
 // HasSlot returns true if a symbol has an allocated frame slot.
-func (fl *FrameLayout) HasSlot(symbol *zsm.Symbol) bool {
+func (fl *StackFrame) HasSlot(symbol *zsm.Symbol) bool {
 	_, ok := fl.slots[symbol]
 	return ok
 }

@@ -97,17 +97,20 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 		}
 	}
 
+	// TODO: This should come after register allocation,
+	// to also include spilled registers on the stack.
+
 	// check if function needs stack frame
-	if ctx.currentCFG.FrameLayout.nextOffset > 0 {
+	if !ctx.currentCFG.StackFrame.IsEmpty() {
 		// Generate prologue in the reserved entry block
 		// Note: Prologue emits instructions to currentBlock, so we set it to entry
 		ctx.selector.SetCurrentBlock(cfg.Entry)
-		ctx.selector.SelectFunctionPrologue(cfg.FunctionDecl, ctx.currentCFG.FrameLayout.nextOffset)
+		ctx.selector.SelectFunctionPrologue(cfg.FunctionDecl, ctx.currentCFG.StackFrame.Size())
 
 		// Generate epilogue in the reserved exit block
 		// The exit block is reached by all return statements
 		ctx.selector.SetCurrentBlock(cfg.Exit)
-		ctx.selector.SelectFunctionEpilogue(cfg.FunctionDecl, ctx.currentCFG.FrameLayout.nextOffset)
+		ctx.selector.SelectFunctionEpilogue(cfg.FunctionDecl, ctx.currentCFG.StackFrame.Size())
 	}
 	return nil
 }
@@ -123,7 +126,7 @@ func (ctx *InstructionSelectionContext) allocateFrameSlots() {
 				} else {
 					size = varDecl.TypeInfo.Size()
 				}
-				ctx.currentCFG.FrameLayout.AddSlot(varDecl.Symbol, size)
+				ctx.currentCFG.StackFrame.AddSlot(varDecl.Symbol, size)
 			}
 		}
 	}
@@ -254,18 +257,18 @@ func (ctx *InstructionSelectionContext) selectStatement(stmt zsm.SemStatement) e
 				// Check if we're incrementing/decrementing a symbol
 				if symRef, ok := unaryOp.Operand.(*zsm.SemSymbolRef); ok {
 					// Get the original VR for the variable
-					originalVR, ok := ctx.symbolToVReg[symRef.Symbol]
+					vrVariable, ok := ctx.symbolToVReg[symRef.Symbol]
 					if !ok {
 						return fmt.Errorf("undefined variable: %s", symRef.Symbol.Name)
 					}
 					// Evaluate the increment/decrement (creates a new VR with result)
-					resultVR, err := ctx.selectExpression(s.Expression)
+					vrResult, err := ctx.selectExpression(s.Expression)
 					if err != nil {
 						return err
 					}
 					// Move the result back to the original VR so next iteration sees the update
 					regSize := uint8(symRef.Symbol.Type.Size() * 8)
-					err = ctx.selector.SelectMove(originalVR, resultVR, regSize)
+					err = ctx.selector.SelectMove(vrVariable, vrResult, regSize)
 					if err != nil {
 						return err
 					}
@@ -308,7 +311,7 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 				ctx.symbolToVReg[decl.Symbol] = vrVar
 
 				dataSize := arrayType.DataSize()
-				offset := ctx.currentCFG.FrameLayout.AddSlot(decl.Symbol, dataSize)
+				offset := ctx.currentCFG.StackFrame.AddSlot(decl.Symbol, dataSize)
 
 				// load value from stack into vrVar
 				vrAddress, err := ctx.selector.SelectLoadStackAddress(offset)
@@ -372,20 +375,20 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 // selectAssignment processes an assignment statement
 func (ctx *InstructionSelectionContext) selectAssignment(assign *zsm.SemAssignment) error {
 	// Get the target variable's VirtualRegister
-	targetVR, ok := ctx.symbolToVReg[assign.Target]
+	vrTarget, ok := ctx.symbolToVReg[assign.Target]
 	if !ok {
 		return fmt.Errorf("undefined variable: %s", assign.Target.Name)
 	}
 
 	// Evaluate the right-hand side
-	valueVR, err := ctx.selectExpression(assign.Value)
+	vrValue, err := ctx.selectExpression(assign.Value)
 	if err != nil {
 		return err
 	}
 
 	// Generate move instruction
 	regSize := uint8(assign.Target.Type.Size() * 8)
-	err = ctx.selector.SelectMove(targetVR, valueVR, regSize)
+	err = ctx.selector.SelectMove(vrTarget, vrValue, regSize)
 	return err
 }
 
@@ -393,7 +396,7 @@ func (ctx *InstructionSelectionContext) selectAssignment(assign *zsm.SemAssignme
 func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 	if ret.Value != nil {
 		// Evaluate return value
-		valueVR, err := ctx.selectExpression(ret.Value)
+		vrValue, err := ctx.selectExpression(ret.Value)
 		if err != nil {
 			return err
 		}
@@ -411,13 +414,13 @@ func (ctx *InstructionSelectionContext) selectReturn(ret *zsm.SemReturn) error {
 		returnReg := callConv.GetReturnValueRegister(returnSize)
 
 		// Move value to the return register
-		returnVR := ctx.vrAlloc.Allocate([]*Register{returnReg})
-		if err := ctx.selector.SelectMove(returnVR, valueVR, returnSize); err != nil {
+		vrReturn := ctx.vrAlloc.Allocate([]*Register{returnReg})
+		if err := ctx.selector.SelectMove(vrReturn, vrValue, returnSize); err != nil {
 			return err
 		}
 
 		// Generate return with value in correct register
-		return ctx.selector.SelectReturn(returnVR)
+		return ctx.selector.SelectReturn(vrReturn)
 	}
 
 	// Generate void return
@@ -439,28 +442,28 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *Exp
 		}
 	}
 
-	var resultVR *VirtualRegister
+	var vrResult *VirtualRegister
 	var err error
 
 	switch e := expr.(type) {
 	case *zsm.SemConstant:
-		resultVR, err = ctx.selectConstant(e)
+		vrResult, err = ctx.selectConstant(e)
 	case *zsm.SemSymbolRef:
-		resultVR, err = ctx.selectSymbolRef(e)
+		vrResult, err = ctx.selectSymbolRef(e)
 	case *zsm.SemBinaryOp:
-		resultVR, err = ctx.selectBinaryOp(exprCtx, e)
+		vrResult, err = ctx.selectBinaryOp(exprCtx, e)
 	case *zsm.SemUnaryOp:
-		resultVR, err = ctx.selectUnaryOp(exprCtx, e)
+		vrResult, err = ctx.selectUnaryOp(exprCtx, e)
 	case *zsm.SemFunctionCall:
-		resultVR, err = ctx.selectFunctionCall(exprCtx, e)
+		vrResult, err = ctx.selectFunctionCall(exprCtx, e)
 	case *zsm.SemMemberAccess:
-		resultVR, err = ctx.selectMemberAccess(e)
+		vrResult, err = ctx.selectMemberAccess(e)
 	case *zsm.SemSubscript:
-		resultVR, err = ctx.selectSubscript(exprCtx, e)
+		vrResult, err = ctx.selectSubscript(exprCtx, e)
 	case *zsm.SemArrayInitializer:
-		resultVR, err = ctx.selectArrayInitializer(exprCtx, e)
+		vrResult, err = ctx.selectArrayInitializer(exprCtx, e)
 	case *zsm.SemTypeInitializer:
-		resultVR, err = ctx.selectTypeInitializer(exprCtx, e)
+		vrResult, err = ctx.selectTypeInitializer(exprCtx, e)
 	default:
 		return nil, fmt.Errorf("unknown expression type: %T", expr)
 	}
@@ -471,9 +474,9 @@ func (ctx *InstructionSelectionContext) selectExpressionWithContext(exprCtx *Exp
 
 	// Cache the result (only in ValueMode)
 	if exprCtx == nil || exprCtx.Mode == ValueMode {
-		ctx.exprToVReg[expr] = resultVR
+		ctx.exprToVReg[expr] = vrResult
 	}
-	return resultVR, nil
+	return vrResult, nil
 }
 
 // selectConstant loads a constant value
@@ -502,11 +505,11 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op 
 		return ctx.selector.SelectLogicalOr(exprCtx, op.Left, op.Right, ctx.selectExpressionWithContext)
 	}
 
-	leftVR, err := ctx.selectExpressionWithContext(exprCtx, op.Left)
+	vrLeft, err := ctx.selectExpressionWithContext(exprCtx, op.Left)
 	if err != nil {
 		return nil, err
 	}
-	rightVR, err := ctx.selectExpressionWithContext(exprCtx, op.Right)
+	vrRight, err := ctx.selectExpressionWithContext(exprCtx, op.Right)
 	if err != nil {
 		return nil, err
 	}
@@ -514,41 +517,41 @@ func (ctx *InstructionSelectionContext) selectBinaryOp(exprCtx *ExprContext, op 
 	// Dispatch to appropriate selector method
 	switch op.Op {
 	case zsm.OpAdd:
-		return ctx.selector.SelectAdd(leftVR, rightVR)
+		return ctx.selector.SelectAdd(vrLeft, vrRight)
 
 	case zsm.OpSubtract:
-		return ctx.selector.SelectSubtract(leftVR, rightVR)
+		return ctx.selector.SelectSubtract(vrLeft, vrRight)
 
 	case zsm.OpMultiply:
-		return ctx.selector.SelectMultiply(leftVR, rightVR)
+		return ctx.selector.SelectMultiply(vrLeft, vrRight)
 
 	case zsm.OpDivide:
-		return ctx.selector.SelectDivide(leftVR, rightVR)
+		return ctx.selector.SelectDivide(vrLeft, vrRight)
 
 	case zsm.OpBitwiseAnd:
-		return ctx.selector.SelectBitwiseAnd(leftVR, rightVR)
+		return ctx.selector.SelectBitwiseAnd(vrLeft, vrRight)
 	case zsm.OpBitwiseOr:
-		return ctx.selector.SelectBitwiseOr(leftVR, rightVR)
+		return ctx.selector.SelectBitwiseOr(vrLeft, vrRight)
 
 	case zsm.OpBitwiseXor:
-		return ctx.selector.SelectBitwiseXor(leftVR, rightVR)
+		return ctx.selector.SelectBitwiseXor(vrLeft, vrRight)
 
 	case zsm.OpEqual:
-		return ctx.selector.SelectEqual(exprCtx, leftVR, rightVR)
+		return ctx.selector.SelectEqual(exprCtx, vrLeft, vrRight)
 
 	case zsm.OpNotEqual:
-		return ctx.selector.SelectNotEqual(exprCtx, leftVR, rightVR)
+		return ctx.selector.SelectNotEqual(exprCtx, vrLeft, vrRight)
 
 	case zsm.OpLessThan:
-		return ctx.selector.SelectLessThan(exprCtx, leftVR, rightVR)
+		return ctx.selector.SelectLessThan(exprCtx, vrLeft, vrRight)
 
 	case zsm.OpLessEqual:
-		return ctx.selector.SelectLessEqual(exprCtx, leftVR, rightVR)
+		return ctx.selector.SelectLessEqual(exprCtx, vrLeft, vrRight)
 	case zsm.OpGreaterThan:
-		return ctx.selector.SelectGreaterThan(exprCtx, leftVR, rightVR)
+		return ctx.selector.SelectGreaterThan(exprCtx, vrLeft, vrRight)
 
 	case zsm.OpGreaterEqual:
-		return ctx.selector.SelectGreaterEqual(exprCtx, leftVR, rightVR)
+		return ctx.selector.SelectGreaterEqual(exprCtx, vrLeft, vrRight)
 
 	default:
 		return nil, fmt.Errorf("unknown binary operator: %v", op.Op)
@@ -563,7 +566,7 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 	}
 
 	// Other unary ops need VR operand
-	operandVR, err := ctx.selectExpressionWithContext(exprCtx, op.Operand)
+	vrOperand, err := ctx.selectExpressionWithContext(exprCtx, op.Operand)
 	if err != nil {
 		return nil, err
 	}
@@ -571,13 +574,13 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 	// Dispatch to appropriate selector method
 	switch op.Op {
 	case zsm.OpNegate:
-		return ctx.selector.SelectNegate(operandVR)
+		return ctx.selector.SelectNegate(vrOperand)
 	case zsm.OpBitwiseNot:
-		return ctx.selector.SelectBitwiseNot(operandVR)
+		return ctx.selector.SelectBitwiseNot(vrOperand)
 	case zsm.OpIncrement:
-		return ctx.selector.SelectIncrement(operandVR)
+		return ctx.selector.SelectIncrement(vrOperand)
 	case zsm.OpDecrement:
-		return ctx.selector.SelectDecrement(operandVR)
+		return ctx.selector.SelectDecrement(vrOperand)
 	default:
 		return nil, fmt.Errorf("unknown unary operator: %v", op.Op)
 	}
@@ -586,7 +589,7 @@ func (ctx *InstructionSelectionContext) selectUnaryOp(exprCtx *ExprContext, op *
 // selectFunctionCall processes function calls
 func (ctx *InstructionSelectionContext) selectFunctionCall(exprCtx *ExprContext, call *zsm.SemFunctionCall) (*VirtualRegister, error) {
 	// Evaluate arguments with parameter symbols for proper stack tracking
-	argVRs := make([]*VirtualRegister, len(call.Arguments))
+	vrArgs := make([]*VirtualRegister, len(call.Arguments))
 	for i, arg := range call.Arguments {
 		// Create a synthetic parameter symbol for stack allocation tracking
 		// This allows array literals in arguments to be tracked: foo([1,2,3])
@@ -601,7 +604,7 @@ func (ctx *InstructionSelectionContext) selectFunctionCall(exprCtx *ExprContext,
 		if err != nil {
 			return nil, err
 		}
-		argVRs[i] = vr
+		vrArgs[i] = vr
 	}
 
 	// Get return size
@@ -614,13 +617,13 @@ func (ctx *InstructionSelectionContext) selectFunctionCall(exprCtx *ExprContext,
 	//funcDecl := ctx.currentCFG.FunctionDecl.Scope.Lookup(call.Function.Name)
 
 	// Generate call
-	return ctx.selector.SelectCall(call.Function.Name, argVRs, returnSize)
+	return ctx.selector.SelectCall(call.Function.Name, vrArgs, returnSize)
 }
 
 // selectMemberAccess processes struct member access
 func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMemberAccess) (*VirtualRegister, error) {
 	// Get the object
-	objectVR, err := ctx.selectExpression(*access.Object)
+	vrObject, err := ctx.selectExpression(*access.Object)
 	if err != nil {
 		return nil, err
 	}
@@ -628,19 +631,19 @@ func (ctx *InstructionSelectionContext) selectMemberAccess(access *zsm.SemMember
 	// Load member at offset
 	offset := access.Field.Offset
 	regSize := uint8(access.Type().Size() * 8)
-	return ctx.selector.SelectLoad(objectVR, offset, regSize)
+	return ctx.selector.SelectLoad(vrObject, offset, regSize)
 }
 
 // selectSubscript processes array subscripting
 func (ctx *InstructionSelectionContext) selectSubscript(exprCtx *ExprContext, subscript *zsm.SemSubscript) (*VirtualRegister, error) {
 	// Get the array base address
-	arrayVR, err := ctx.selectExpressionWithContext(exprCtx, subscript.Array)
+	vrArray, err := ctx.selectExpressionWithContext(exprCtx, subscript.Array)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the index
-	indexVR, err := ctx.selectExpressionWithContext(exprCtx, subscript.Index)
+	vrIndex, err := ctx.selectExpressionWithContext(exprCtx, subscript.Index)
 	if err != nil {
 		return nil, err
 	}
@@ -650,29 +653,29 @@ func (ctx *InstructionSelectionContext) selectSubscript(exprCtx *ExprContext, su
 	regSize := uint8(subscript.Type().Size() * 8)
 
 	// Generate indexed load
-	return ctx.selector.SelectLoadIndexed(arrayVR, indexVR, elementSize, regSize)
+	return ctx.selector.SelectLoadIndexed(vrArray, vrIndex, elementSize, regSize)
 }
 
 // selectTypeInitializer processes struct initialization
 func (ctx *InstructionSelectionContext) selectTypeInitializer(exprCtx *ExprContext, init *zsm.SemTypeInitializer) (*VirtualRegister, error) {
 	// Allocate space for the struct
-	structVR := ctx.vrAlloc.Allocate(Z80Registers16)
+	vrStruct := ctx.vrAlloc.Allocate(Z80Registers16)
 
 	// Initialize each field
 	for _, fieldInit := range init.Fields {
-		valueVR, err := ctx.selectExpressionWithContext(exprCtx, fieldInit.Value)
+		vrValue, err := ctx.selectExpressionWithContext(exprCtx, fieldInit.Value)
 		if err != nil {
 			return nil, err
 		}
 
 		offset := fieldInit.Field.Offset
 		fieldRegSize := uint8(fieldInit.Field.Type.Size() * 8)
-		if _, err := ctx.selector.SelectStore(structVR, valueVR, offset, fieldRegSize); err != nil {
+		if _, err := ctx.selector.SelectStore(vrStruct, vrValue, offset, fieldRegSize); err != nil {
 			return nil, err
 		}
 	}
 
-	return structVR, nil
+	return vrStruct, nil
 }
 
 func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprContext, init *zsm.SemArrayInitializer) (*VirtualRegister, error) {
@@ -687,7 +690,7 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 
 	// Allocate stack space for array data via FrameLayout
 	dataSize := arrayType.DataSize()
-	dataOffset := ctx.currentCFG.FrameLayout.AddSlot(exprCtx.TargetSymbol, dataSize)
+	dataOffset := ctx.currentCFG.StackFrame.AddSlot(exprCtx.TargetSymbol, dataSize)
 
 	// Create a stack address VR marker
 	vrAddress := ctx.vrAlloc.AllocateStackAddress(dataOffset)
@@ -702,20 +705,20 @@ func (ctx *InstructionSelectionContext) selectArrayInitializer(exprCtx *ExprCont
 
 	ctx.selector.SelectLoadStackAddress(dataOffset)
 
-	valueVR, err := ctx.selectExpression(init.Elements[0])
+	vrValue, err := ctx.selectExpression(init.Elements[0])
 	if err != nil {
 		return nil, err
 	}
-	_, err = ctx.selector.SelectStore(vrAddress, valueVR, 0, regSize)
+	_, err = ctx.selector.SelectStore(vrAddress, vrValue, 0, regSize)
 
 	// Store each element at its offset from the base address
 	for i := 1; i < len(init.Elements); i++ {
-		valueVR, err := ctx.selectExpression(init.Elements[i])
+		vrValue, err := ctx.selectExpression(init.Elements[i])
 		if err != nil {
 			return nil, err
 		}
 
-		_, err = ctx.selector.SelectStore(vrAddress, valueVR, 1, regSize)
+		_, err = ctx.selector.SelectStore(vrAddress, vrValue, 1, regSize)
 		if err != nil {
 			return nil, err
 		}
