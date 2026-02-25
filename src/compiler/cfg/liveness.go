@@ -95,8 +95,8 @@ func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[in
 				if !def[vrID] {
 					use[vrID] = true
 				}
-				// Also mark any parent VRs as used (via Register.Composition)
-				markRelatedParentVRsAsUsed(operand, allVRs, use, def)
+				// Also mark any related VRs as used (parents and components)
+				markRelatedVRsAsUsed(operand, allVRs, use, def)
 			}
 		}
 
@@ -104,33 +104,43 @@ func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[in
 		result := instr.GetResult()
 		if result != nil && shouldTrackForLiveness(result) {
 			def[result.ID] = true
-			// Also mark any parent VRs as defined
-			markRelatedParentVRsAsDefined(result, allVRs, def)
+			// Also mark any related VRs as defined (parents and components)
+			markRelatedVRsAsDefined(result, allVRs, def)
 		}
 	}
 }
 
-// markRelatedParentVRsAsUsed finds any 16-bit VRs that contain the component registers
-// used by this 8-bit VR, and marks them as used via Register.Composition
-func markRelatedParentVRsAsUsed(componentVR *VirtualRegister, allVRs []*VirtualRegister, use, def map[int]bool) {
-	if componentVR.Size != 8 || len(componentVR.AllowedSet) == 0 {
-		return // Only check 8-bit VRs with constraints
+// markRelatedVRsAsUsed finds related VRs and marks them as used
+// Handles both directions:
+// - If VR has component VRs (16-bit parent): mark components as used
+// - If VR is 8-bit: find any 16-bit parents that contain it and mark them as used
+func markRelatedVRsAsUsed(vr *VirtualRegister, allVRs []*VirtualRegister, use, def map[int]bool) {
+	// 1. If this VR has explicit component VRs, mark them as used
+	for _, componentVR := range vr.ComponentVRs {
+		if shouldTrackForLiveness(componentVR) && !def[componentVR.ID] {
+			use[componentVR.ID] = true
+		}
+	}
+
+	// 2. If this is an 8-bit VR with constraints, find parent 16-bit VRs that contain it
+	if vr.Size != 8 || len(vr.AllowedSet) == 0 {
+		return // Only check 8-bit VRs with constraints for parent relationships
 	}
 
 	// Find any 16-bit VRs whose registers contain these component registers
-	for _, vr := range allVRs {
-		if vr.Size == 16 && shouldTrackForLiveness(vr) {
+	for _, parentVR := range allVRs {
+		if parentVR.Size == 16 && shouldTrackForLiveness(parentVR) {
 			// Check if any of this VR's allowed registers contain the component register
-			for _, parentReg := range vr.AllowedSet {
+			for _, parentReg := range parentVR.AllowedSet {
 				if len(parentReg.Composition) == 0 {
 					continue // Not a composite register
 				}
 				// Check if this parent register contains any of the component registers
-				for _, componentReg := range componentVR.AllowedSet {
+				for _, componentReg := range vr.AllowedSet {
 					for _, comp := range parentReg.Composition {
 						if comp == componentReg {
-							if !def[vr.ID] {
-								use[vr.ID] = true
+							if !def[parentVR.ID] {
+								use[parentVR.ID] = true
 							}
 							goto nextVR // Found a match, move to next VR
 						}
@@ -142,25 +152,36 @@ func markRelatedParentVRsAsUsed(componentVR *VirtualRegister, allVRs []*VirtualR
 	}
 }
 
-// markRelatedParentVRsAsDefined marks any parent 16-bit VRs as defined when component is defined
-func markRelatedParentVRsAsDefined(componentVR *VirtualRegister, allVRs []*VirtualRegister, def map[int]bool) {
-	if componentVR.Size != 8 || len(componentVR.AllowedSet) == 0 {
+// markRelatedVRsAsDefined marks related VRs as defined
+// Handles both directions:
+// - If VR has component VRs (16-bit parent): mark components as defined
+// - If VR is 8-bit: find any 16-bit parents that contain it and mark them as defined
+func markRelatedVRsAsDefined(vr *VirtualRegister, allVRs []*VirtualRegister, def map[int]bool) {
+	// 1. If this VR has explicit component VRs, mark them as defined
+	for _, componentVR := range vr.ComponentVRs {
+		if shouldTrackForLiveness(componentVR) {
+			def[componentVR.ID] = true
+		}
+	}
+
+	// 2. If this is an 8-bit VR with constraints, find parent 16-bit VRs that contain it
+	if vr.Size != 8 || len(vr.AllowedSet) == 0 {
 		return
 	}
 
 	// Find any 16-bit VRs whose registers contain these component registers
-	for _, vr := range allVRs {
-		if vr.Size == 16 && shouldTrackForLiveness(vr) {
+	for _, parentVR := range allVRs {
+		if parentVR.Size == 16 && shouldTrackForLiveness(parentVR) {
 			// Check if any of this VR's allowed registers contain the component register
-			for _, parentReg := range vr.AllowedSet {
+			for _, parentReg := range parentVR.AllowedSet {
 				if len(parentReg.Composition) == 0 {
 					continue
 				}
 				// Check if this parent register contains any of the component registers
-				for _, componentReg := range componentVR.AllowedSet {
+				for _, componentReg := range vr.AllowedSet {
 					for _, comp := range parentReg.Composition {
 						if comp == componentReg {
-							def[vr.ID] = true
+							def[parentVR.ID] = true
 							goto nextVR2
 						}
 					}

@@ -90,12 +90,16 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister) (*
 	case 16:
 		// 16-bit subtract: SBC HL, rr
 		result = z.vrAlloc.Allocate(Z80Registers16)
-		vrHL := z.vrAlloc.Allocate(Z80RegHL)
-		z.emit(newInstruction(Z80_LD_RR_NN, vrHL, left))
+		vrHL := z.emitLoadIntoReg16(left, Z80RegHL)
 		// Clear carry flag first (OR A)
 		z.emit(newInstruction(Z80_OR_R, vrA, vrA))
 		z.emit(newInstruction(Z80_SBC_HL_RR, vrHL, right))
-		z.emit(newInstruction(Z80_LD_RR_NN, result, vrHL))
+		// Store result back - decompose into component moves
+		resultLo, resultHi := z.getOrAllocateComponents(result)
+		vrL := z.vrAlloc.Allocate(Z80RegL)
+		vrH := z.vrAlloc.Allocate(Z80RegH)
+		z.emit(newInstruction(Z80_LD_R_R, resultLo, vrL))
+		z.emit(newInstruction(Z80_LD_R_R, resultHi, vrH))
 	default:
 		return nil, fmt.Errorf("unsupported size for SUB: %d", size)
 	}
@@ -1015,12 +1019,12 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 			// because its components are used.
 
 			// Create linked component VRs for target
-			vrTargetLo, vrTargetHi := z.vrAlloc.AllocateComponents(vrTarget)
+			vrTargetLo, vrTargetHi := z.getOrAllocateComponents(vrTarget)
 
 			// LD targetReg[Lo], value[Lo]
 			if value.Size == 16 {
 				// Source is 16-bit - create linked component VRs
-				vrValueLo, vrValueHi := z.vrAlloc.AllocateComponents(value)
+				vrValueLo, vrValueHi := z.getOrAllocateComponents(value)
 				z.emit(newInstruction(Z80_LD_R_R, vrTargetLo, vrValueLo))
 				z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrValueHi))
 			} else {
