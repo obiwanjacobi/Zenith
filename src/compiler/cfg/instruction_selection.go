@@ -118,15 +118,19 @@ func (ctx *InstructionSelectionContext) selectCFG(cfg *CFG) error {
 func (ctx *InstructionSelectionContext) allocateFrameSlots() {
 	for _, block := range ctx.currentCFG.Blocks {
 		for _, stmt := range block.Instructions {
-			// TODO: track arrayInitializer expressions.
 			if varDecl, ok := stmt.(*zsm.SemVariableDecl); ok {
 				var size uint16
+				// TODO: track arrayInitializer expressions.
 				if arrType, ok := varDecl.TypeInfo.(*zsm.ArrayType); ok {
 					size = arrType.DataSize()
-				} else {
-					size = varDecl.TypeInfo.Size()
+					ctx.currentCFG.StackFrame.AddSlot(varDecl.Symbol, size)
 				}
-				ctx.currentCFG.StackFrame.AddSlot(varDecl.Symbol, size)
+				// TODO: track typeInitializer expressions?
+				if arrType, ok := varDecl.TypeInfo.(*zsm.StructType); ok {
+					size = arrType.Size()
+					ctx.currentCFG.StackFrame.AddSlot(varDecl.Symbol, size)
+				}
+				// assume non-array/non-struct vars are VRs.
 			}
 		}
 	}
