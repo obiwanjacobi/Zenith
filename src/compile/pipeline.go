@@ -298,11 +298,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		interference := result.InterferenceInfo[fnName]
 
 		// Run register allocation (assigns PhysicalReg to each VirtualRegister)
+		// Parent-child VR allocations are kept in sync automatically during allocation
 		needsSecondPass := allocator.Allocate(fnCFG, interference)
-
-		// Derive parent 16-bit VR allocations from their component 8-bit VR allocations
-		// This handles cases where SelectLoadIndexed creates flexible parent VRs with component VRs
-		cfg.DeriveComposedVRAllocations(vrAlloc.GetAll())
 
 		// If there are unallocated VRs, run second pass to resolve them
 		if needsSecondPass {

@@ -358,7 +358,6 @@ func (z *instructionSelectorZ80) SelectLogicalAnd(ctx *ExprContext, left, right 
 	}
 
 	// ValueMode: for now, use runtime helper
-	// TODO: Implement proper short-circuit with phi nodes
 	vrLeft, err := evaluateExpr(ctx, left)
 	if err != nil {
 		return nil, err

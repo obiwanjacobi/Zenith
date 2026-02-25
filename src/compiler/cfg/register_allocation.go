@@ -109,6 +109,8 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) bool {
 			reg := ra.selectRegister(vr, ig, candidateVRs)
 			if reg != nil {
 				vr.Assign(reg)
+				// Immediately sync parent-child allocations to keep data current
+				syncParentChildAllocations(vr)
 			}
 			// If no register available, VR remains as CandidateRegister (unallocated)
 		}
@@ -211,6 +213,8 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 
 				// Allocate operand to the target register from AllowedSet
 				operand.Assign(targetReg)
+				// Immediately sync parent-child allocations to keep data current
+				syncParentChildAllocations(operand)
 
 				// Now find where this value is currently located
 				// If the operand VR was defined as a result elsewhere, find that definition
@@ -528,64 +532,59 @@ func markRegisterAsUsed(reg *Register, usedRegs map[*Register]bool, availableReg
 	}
 }
 
+// syncParentChildAllocations keeps parent and component VR allocations in sync
+// Call immediately after allocating any VR to ensure bidirectional consistency:
+// - If a 16-bit parent is allocated, allocate its 8-bit components to the corresponding registers
+// - If both 8-bit components are allocated, allocate the 16-bit parent to the matching composite register
+func syncParentChildAllocations(vr *VirtualRegister) {
+	if vr == nil || vr.Type != AllocatedRegister || vr.PhysicalReg == nil {
+		return
+	}
+
+	// Case 1: Parent was allocated -> sync to components
+	if vr.Size == 16 && len(vr.ComponentVRs) == 2 && len(vr.PhysicalReg.Composition) == 2 {
+		loVR := vr.ComponentVRs[0]
+		hiVR := vr.ComponentVRs[1]
+
+		// Allocate components if not already allocated
+		if loVR.Type == CandidateRegister && loVR.PhysicalReg == nil {
+			loVR.Assign(vr.PhysicalReg.Composition[0])
+		}
+		if hiVR.Type == CandidateRegister && hiVR.PhysicalReg == nil {
+			hiVR.Assign(vr.PhysicalReg.Composition[1])
+		}
+	}
+
+	// Case 2: Component was allocated -> check if we can sync to parent
+	if vr.Size == 8 && vr.ParentVR != nil {
+		parentVR := vr.ParentVR
+		if parentVR.Type == CandidateRegister && parentVR.PhysicalReg == nil {
+			if len(parentVR.ComponentVRs) == 2 {
+				loVR := parentVR.ComponentVRs[0]
+				hiVR := parentVR.ComponentVRs[1]
+
+				// If both components are now allocated, allocate parent
+				if loVR.Type == AllocatedRegister && loVR.PhysicalReg != nil &&
+					hiVR.Type == AllocatedRegister && hiVR.PhysicalReg != nil {
+
+					// Find the parent register that matches these component allocations
+					for _, reg16 := range parentVR.AllowedSet {
+						if len(reg16.Composition) == 2 &&
+							reg16.Composition[0] == loVR.PhysicalReg &&
+							reg16.Composition[1] == hiVR.PhysicalReg {
+							parentVR.Assign(reg16)
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 // selectRegister chooses the best physical register for a VirtualRegister
 // considering size constraints, AllowedSet, and neighbor assignments
 func (ra *RegisterAllocator) selectRegister(vr *VirtualRegister, ig *InterferenceGraph, allVRs map[int]*VirtualRegister) *Register {
-	// Check if this VR has a parent and the parent is already allocated
-	// If so, we must use the corresponding component register
-	if vr.ParentVR != nil && vr.ParentVR.PhysicalReg != nil {
-		if len(vr.ParentVR.PhysicalReg.Composition) > vr.ComponentIndex {
-			componentReg := vr.ParentVR.PhysicalReg.Composition[vr.ComponentIndex]
-			// Verify the component register is in the AllowedSet and not interfering
-			for _, allowed := range vr.AllowedSet {
-				if allowed == componentReg {
-					// Check if this register is available (not used by interfering neighbors)
-					usedRegs := make(map[*Register]bool)
-					neighbors := ig.GetNeighbors(vr.ID)
-					for _, neighborID := range neighbors {
-						if neighborVR, exists := allVRs[neighborID]; exists {
-							if neighborVR.PhysicalReg != nil {
-								markRegisterAsUsed(neighborVR.PhysicalReg, usedRegs, ra.availableRegisters)
-							}
-						}
-					}
-					if !usedRegs[componentReg] {
-						return componentReg
-					}
-				}
-			}
-		}
-	}
-
-	// Check if this VR has components and they're already allocated
-	// If so, we must use the parent register that matches those components
-	if len(vr.ComponentVRs) == 2 {
-		loVR := vr.ComponentVRs[0]
-		hiVR := vr.ComponentVRs[1]
-		if loVR.PhysicalReg != nil && hiVR.PhysicalReg != nil {
-			// Find the parent register that has these components
-			for _, reg := range vr.AllowedSet {
-				if len(reg.Composition) == 2 &&
-					reg.Composition[0] == loVR.PhysicalReg &&
-					reg.Composition[1] == hiVR.PhysicalReg {
-					// Check if this register is available
-					usedRegs := make(map[*Register]bool)
-					neighbors := ig.GetNeighbors(vr.ID)
-					for _, neighborID := range neighbors {
-						if neighborVR, exists := allVRs[neighborID]; exists {
-							if neighborVR.PhysicalReg != nil {
-								markRegisterAsUsed(neighborVR.PhysicalReg, usedRegs, ra.availableRegisters)
-							}
-						}
-					}
-					if !usedRegs[reg] {
-						return reg
-					}
-				}
-			}
-		}
-	}
-
 	// Find which registers are already used by neighbors
 	usedRegs := make(map[*Register]bool)
 	neighbors := ig.GetNeighbors(vr.ID)
@@ -670,44 +669,4 @@ func MarkUnusedVirtualRegisters(allVRs []*VirtualRegister, instructions []Machin
 	}
 }
 
-// DeriveComposedVRAllocations derives parent 16-bit VR allocations from their component 8-bit VR allocations
-// This handles the case where SelectLoadIndexed creates a flexible parent 16-bit VR with component VRs,
-// and the register allocator allocates the component VRs to specific registers (e.g., E, D).
-// We need to allocate the parent VR to the corresponding 16-bit register (e.g., DE).
-func DeriveComposedVRAllocations(allVRs []*VirtualRegister) {
-	// For each 16-bit VR that isn't allocated yet, try to derive its allocation from components
-	for _, parentVR := range allVRs {
-		if parentVR.Size != 16 || parentVR.Type == AllocatedRegister {
-			continue // Skip non-16-bit or already allocated VRs
-		}
-		if len(parentVR.ComponentVRs) != 2 {
-			continue // No explicit component VRs
-		}
 
-		// Check if both component VRs are allocated
-		loVR := parentVR.ComponentVRs[0]
-		hiVR := parentVR.ComponentVRs[1]
-
-		if loVR.Type != AllocatedRegister || hiVR.Type != AllocatedRegister {
-			continue // Components not allocated yet
-		}
-		if loVR.PhysicalReg == nil || hiVR.PhysicalReg == nil {
-			continue // Components don't have physical registers
-		}
-
-		// Find the parent register that matches these component allocations
-		for _, reg16 := range parentVR.AllowedSet {
-			if len(reg16.Composition) != 2 {
-				continue // Not a composed register
-			}
-
-			// Check if this parent register matches the allocated components
-			if reg16.Composition[0] == loVR.PhysicalReg &&
-				reg16.Composition[1] == hiVR.PhysicalReg {
-				// Match found - allocate parent to this register
-				parentVR.Assign(reg16)
-				break
-			}
-		}
-	}
-}
