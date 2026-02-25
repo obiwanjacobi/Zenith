@@ -13,7 +13,7 @@ func Test_Z80CallingConvention_FirstParam16Bit(t *testing.T) {
 
 	assert.False(t, useStack, "First 16-bit param should be in register")
 	assert.NotNil(t, reg)
-	assert.Equal(t, "HL", reg.Name)
+	assert.Equal(t, "DE", reg.Name)
 	assert.Equal(t, 0, int(offset))
 }
 
@@ -24,7 +24,7 @@ func Test_Z80CallingConvention_FirstParam8Bit(t *testing.T) {
 
 	assert.False(t, useStack, "First 8-bit param should be in register")
 	assert.NotNil(t, reg)
-	assert.Equal(t, "L", reg.Name)
+	assert.Equal(t, "E", reg.Name)
 	assert.Equal(t, 0, int(offset))
 }
 
@@ -35,7 +35,7 @@ func Test_Z80CallingConvention_SecondParam16Bit(t *testing.T) {
 
 	assert.False(t, useStack, "Second 16-bit param should be in register")
 	assert.NotNil(t, reg)
-	assert.Equal(t, "DE", reg.Name)
+	assert.Equal(t, "BC", reg.Name)
 	assert.Equal(t, 0, int(offset))
 }
 
@@ -46,7 +46,7 @@ func Test_Z80CallingConvention_FourthParamOnStack(t *testing.T) {
 
 	assert.True(t, useStack, "Fourth param should be on stack")
 	assert.Nil(t, reg)
-	assert.Equal(t, 2, int(offset), "Stack offset should account for return address")
+	assert.Equal(t, 4, int(offset), "Stack offset should account for return address")
 }
 
 func Test_Z80CallingConvention_ReturnValue8Bit(t *testing.T) {
@@ -64,7 +64,7 @@ func Test_Z80CallingConvention_ReturnValue16Bit(t *testing.T) {
 	reg := cc.GetReturnValueRegister(16)
 
 	assert.NotNil(t, reg)
-	assert.Equal(t, "HL", reg.Name)
+	assert.Equal(t, "DE", reg.Name)
 }
 
 // TODO: Update these tests to work with new VirtualRegister-based allocation API

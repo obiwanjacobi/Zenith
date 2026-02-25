@@ -340,6 +340,7 @@ func Test_InstructionSelection_ReturnWithValue(t *testing.T) {
 	selector.SetCurrentBlock(block)
 	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 	ctx.currentBlock = block
+	ctx.currentCFG = &CFG{StackFrame: NewStackFrame()}
 
 	returnStmt := &zsm.SemReturn{
 		Value: &zsm.SemConstant{Value: 42, TypeInfo: u8Type()},
