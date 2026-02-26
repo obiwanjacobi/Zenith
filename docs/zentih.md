@@ -162,7 +162,8 @@ Syntax: `<fn>`
 
 ```c
 myFn: (p1: u8, p2: i16) u8
-fnPtr: fn(u8)u8* = myFn
+// TBD: syntax of fn-ptr
+fnPtr: fn(u8, i16):u8 = myFn
 ```
 
 > TBD: function pointer type?
@@ -209,7 +210,7 @@ Accessing a struct instance directly or via a pointer always uses `.`.
 
 Also adds the `true` and `false` keywords.
 
-Syntax: `bit` or `bit[4]`
+Syntax: `bit` or `bit[n]`
 
 ```c
 b0: bit = true              // bool
@@ -242,8 +243,6 @@ Syntax: `type <alias> = <type>`
 
 Syntax: `<label> (<params>) <ret> { <fn body> }`
 
-> TBD: syntax of public label (sum)
-
 ```c
 sum: (x: u8, y: u8) u16 { ret x + y }
 ```
@@ -254,7 +253,7 @@ Invocation syntax: `result := sum(101, 42)`
 
 - Primitive types can be passed by value (param and return) - except u24?.
 - Structs cannot be passed by value (param and return).
-- Structs and Arrays (of Structs) cannot be returned from a function.
+- Structs and Arrays (of Structs) cannot be returned from a function (by value).
 - Arrays/structs are passed by ref as param.
 
 ### Conversions
@@ -422,7 +421,7 @@ The result type is the same as the biggest operand type unless the target assign
 | `<=`     | Lesser or Equal             |
 | `<f>?`   | Test a flag (c, z, s, n, p) |
 
-The result type is a `bool`.
+The result type is a `bit`.
 
 #### Logical
 
@@ -433,7 +432,7 @@ The result type is a `bool`.
 | `or`     | Or          |
 | `?`      | Bool*       |
 
-> *) TBD: Boolean operator, if applicable. Makes conditional branches easier.
+> *) TBD: Boolean/Bit operator, if applicable. Makes conditional branches easier.
 
 #### Other
 
@@ -445,7 +444,8 @@ All arithmetic (except `++` and `--`) and bitwise operators can be used in this 
 | Operator | Description                             |
 | -------- | --------------------------------------- |
 | `=`      | Assignment                              |
-| `()`     | Operator Precedence, List instantiation |
+| `()`     | Operator Precedence                     |
+| `[]`     | List instantiation                      |
 | `{}`     | Scope Block, Object construction        |
 | `#`      | Compiler directive / tags               |
 | `@`      | Compiler intrinsic                      |
@@ -463,6 +463,8 @@ Other than the ones already discussed.
 | `cnt` <label> | Skip current iteration of <label> |
 | `goto`        | ??                         |
 
+---
+
 ## Files
 
 Multiple files can be compiled in parallel.
@@ -471,7 +473,7 @@ Their syntax trees will be combined before semantic analysis. This means they al
 
 ### Modules
 
-A modules is named a collection of file where exported symbols can be (re)used by other code or modules.
+A modules is named a collection of files, where exported symbols can be (re)used by other code or modules.
 
 #### Import / Export
 
@@ -479,9 +481,11 @@ All [lables](#symbols) are exported.
 
 To import a symbol from a module use the qualified name: `<module>.<symbol>`
 
+---
+
 ## Compiler
 
-### Directives
+### Directives and Tags
 
 All directives start with a `#`.
 
@@ -499,7 +503,7 @@ All directives start with a `#`.
 
 ### Intrinsics
 
-All intrinsics start with a `@`.
+All intrinsic functions start with a `@`.
 
 | Intrinsic                  | Description                     |
 | -------------------------- | ------------------------------- |
