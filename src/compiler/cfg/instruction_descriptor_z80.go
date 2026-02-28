@@ -1,6 +1,9 @@
 package cfg
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Z80 Instruction Descriptor Database
 // Defines properties of all Z80 instructions for instruction selection and scheduling
@@ -483,4 +486,41 @@ func (cc ConditionCode) String() string {
 	default:
 		return fmt.Sprintf("UNKNOWN_COND_%d", uint8(cc))
 	}
+}
+
+func formatOperands(instrDescr *InstrDescriptor, operands ...string) string {
+
+	if instrDescr.AddressingMode&AddrIndirect != 0 {
+		switch instrDescr.Category {
+		case CatLoad:
+			return fmt.Sprintf("%s, (%s)", operands[0], operands[1])
+		case CatStore:
+			return fmt.Sprintf("(%s), %s", operands[0], operands[1])
+		case CatBitwise:
+			return fmt.Sprintf("%s, (%s)", operands[0], operands[1])
+		case CatArithmetic:
+			if len(instrDescr.Dependencies) > 1 {
+				return fmt.Sprintf("%s, (%s)", operands[0], operands[1])
+			} else {
+				return fmt.Sprintf("(%s)", operands[0])
+			}
+		}
+	}
+
+	return fmt.Sprint(strings.Join(operands, ", "))
+}
+
+func FormatInstruction(opcode Z80Opcode, condCode ConditionCode, operands ...string) string {
+	instrDescr := Z80InstrDescriptors[opcode]
+
+	var builder strings.Builder
+
+	builder.WriteString(instrDescr.Opcode.String())
+	builder.WriteString(" ")
+	if condCode != Cond_None {
+		builder.WriteString(condCode.String())
+		builder.WriteString(" ")
+	}
+	builder.WriteString(formatOperands(instrDescr, operands...))
+	return builder.String()
 }

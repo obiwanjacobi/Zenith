@@ -1332,14 +1332,18 @@ func (z *machineInstructionZ80) GetCost() InstructionCost {
 
 func (z *machineInstructionZ80) String() string {
 
-	var builder strings.Builder
-	builder.WriteString(z.opcode.String())
-	builder.WriteString(" ")
-	if z.conditionCode != 0 {
-		builder.WriteString(z.conditionCode.String())
-		builder.WriteString(" ")
+	operands := make([]string, 0)
+	if z.result != nil {
+		operands = append(operands, z.result.String())
 	}
+	for _, op := range z.operands {
+		operands = append(operands, op.String())
+	}
+
+	var builder strings.Builder
+	builder.WriteString(FormatInstruction(z.opcode, z.conditionCode, operands...))
 	if z.comment != "" {
+		builder.WriteString(" ")
 		builder.WriteString(z.comment)
 		builder.WriteString(" ")
 	}
@@ -1350,15 +1354,5 @@ func (z *machineInstructionZ80) String() string {
 			}
 		}
 	}
-
-	operandStrs := make([]string, 0)
-	if z.result != nil {
-		operandStrs = append(operandStrs, z.result.String())
-	}
-	for _, op := range z.operands {
-		operandStrs = append(operandStrs, op.String())
-	}
-	builder.WriteString(strings.Join(operandStrs, ", "))
-
 	return builder.String()
 }
