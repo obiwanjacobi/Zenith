@@ -26,6 +26,11 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 
 	for fnName, funcCFG := range result.FunctionCFGs {
 		cfg.DumpCFG(fnName, funcCFG, cfg.DumpInstructions)
+
+		// dump liveness
+		if li, ok := result.LivenessInfo[fnName]; ok {
+			cfg.DumpLiveness(fnName, li)
+		}
 		// Also dump interference graph
 		if ig, exists := result.InterferenceInfo[fnName]; exists {
 			cfg.DumpInterference(fnName, ig)

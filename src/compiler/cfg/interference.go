@@ -289,5 +289,4 @@ func DumpInterference(fnName string, interference *InterferenceGraph) {
 			fmt.Printf("  VR%d interferes with VRs: %v\n", vrID, neighbors)
 		}
 	}
-	fmt.Println()
 }

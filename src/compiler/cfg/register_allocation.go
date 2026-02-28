@@ -76,7 +76,7 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) bool {
 	}
 
 	if len(candidateVRs) == 0 {
-		return false // Nothing to allocate
+		return true // Nothing to allocate
 	}
 
 	// Try allocation with different strategies until one succeeds
@@ -143,17 +143,17 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) bool {
 			// Check if any unconstrained operands remain unallocated
 			for _, vr := range candidateVRs {
 				if vr.Type == CandidateRegister {
-					return true // Second pass needed
+					return false // Second pass needed
 				}
 			}
-			return false // All VRs allocated
+			return true // All VRs allocated
 		}
 	}
 
 	// All strategies failed to allocate critical VRs
 	// This shouldn't happen with the current iterative strategy approach
-	// Return true to attempt second pass (ResolveUnallocated will handle the issue)
-	return true
+	// Return false to attempt second pass (ResolveUnallocated will handle the issue)
+	return false
 }
 
 // ResolveUnallocated resolves unallocated operand VRs by direct allocation with move insertion
@@ -668,5 +668,3 @@ func MarkUnusedVirtualRegisters(allVRs []*VirtualRegister, instructions []Machin
 		}
 	}
 }
-
-

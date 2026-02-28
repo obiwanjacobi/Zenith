@@ -29,7 +29,7 @@ func NewLivenessInfo() *LivenessInfo {
 }
 
 // ComputeLiveness performs liveness analysis on a CFG with MachineInstructions
-func ComputeLiveness(cfg *CFG, allVRs []*VirtualRegister) *LivenessInfo {
+func ComputeLiveness(cfg *CFG) *LivenessInfo {
 	info := NewLivenessInfo()
 
 	// Step 1: Compute use and def sets for each block from machine instructions
@@ -39,7 +39,7 @@ func ComputeLiveness(cfg *CFG, allVRs []*VirtualRegister) *LivenessInfo {
 		info.LiveIn[block.ID] = make(map[int]bool)
 		info.LiveOut[block.ID] = make(map[int]bool)
 
-		computeUseDefSetsFromMachineInstructions(block, info.Use[block.ID], info.Def[block.ID], allVRs)
+		computeUseDefSetsFromMachineInstructions(block, info.Use[block.ID], info.Def[block.ID])
 	}
 
 	// Step 2: Iterate until live-in/live-out sets converge
@@ -83,9 +83,8 @@ func ComputeLiveness(cfg *CFG, allVRs []*VirtualRegister) *LivenessInfo {
 	return info
 }
 
-// computeUseDefSets analyzes a basic block to find used and defined variables
 // computeUseDefSetsFromMachineInstructions analyzes machine instructions to find used and defined VirtualRegisters
-func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[int]bool, allVRs []*VirtualRegister) {
+func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[int]bool) {
 	for _, instr := range block.MachineInstructions {
 		// Get VirtualRegisters used by this instruction (operands)
 		for _, operand := range instr.GetOperands() {
@@ -96,7 +95,7 @@ func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[in
 					use[vrID] = true
 				}
 				// Also mark any related VRs as used (parents and components)
-				markRelatedVRsAsUsed(operand, allVRs, use, def)
+				markRelatedVRsAsUsed(operand, use, def)
 			}
 		}
 
@@ -105,90 +104,42 @@ func computeUseDefSetsFromMachineInstructions(block *BasicBlock, use, def map[in
 		if result != nil && shouldTrackForLiveness(result) {
 			def[result.ID] = true
 			// Also mark any related VRs as defined (parents and components)
-			markRelatedVRsAsDefined(result, allVRs, def)
+			markRelatedVRsAsDefined(result, def)
 		}
 	}
 }
 
-// markRelatedVRsAsUsed finds related VRs and marks them as used
-// Handles both directions:
-// - If VR has component VRs (16-bit parent): mark components as used
-// - If VR is 8-bit: find any 16-bit parents that contain it and mark them as used
-func markRelatedVRsAsUsed(vr *VirtualRegister, allVRs []*VirtualRegister, use, def map[int]bool) {
-	// 1. If this VR has explicit component VRs, mark them as used
+// markRelatedVRsAsUsed marks VRs related to vr as used.
+// - If vr is a 16-bit parent: marks its ComponentVRs as used.
+// - If vr is an 8-bit component: marks its ParentVR as used.
+func markRelatedVRsAsUsed(vr *VirtualRegister, use, def map[int]bool) {
+	// 1. If this VR has explicit component VRs (16-bit parent), mark them as used
 	for _, componentVR := range vr.ComponentVRs {
 		if shouldTrackForLiveness(componentVR) && !def[componentVR.ID] {
 			use[componentVR.ID] = true
 		}
 	}
 
-	// 2. If this is an 8-bit VR with constraints, find parent 16-bit VRs that contain it
-	if vr.Size != 8 || len(vr.AllowedSet) == 0 {
-		return // Only check 8-bit VRs with constraints for parent relationships
-	}
-
-	// Find any 16-bit VRs whose registers contain these component registers
-	for _, parentVR := range allVRs {
-		if parentVR.Size == 16 && shouldTrackForLiveness(parentVR) {
-			// Check if any of this VR's allowed registers contain the component register
-			for _, parentReg := range parentVR.AllowedSet {
-				if len(parentReg.Composition) == 0 {
-					continue // Not a composite register
-				}
-				// Check if this parent register contains any of the component registers
-				for _, componentReg := range vr.AllowedSet {
-					for _, comp := range parentReg.Composition {
-						if comp == componentReg {
-							if !def[parentVR.ID] {
-								use[parentVR.ID] = true
-							}
-							goto nextVR // Found a match, move to next VR
-						}
-					}
-				}
-			}
-		nextVR:
-		}
+	// 2. If this VR has a parent (it is an 8-bit component), mark the parent as used
+	if vr.ParentVR != nil && shouldTrackForLiveness(vr.ParentVR) && !def[vr.ParentVR.ID] {
+		use[vr.ParentVR.ID] = true
 	}
 }
 
-// markRelatedVRsAsDefined marks related VRs as defined
-// Handles both directions:
-// - If VR has component VRs (16-bit parent): mark components as defined
-// - If VR is 8-bit: find any 16-bit parents that contain it and mark them as defined
-func markRelatedVRsAsDefined(vr *VirtualRegister, allVRs []*VirtualRegister, def map[int]bool) {
-	// 1. If this VR has explicit component VRs, mark them as defined
+// markRelatedVRsAsDefined marks VRs related to vr as defined.
+// - If vr is a 16-bit parent: marks its ComponentVRs as defined.
+// - If vr is an 8-bit component: marks its ParentVR as defined.
+func markRelatedVRsAsDefined(vr *VirtualRegister, def map[int]bool) {
+	// 1. If this VR has explicit component VRs (16-bit parent), mark them as defined
 	for _, componentVR := range vr.ComponentVRs {
 		if shouldTrackForLiveness(componentVR) {
 			def[componentVR.ID] = true
 		}
 	}
 
-	// 2. If this is an 8-bit VR with constraints, find parent 16-bit VRs that contain it
-	if vr.Size != 8 || len(vr.AllowedSet) == 0 {
-		return
-	}
-
-	// Find any 16-bit VRs whose registers contain these component registers
-	for _, parentVR := range allVRs {
-		if parentVR.Size == 16 && shouldTrackForLiveness(parentVR) {
-			// Check if any of this VR's allowed registers contain the component register
-			for _, parentReg := range parentVR.AllowedSet {
-				if len(parentReg.Composition) == 0 {
-					continue
-				}
-				// Check if this parent register contains any of the component registers
-				for _, componentReg := range vr.AllowedSet {
-					for _, comp := range parentReg.Composition {
-						if comp == componentReg {
-							def[parentVR.ID] = true
-							goto nextVR2
-						}
-					}
-				}
-			}
-		nextVR2:
-		}
+	// 2. If this VR has a parent (it is an 8-bit component), mark the parent as defined
+	if vr.ParentVR != nil && shouldTrackForLiveness(vr.ParentVR) {
+		def[vr.ParentVR.ID] = true
 	}
 }
 

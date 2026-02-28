@@ -35,7 +35,7 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -88,7 +88,7 @@ func TestRegisterAllocation_WithInterference(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -133,7 +133,7 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -186,7 +186,7 @@ func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -282,7 +282,7 @@ func TestRegisterAllocation_Loop(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -332,7 +332,7 @@ func TestRegisterAllocation_16Bit(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -384,7 +384,7 @@ func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -473,7 +473,7 @@ func TestRegisterAllocation_Branching(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
@@ -509,7 +509,7 @@ func TestRegisterAllocation_EmptyCFG(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, []*VirtualRegister{})
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, []*VirtualRegister{})
 
 	allocator := NewRegisterAllocator(Z80Registers)

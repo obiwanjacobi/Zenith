@@ -35,7 +35,7 @@ func TestLiveness_SimpleLinearFlow(t *testing.T) {
 	}
 
 	// Compute liveness
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 
 	// Verify Use and Def sets for block 0
 	// Use[0] should contain vr1 and vr2 (used before defined)
@@ -133,7 +133,7 @@ func TestLiveness_ConditionalBranch(t *testing.T) {
 	}
 
 	// Compute liveness
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 
 	// Block 0: vr1 and vr2 are used
 	if !liveness.Use[0][vr1.ID] || !liveness.Use[0][vr2.ID] {
@@ -250,7 +250,7 @@ func TestLiveness_Loop(t *testing.T) {
 	}
 
 	// Compute liveness
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 
 	// Block 0 should define vr1 and vr2
 	if !liveness.Def[0][vr1.ID] || !liveness.Def[0][vr2.ID] {
@@ -340,7 +340,7 @@ func TestLiveness_GetLiveRanges(t *testing.T) {
 	}
 
 	// Compute liveness
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 
 	// Get live ranges
 	ranges := liveness.GetLiveRanges()
@@ -386,7 +386,7 @@ func TestLiveness_IsLiveAt(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 
 	// vr1 is defined in block 0, so it should be live-out if used in successor
 	// Since there's no successor, it's not live-out
@@ -419,7 +419,7 @@ func TestLiveness_IgnoresImmediates(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 
 	// vrImm (immediate) should not appear in Use set
 	if liveness.Use[0][vrImm.ID] {

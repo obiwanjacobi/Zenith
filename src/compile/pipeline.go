@@ -242,7 +242,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	for fnName, fnCFG := range result.FunctionCFGs {
-		liveness := cfg.ComputeLiveness(fnCFG, result.VRAllocator.GetAll())
+		liveness := cfg.ComputeLiveness(fnCFG)
 		result.LivenessInfo[fnName] = liveness
 
 		if opts.Verbose {
@@ -299,10 +299,10 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		// Run register allocation (assigns PhysicalReg to each VirtualRegister)
 		// Parent-child VR allocations are kept in sync automatically during allocation
-		needsSecondPass := allocator.Allocate(fnCFG, interference)
+		allocationSucceeded := allocator.Allocate(fnCFG, interference)
 
 		// If there are unallocated VRs, run second pass to resolve them
-		if needsSecondPass {
+		if !allocationSucceeded {
 			err := allocator.ResolveUnallocated(fnCFG, interference, selector)
 			if err != nil {
 				result.CodeGenErrors = append(result.CodeGenErrors, err)

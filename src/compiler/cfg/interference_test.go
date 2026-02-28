@@ -32,7 +32,7 @@ func TestInterference_SimpleLinearFlow(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	// x and y are used together, so they interfere
@@ -101,7 +101,7 @@ func TestInterference_OverlappingLiveRanges(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	// a and b are both live between their definitions and use in ADD
@@ -184,7 +184,7 @@ func TestInterference_Branching(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	// a, b, c are all live at block 0 exit, so they all interfere
@@ -283,7 +283,7 @@ func TestInterference_Loop(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	// i, sum, and n are all live in the loop header, so they interfere
@@ -342,7 +342,7 @@ func TestInterference_ImmediateReuse(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	// temp1 and temp2 should NOT interfere (temp1 is dead when temp2 is defined)
@@ -384,7 +384,7 @@ func TestInterference_GetNeighbors(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	// vr2 and vr3 should interfere with each other (both live when used)
@@ -479,7 +479,7 @@ func TestInterference_IgnoresImmediates(t *testing.T) {
 		Entry:        block0,
 	}
 
-	liveness := ComputeLiveness(cfg, vrAlloc.GetAll())
+	liveness := ComputeLiveness(cfg)
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	// Immediate should not be in the graph
