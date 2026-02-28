@@ -1,13 +1,13 @@
 package cfg
 
 // Z80 Instruction Descriptors
-// Static instances of InstrDescriptor for all Z80 opcodes
+// Static instances of InstrDescriptorZ80 for all Z80 opcodes
 
 // ============================================================================
 // 8-bit Load Instructions
 // ============================================================================
 
-var InstrDesc_LD_R_R = InstrDescriptor{
+var InstrDesc_LD_R_R = InstrDescriptorZ80{
 	Opcode:   Z80_LD_R_R,
 	Category: CatMove,
 	Dependencies: []InstrDependency{
@@ -21,12 +21,11 @@ var InstrDesc_LD_R_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_R_N = InstrDescriptor{
+var InstrDesc_LD_R_N = InstrDescriptorZ80{
 	Opcode:   Z80_LD_R_N,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -40,12 +39,11 @@ var InstrDesc_LD_R_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_R_HL = InstrDescriptor{
+var InstrDesc_LD_R_HL = InstrDescriptorZ80{
 	Opcode:   Z80_LD_R_HL,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -59,12 +57,11 @@ var InstrDesc_LD_R_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_HL_R = InstrDescriptor{
+var InstrDesc_LD_HL_R = InstrDescriptorZ80{
 	Opcode:   Z80_LD_HL_R,
 	Category: CatStore,
 	Dependencies: []InstrDependency{
@@ -78,12 +75,11 @@ var InstrDesc_LD_HL_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_HL_N = InstrDescriptor{
+var InstrDesc_LD_HL_N = InstrDescriptorZ80{
 	Opcode:   Z80_LD_HL_N,
 	Category: CatStore,
 	Dependencies: []InstrDependency{
@@ -97,7 +93,6 @@ var InstrDesc_LD_HL_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -106,7 +101,7 @@ var InstrDesc_LD_HL_N = InstrDescriptor{
 // 8-bit access to memory via register pairs
 // ============================================================================
 
-var InstrDesc_LD_A_PP = InstrDescriptor{
+var InstrDesc_LD_A_PP = InstrDescriptorZ80{
 	Opcode:   Z80_LD_A_PP,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -120,12 +115,11 @@ var InstrDesc_LD_A_PP = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 4,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_A_NN = InstrDescriptor{
+var InstrDesc_LD_A_NN = InstrDescriptorZ80{
 	Opcode:   Z80_LD_A_NN,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -139,12 +133,11 @@ var InstrDesc_LD_A_NN = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_PP_A = InstrDescriptor{
+var InstrDesc_LD_PP_A = InstrDescriptorZ80{
 	Opcode:   Z80_LD_PP_A,
 	Category: CatStore,
 	Dependencies: []InstrDependency{
@@ -158,12 +151,11 @@ var InstrDesc_LD_PP_A = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 4,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_NN_A = InstrDescriptor{
+var InstrDesc_LD_NN_A = InstrDescriptorZ80{
 	Opcode:   Z80_LD_NN_A,
 	Category: CatStore,
 	Dependencies: []InstrDependency{
@@ -177,7 +169,6 @@ var InstrDesc_LD_NN_A = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -186,7 +177,7 @@ var InstrDesc_LD_NN_A = InstrDescriptor{
 // 16-bit Load Instructions
 // ============================================================================
 
-var InstrDesc_LD_RR_NN = InstrDescriptor{
+var InstrDesc_LD_RR_NN = InstrDescriptorZ80{
 	Opcode:   Z80_LD_RR_NN,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -200,12 +191,11 @@ var InstrDesc_LD_RR_NN = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 4,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_HL_NN = InstrDescriptor{
+var InstrDesc_LD_HL_NN = InstrDescriptorZ80{
 	Opcode:   Z80_LD_HL_NN,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -219,12 +209,11 @@ var InstrDesc_LD_HL_NN = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_RR_NN_ADDR = InstrDescriptor{
+var InstrDesc_LD_RR_NN_ADDR = InstrDescriptorZ80{
 	Opcode:   Z80_LD_RR_NN_ADDR,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -238,12 +227,11 @@ var InstrDesc_LD_RR_NN_ADDR = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           4,
 	EncodingReg1SL: 4,
-	EncodingReg2SL: 0,
 	Prefix1:        0xED,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_NN_HL = InstrDescriptor{
+var InstrDesc_LD_NN_HL = InstrDescriptorZ80{
 	Opcode:   Z80_LD_NN_HL,
 	Category: CatStore,
 	Dependencies: []InstrDependency{
@@ -257,12 +245,11 @@ var InstrDesc_LD_NN_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_NN_RR_ADDR = InstrDescriptor{
+var InstrDesc_LD_NN_RR_ADDR = InstrDescriptorZ80{
 	Opcode:   Z80_LD_NN_RR_ADDR,
 	Category: CatStore,
 	Dependencies: []InstrDependency{
@@ -276,12 +263,11 @@ var InstrDesc_LD_NN_RR_ADDR = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           4,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 4,
 	Prefix1:        0xED,
 	Prefix2:        0,
 }
 
-var InstrDesc_LD_SP_HL = InstrDescriptor{
+var InstrDesc_LD_SP_HL = InstrDescriptorZ80{
 	Opcode:   Z80_LD_SP_HL,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
@@ -295,7 +281,6 @@ var InstrDesc_LD_SP_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -304,7 +289,7 @@ var InstrDesc_LD_SP_HL = InstrDescriptor{
 // 8-bit Arithmetic Instructions
 // ============================================================================
 
-var InstrDesc_ADD_A_R = InstrDescriptor{
+var InstrDesc_ADD_A_R = InstrDescriptorZ80{
 	Opcode:   Z80_ADD_A_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -318,12 +303,11 @@ var InstrDesc_ADD_A_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_ADD_A_N = InstrDescriptor{
+var InstrDesc_ADD_A_N = InstrDescriptorZ80{
 	Opcode:   Z80_ADD_A_N,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -337,12 +321,11 @@ var InstrDesc_ADD_A_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_ADD_A_HL = InstrDescriptor{
+var InstrDesc_ADD_A_HL = InstrDescriptorZ80{
 	Opcode:   Z80_ADD_A_HL,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -356,12 +339,11 @@ var InstrDesc_ADD_A_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_ADC_A_R = InstrDescriptor{
+var InstrDesc_ADC_A_R = InstrDescriptorZ80{
 	Opcode:   Z80_ADC_A_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -375,12 +357,11 @@ var InstrDesc_ADC_A_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_ADC_A_N = InstrDescriptor{
+var InstrDesc_ADC_A_N = InstrDescriptorZ80{
 	Opcode:   Z80_ADC_A_N,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -394,12 +375,11 @@ var InstrDesc_ADC_A_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_ADC_A_HL = InstrDescriptor{
+var InstrDesc_ADC_A_HL = InstrDescriptorZ80{
 	Opcode:   Z80_ADC_A_HL,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -413,12 +393,11 @@ var InstrDesc_ADC_A_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_SUB_R = InstrDescriptor{
+var InstrDesc_SUB_R = InstrDescriptorZ80{
 	Opcode:   Z80_SUB_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -432,12 +411,11 @@ var InstrDesc_SUB_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_SUB_N = InstrDescriptor{
+var InstrDesc_SUB_N = InstrDescriptorZ80{
 	Opcode:   Z80_SUB_N,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -451,12 +429,11 @@ var InstrDesc_SUB_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_SUB_HL = InstrDescriptor{
+var InstrDesc_SUB_HL = InstrDescriptorZ80{
 	Opcode:   Z80_SUB_HL,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -470,12 +447,11 @@ var InstrDesc_SUB_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_SBC_A_R = InstrDescriptor{
+var InstrDesc_SBC_A_R = InstrDescriptorZ80{
 	Opcode:   Z80_SBC_A_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -489,12 +465,11 @@ var InstrDesc_SBC_A_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_SBC_A_N = InstrDescriptor{
+var InstrDesc_SBC_A_N = InstrDescriptorZ80{
 	Opcode:   Z80_SBC_A_N,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -508,12 +483,11 @@ var InstrDesc_SBC_A_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_SBC_A_HL = InstrDescriptor{
+var InstrDesc_SBC_A_HL = InstrDescriptorZ80{
 	Opcode:   Z80_SBC_A_HL,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -527,12 +501,11 @@ var InstrDesc_SBC_A_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_INC_R = InstrDescriptor{
+var InstrDesc_INC_R = InstrDescriptorZ80{
 	Opcode:   Z80_INC_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -545,12 +518,11 @@ var InstrDesc_INC_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_DEC_R = InstrDescriptor{
+var InstrDesc_DEC_R = InstrDescriptorZ80{
 	Opcode:   Z80_DEC_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -563,12 +535,11 @@ var InstrDesc_DEC_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_INC_HL = InstrDescriptor{
+var InstrDesc_INC_HL = InstrDescriptorZ80{
 	Opcode:   Z80_INC_HL,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -581,12 +552,11 @@ var InstrDesc_INC_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_DEC_HL = InstrDescriptor{
+var InstrDesc_DEC_HL = InstrDescriptorZ80{
 	Opcode:   Z80_DEC_HL,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -599,7 +569,6 @@ var InstrDesc_DEC_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -608,7 +577,7 @@ var InstrDesc_DEC_HL = InstrDescriptor{
 // 16-bit Arithmetic Instructions
 // ============================================================================
 
-var InstrDesc_ADD_HL_RR = InstrDescriptor{
+var InstrDesc_ADD_HL_RR = InstrDescriptorZ80{
 	Opcode:   Z80_ADD_HL_RR,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -622,12 +591,11 @@ var InstrDesc_ADD_HL_RR = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 4,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_ADC_HL_RR = InstrDescriptor{
+var InstrDesc_ADC_HL_RR = InstrDescriptorZ80{
 	Opcode:   Z80_ADC_HL_RR,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -641,12 +609,11 @@ var InstrDesc_ADC_HL_RR = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 4,
 	Prefix1:        0xED,
 	Prefix2:        0,
 }
 
-var InstrDesc_SBC_HL_RR = InstrDescriptor{
+var InstrDesc_SBC_HL_RR = InstrDescriptorZ80{
 	Opcode:   Z80_SBC_HL_RR,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -660,12 +627,11 @@ var InstrDesc_SBC_HL_RR = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 4,
 	Prefix1:        0xED,
 	Prefix2:        0,
 }
 
-var InstrDesc_INC_RR = InstrDescriptor{
+var InstrDesc_INC_RR = InstrDescriptorZ80{
 	Opcode:   Z80_INC_RR,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -678,12 +644,11 @@ var InstrDesc_INC_RR = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 4,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_DEC_RR = InstrDescriptor{
+var InstrDesc_DEC_RR = InstrDescriptorZ80{
 	Opcode:   Z80_DEC_RR,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
@@ -696,7 +661,6 @@ var InstrDesc_DEC_RR = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 4,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -705,7 +669,7 @@ var InstrDesc_DEC_RR = InstrDescriptor{
 // Bitwise Instructions
 // ============================================================================
 
-var InstrDesc_AND_R = InstrDescriptor{
+var InstrDesc_AND_R = InstrDescriptorZ80{
 	Opcode:   Z80_AND_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -719,12 +683,11 @@ var InstrDesc_AND_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_AND_N = InstrDescriptor{
+var InstrDesc_AND_N = InstrDescriptorZ80{
 	Opcode:   Z80_AND_N,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -738,12 +701,11 @@ var InstrDesc_AND_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_AND_HL = InstrDescriptor{
+var InstrDesc_AND_HL = InstrDescriptorZ80{
 	Opcode:   Z80_AND_HL,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -757,12 +719,11 @@ var InstrDesc_AND_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_OR_R = InstrDescriptor{
+var InstrDesc_OR_R = InstrDescriptorZ80{
 	Opcode:   Z80_OR_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -776,12 +737,11 @@ var InstrDesc_OR_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_OR_N = InstrDescriptor{
+var InstrDesc_OR_N = InstrDescriptorZ80{
 	Opcode:   Z80_OR_N,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -795,12 +755,11 @@ var InstrDesc_OR_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_OR_HL = InstrDescriptor{
+var InstrDesc_OR_HL = InstrDescriptorZ80{
 	Opcode:   Z80_OR_HL,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -814,12 +773,11 @@ var InstrDesc_OR_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_XOR_R = InstrDescriptor{
+var InstrDesc_XOR_R = InstrDescriptorZ80{
 	Opcode:   Z80_XOR_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -833,12 +791,11 @@ var InstrDesc_XOR_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_XOR_N = InstrDescriptor{
+var InstrDesc_XOR_N = InstrDescriptorZ80{
 	Opcode:   Z80_XOR_N,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -852,12 +809,11 @@ var InstrDesc_XOR_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_XOR_HL = InstrDescriptor{
+var InstrDesc_XOR_HL = InstrDescriptorZ80{
 	Opcode:   Z80_XOR_HL,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -871,12 +827,11 @@ var InstrDesc_XOR_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_CP_R = InstrDescriptor{
+var InstrDesc_CP_R = InstrDescriptorZ80{
 	Opcode:   Z80_CP_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -890,12 +845,11 @@ var InstrDesc_CP_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_CP_N = InstrDescriptor{
+var InstrDesc_CP_N = InstrDescriptorZ80{
 	Opcode:   Z80_CP_N,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -909,12 +863,11 @@ var InstrDesc_CP_N = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_CP_HL = InstrDescriptor{
+var InstrDesc_CP_HL = InstrDescriptorZ80{
 	Opcode:   Z80_CP_HL,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -928,7 +881,6 @@ var InstrDesc_CP_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -937,7 +889,7 @@ var InstrDesc_CP_HL = InstrDescriptor{
 // Bitwise Instructions (CB prefix)
 // ============================================================================
 
-var InstrDesc_BIT_B_R = InstrDescriptor{
+var InstrDesc_BIT_B_R = InstrDescriptorZ80{
 	Opcode:   Z80_BIT_B_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -951,12 +903,11 @@ var InstrDesc_BIT_B_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_SET_B_R = InstrDescriptor{
+var InstrDesc_SET_B_R = InstrDescriptorZ80{
 	Opcode:   Z80_SET_B_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -970,12 +921,11 @@ var InstrDesc_SET_B_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_RES_B_R = InstrDescriptor{
+var InstrDesc_RES_B_R = InstrDescriptorZ80{
 	Opcode:   Z80_RES_B_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -989,7 +939,6 @@ var InstrDesc_RES_B_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
@@ -998,7 +947,7 @@ var InstrDesc_RES_B_R = InstrDescriptor{
 // Rotate/Shift Instructions (CB prefix)
 // ============================================================================
 
-var InstrDesc_RLC_R = InstrDescriptor{
+var InstrDesc_RLC_R = InstrDescriptorZ80{
 	Opcode:   Z80_RLC_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -1011,12 +960,11 @@ var InstrDesc_RLC_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_RRC_R = InstrDescriptor{
+var InstrDesc_RRC_R = InstrDescriptorZ80{
 	Opcode:   Z80_RRC_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -1029,12 +977,11 @@ var InstrDesc_RRC_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_RL_R = InstrDescriptor{
+var InstrDesc_RL_R = InstrDescriptorZ80{
 	Opcode:   Z80_RL_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -1047,12 +994,11 @@ var InstrDesc_RL_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_RR_R = InstrDescriptor{
+var InstrDesc_RR_R = InstrDescriptorZ80{
 	Opcode:   Z80_RR_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -1065,12 +1011,11 @@ var InstrDesc_RR_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_SLA_R = InstrDescriptor{
+var InstrDesc_SLA_R = InstrDescriptorZ80{
 	Opcode:   Z80_SLA_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -1083,12 +1028,11 @@ var InstrDesc_SLA_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_SRA_R = InstrDescriptor{
+var InstrDesc_SRA_R = InstrDescriptorZ80{
 	Opcode:   Z80_SRA_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -1101,12 +1045,11 @@ var InstrDesc_SRA_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
 
-var InstrDesc_SRL_R = InstrDescriptor{
+var InstrDesc_SRL_R = InstrDescriptorZ80{
 	Opcode:   Z80_SRL_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
@@ -1119,7 +1062,6 @@ var InstrDesc_SRL_R = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xCB,
 	Prefix2:        0,
 }
@@ -1128,7 +1070,7 @@ var InstrDesc_SRL_R = InstrDescriptor{
 // Stack Instructions
 // ============================================================================
 
-var InstrDesc_PUSH_QQ = InstrDescriptor{
+var InstrDesc_PUSH_QQ = InstrDescriptorZ80{
 	Opcode:   Z80_PUSH_QQ,
 	Category: CatStack,
 	Dependencies: []InstrDependency{
@@ -1142,12 +1084,11 @@ var InstrDesc_PUSH_QQ = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 4,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_POP_QQ = InstrDescriptor{
+var InstrDesc_POP_QQ = InstrDescriptorZ80{
 	Opcode:   Z80_POP_QQ,
 	Category: CatStack,
 	Dependencies: []InstrDependency{
@@ -1161,7 +1102,6 @@ var InstrDesc_POP_QQ = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 4,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -1170,7 +1110,7 @@ var InstrDesc_POP_QQ = InstrDescriptor{
 // Jump/Branch Instructions
 // ============================================================================
 
-var InstrDesc_JP_NN = InstrDescriptor{
+var InstrDesc_JP_NN = InstrDescriptorZ80{
 	Opcode:   Z80_JP_NN,
 	Category: CatBranch,
 	Dependencies: []InstrDependency{
@@ -1183,12 +1123,11 @@ var InstrDesc_JP_NN = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_JP_HL = InstrDescriptor{
+var InstrDesc_JP_HL = InstrDescriptorZ80{
 	Opcode:   Z80_JP_HL,
 	Category: CatBranch,
 	Dependencies: []InstrDependency{
@@ -1201,12 +1140,11 @@ var InstrDesc_JP_HL = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_JP_CC_NN = InstrDescriptor{
+var InstrDesc_JP_CC_NN = InstrDescriptorZ80{
 	Opcode:   Z80_JP_CC_NN,
 	Category: CatBranch,
 	Dependencies: []InstrDependency{
@@ -1220,12 +1158,11 @@ var InstrDesc_JP_CC_NN = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_JR_E = InstrDescriptor{
+var InstrDesc_JR_E = InstrDescriptorZ80{
 	Opcode:   Z80_JR_E,
 	Category: CatBranch,
 	Dependencies: []InstrDependency{
@@ -1238,12 +1175,11 @@ var InstrDesc_JR_E = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_JR_CC_E = InstrDescriptor{
+var InstrDesc_JR_CC_E = InstrDescriptorZ80{
 	Opcode:   Z80_JR_CC_E,
 	Category: CatBranch,
 	Dependencies: []InstrDependency{
@@ -1257,12 +1193,11 @@ var InstrDesc_JR_CC_E = InstrDescriptor{
 	CyclesTaken:    5,
 	Size:           2,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_DJNZ_E = InstrDescriptor{
+var InstrDesc_DJNZ_E = InstrDescriptorZ80{
 	Opcode:   Z80_DJNZ_E,
 	Category: CatBranch,
 	Dependencies: []InstrDependency{
@@ -1276,7 +1211,6 @@ var InstrDesc_DJNZ_E = InstrDescriptor{
 	CyclesTaken:    5,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -1285,7 +1219,7 @@ var InstrDesc_DJNZ_E = InstrDescriptor{
 // Call/Return Instructions
 // ============================================================================
 
-var InstrDesc_CALL_NN = InstrDescriptor{
+var InstrDesc_CALL_NN = InstrDescriptorZ80{
 	Opcode:   Z80_CALL_NN,
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
@@ -1299,12 +1233,11 @@ var InstrDesc_CALL_NN = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           3,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_CALL_CC_NN = InstrDescriptor{
+var InstrDesc_CALL_CC_NN = InstrDescriptorZ80{
 	Opcode:   Z80_CALL_CC_NN,
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
@@ -1319,12 +1252,11 @@ var InstrDesc_CALL_CC_NN = InstrDescriptor{
 	CyclesTaken:    7,
 	Size:           3,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_RET = InstrDescriptor{
+var InstrDesc_RET = InstrDescriptorZ80{
 	Opcode:   Z80_RET,
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
@@ -1337,12 +1269,11 @@ var InstrDesc_RET = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_RET_CC = InstrDescriptor{
+var InstrDesc_RET_CC = InstrDescriptorZ80{
 	Opcode:   Z80_RET_CC,
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
@@ -1356,12 +1287,11 @@ var InstrDesc_RET_CC = InstrDescriptor{
 	CyclesTaken:    6,
 	Size:           1,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_RST_P = InstrDescriptor{
+var InstrDesc_RST_P = InstrDescriptorZ80{
 	Opcode:   Z80_RST_P,
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
@@ -1375,7 +1305,6 @@ var InstrDesc_RST_P = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 3,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -1384,7 +1313,7 @@ var InstrDesc_RST_P = InstrDescriptor{
 // Interrupt Instructions
 // ============================================================================
 
-var InstrDesc_RETI = InstrDescriptor{
+var InstrDesc_RETI = InstrDescriptorZ80{
 	Opcode:   Z80_RETI,
 	Category: CatInterrupt,
 	Dependencies: []InstrDependency{
@@ -1397,12 +1326,11 @@ var InstrDesc_RETI = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xED,
 	Prefix2:        0,
 }
 
-var InstrDesc_RETN = InstrDescriptor{
+var InstrDesc_RETN = InstrDescriptorZ80{
 	Opcode:   Z80_RETN,
 	Category: CatSubroutine,
 	Dependencies: []InstrDependency{
@@ -1415,12 +1343,11 @@ var InstrDesc_RETN = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xED,
 	Prefix2:        0,
 }
 
-var InstrDesc_DI = InstrDescriptor{
+var InstrDesc_DI = InstrDescriptorZ80{
 	Opcode:         Z80_DI,
 	Category:       CatInterrupt,
 	Dependencies:   []InstrDependency{},
@@ -1431,12 +1358,11 @@ var InstrDesc_DI = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_EI = InstrDescriptor{
+var InstrDesc_EI = InstrDescriptorZ80{
 	Opcode:         Z80_EI,
 	Category:       CatInterrupt,
 	Dependencies:   []InstrDependency{},
@@ -1447,7 +1373,6 @@ var InstrDesc_EI = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -1456,7 +1381,7 @@ var InstrDesc_EI = InstrDescriptor{
 // Special Instructions
 // ============================================================================
 
-var InstrDesc_NOP = InstrDescriptor{
+var InstrDesc_NOP = InstrDescriptorZ80{
 	Opcode:         Z80_NOP,
 	Category:       CatOther,
 	Dependencies:   []InstrDependency{},
@@ -1467,12 +1392,11 @@ var InstrDesc_NOP = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_HALT = InstrDescriptor{
+var InstrDesc_HALT = InstrDescriptorZ80{
 	Opcode:         Z80_HALT,
 	Category:       CatOther,
 	Dependencies:   []InstrDependency{},
@@ -1483,12 +1407,11 @@ var InstrDesc_HALT = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
 
-var InstrDesc_NEG = InstrDescriptor{
+var InstrDesc_NEG = InstrDescriptorZ80{
 	Opcode:   Z80_NEG,
 	Category: CatOther,
 	Dependencies: []InstrDependency{
@@ -1501,12 +1424,11 @@ var InstrDesc_NEG = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           2,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0xED,
 	Prefix2:        0,
 }
 
-var InstrDesc_CCF = InstrDescriptor{
+var InstrDesc_CCF = InstrDescriptorZ80{
 	Opcode:   Z80_CCF,
 	Category: CatOther,
 	Dependencies: []InstrDependency{
@@ -1519,7 +1441,6 @@ var InstrDesc_CCF = InstrDescriptor{
 	CyclesTaken:    0,
 	Size:           1,
 	EncodingReg1SL: 0,
-	EncodingReg2SL: 0,
 	Prefix1:        0,
 	Prefix2:        0,
 }
@@ -1529,7 +1450,7 @@ var InstrDesc_CCF = InstrDescriptor{
 // ============================================================================
 
 // Z80InstrDescriptors maps opcodes to their instruction descriptors
-var Z80InstrDescriptors = map[Z80Opcode]*InstrDescriptor{
+var Z80InstrDescriptors = map[Z80Opcode]*InstrDescriptorZ80{
 	// 8-bit Load
 	Z80_LD_R_R:  &InstrDesc_LD_R_R,
 	Z80_LD_R_N:  &InstrDesc_LD_R_N,

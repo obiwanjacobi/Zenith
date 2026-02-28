@@ -222,8 +222,8 @@ type InstrDependency struct {
 // Instruction Descriptor
 // ============================================================================
 
-// InstrDescriptor describes properties of a Z80 instruction
-type InstrDescriptor struct {
+// InstrDescriptorZ80 describes properties of a Z80 instruction
+type InstrDescriptorZ80 struct {
 	Opcode         Z80Opcode
 	Category       InstrCategory
 	Dependencies   []InstrDependency // Operands and implicit register/flag dependencies
@@ -238,7 +238,6 @@ type InstrDescriptor struct {
 
 	// TODO: these might be constant over the complete range of instructions?
 	EncodingReg1SL uint8 // Shift left of operand register-id #1 in opcode encoding
-	EncodingReg2SL uint8 // Shift left of operand register-id #2 in opcode encoding
 	Prefix1        uint8 // Instruction prefix #1 byte (0 if none)
 	Prefix2        uint8 // Instruction prefix #2 byte (0 if none)
 }
@@ -488,7 +487,7 @@ func (cc ConditionCode) String() string {
 	}
 }
 
-func formatOperands(instrDescr *InstrDescriptor, operands ...string) string {
+func formatOperands(instrDescr *InstrDescriptorZ80, operands ...string) string {
 
 	if instrDescr.AddressingMode&AddrIndirect != 0 {
 		switch instrDescr.Category {
