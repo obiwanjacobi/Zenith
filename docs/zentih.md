@@ -10,15 +10,15 @@ The goal is to create a language that understands the Z80's unique architectural
 `i` - signed
 `d` - decimal (BCD)
 
-| Type  | Size | Desciption   |
-| ----- | ---- | ------------ |
-| `u8`  | 1    | 0-255        |
-| `i8`  | 1    | -128-127     |
-| `u16` | 2    | 0-65535      |
-| `i16` | 2    | -32768-32767 |
-| `u24` | 3    | ?            |
-| `d8`  | 1    | BCD: 0-99    |
-| `d16` | 2    | BCD: 0-9999  |
+| Type  | Size | Description   |
+| ----- | ---- | ------------- |
+| `u8`  | 1    | 0-255         |
+| `i8`  | 1    | -128-127      |
+| `u16` | 2    | 0-65535       |
+| `i16` | 2    | -32768-32767  |
+| `u24` | 3    | ?             |
+| `d8`  | 1    | BCD: 0-99     |
+| `d16` | 2    | BCD: 0-9999   |
 
 #### Literals
 
@@ -323,7 +323,7 @@ Syntax: `if <condition> { ... } elsif <condition> { ... } else { ... }`
 a := 42
 if a = 42 {
     ...
-} elsif a == 0 {
+} elsif a = 0 {
     ...
 } else {
     ...
@@ -505,16 +505,17 @@ All directives start with a `#`.
 
 All intrinsic functions start with a `@`.
 
-| Intrinsic                  | Description                     |
-| -------------------------- | ------------------------------- |
-| `@movemem(src, dst, u/d, r)` | LDI/LDIR/LDD/LDDR             |
-| `@findmem(src, f, u/d, r)`   | CPI/CPIR/CPD/CPDR             |
-| `@carry(false/true/not)`     | Clear, set or toggle carry flag |
-| `@in`                        | IO input: IN                  |
-| `@out`                       | IO output: OUT                |
-| `@len(any[])`                | Returns the length of an array type |
-
-> TBD: naming. Perhaps `@memory_move()` and `@memory_find()` etc. is better?
+| Intrinsic                        | Description                   |
+| -------------------------------- | ----------------------------- |
+| `@memory_move(src, dst, u/d, r)` | LDI/LDIR/LDD/LDDR             |
+| `@memory_find(src, f, u/d, r)`   | CPI/CPIR/CPD/CPDR             |
+| `@memory_set(dst, value)`        | LDIR (trick)                  |
+| `@carry(false/true/not)`         | Clear, set or toggle carry flag |
+| `@in(port)`                      | IO input: IN                  |
+| `@out(port, value)`              | IO output: OUT                |
+| `@len(any[])`                    | Length (elem count) of an array type |
+| `@size(any[/struct)`             | Size (bytes) of an array or struct type |
+| `@string_of(<expression>)`       | Creates string for compiler expression |
 
 - Provide prolog/epilog 'macros' for working with the calling conventions for custom asm code.
 
