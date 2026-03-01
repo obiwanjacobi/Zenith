@@ -627,7 +627,7 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 
 		// Load low byte at (HL), high byte at (HL+1)
 		z.emit(newInstruction(Z80_LD_R_HL, vrResultLo, vrHL))
-		z.emit(newInstructionResult(Z80_INC_RR, vrHL))
+		z.emit(newInstruction(Z80_INC_RR, vrHL, vrHL))
 		z.emit(newInstruction(Z80_LD_R_HL, vrResultHi, vrHL))
 
 		// Return the composite parent VR
@@ -963,7 +963,7 @@ func (z *instructionSelectorZ80) splitImmediateValue16(value *VirtualRegister) (
 // Uses the specified opcode (Z80_LD_HL_R for registers, Z80_LD_HL_N for immediates)
 func (z *instructionSelectorZ80) emitStore16AtHL(vrHL *VirtualRegister, loVR, hiVR *VirtualRegister, opcode Z80Opcode) {
 	z.emit(newInstruction(opcode, vrHL, loVR))
-	z.emit(newInstructionResult(Z80_INC_RR, vrHL))
+	z.emit(newInstruction(Z80_INC_RR, vrHL, vrHL))
 	z.emit(newInstruction(opcode, vrHL, hiVR))
 }
 
@@ -1083,7 +1083,7 @@ func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset
 	if offset < 4 {
 		// For small offsets, use INC HL multiple times
 		for range offset {
-			z.emit(newInstructionResult(Z80_INC_RR, vrHL))
+			z.emit(newInstruction(Z80_INC_RR, vrHL, vrHL))
 		}
 		return
 	}
@@ -1129,7 +1129,7 @@ func (z *instructionSelectorZ80) emitCompare(left, right *VirtualRegister) (*Vir
 
 		// or a(, a) - clears carry flag
 		vrA := z.vrAlloc.Allocate(Z80RegA)
-		z.emit(newInstructionResult(Z80_OR_R, vrA))
+		z.emit(newInstruction(Z80_OR_R, vrA, vrA))
 		// sbc hl, bc|de
 		z.emit(newInstruction(Z80_SBC_HL_RR, vrHL, vrDE))
 		// add hl, bc|de
@@ -1153,13 +1153,13 @@ func (z *instructionSelectorZ80) emitFlagToRegA(conditionCode ConditionCode) (*V
 		vrOne := z.vrAlloc.AllocateImmediate(1, 8)
 		z.emit(newInstruction(Z80_LD_R_N, result, vrZero))
 		z.emit(newBranchInternal(conditionCode, vrOne)) // 1: jump over next instruction
-		z.emit(newInstructionResult(Z80_INC_R, result))
+		z.emit(newInstruction(Z80_INC_R, result, result))
 	case Cond_C:
 		z.emit(newInstruction(Z80_LD_R_N, result, vrZero))
 		z.emit(newInstruction(Z80_ADC_A_N, result, vrZero))
 	case Cond_NC:
-		z.emit(newInstructionResult(Z80_SBC_A_R, result))
-		z.emit(newInstructionResult(Z80_INC_R, result))
+		z.emit(newInstruction(Z80_SBC_A_R, result, result))
+		z.emit(newInstruction(Z80_INC_R, result, result))
 	default:
 		return nil, fmt.Errorf("unsupported flag for bool conversion: %v", conditionCode)
 	}

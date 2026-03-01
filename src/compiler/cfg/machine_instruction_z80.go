@@ -31,15 +31,6 @@ func newInstruction(opcode Z80Opcode, result, operand *VirtualRegister) *machine
 		operands: operands,
 	}
 }
-func newInstructionResult(opcode Z80Opcode, result *VirtualRegister) *machineInstructionZ80 {
-	return &machineInstructionZ80{
-		opcode: opcode,
-		result: result,
-	}
-}
-func newInstructionOperand(opcode Z80Opcode, operand *VirtualRegister) *machineInstructionZ80 {
-	return newInstruction(opcode, nil, operand)
-}
 func newInstruction0(opcode Z80Opcode) *machineInstructionZ80 {
 	return &machineInstructionZ80{
 		opcode: opcode,
