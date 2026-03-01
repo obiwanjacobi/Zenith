@@ -627,7 +627,7 @@ func (z *instructionSelectorZ80) SelectLoadIndexed(address *VirtualRegister, ind
 
 		// Load low byte at (HL), high byte at (HL+1)
 		z.emit(newInstruction(Z80_LD_R_HL, vrResultLo, vrHL))
-		z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+		z.emit(newInstructionResult(Z80_INC_RR, vrHL))
 		z.emit(newInstruction(Z80_LD_R_HL, vrResultHi, vrHL))
 
 		// Return the composite parent VR
@@ -797,7 +797,7 @@ func (z *instructionSelectorZ80) SelectFunctionPrologue(fn *zsm.SemFunctionDecl,
 	vrSP := z.vrAlloc.Allocate(Z80RegSP)
 	// negative frameSize: stack grows downwards
 	vrSize := z.vrAlloc.AllocateImmediate(-int32(frameSize), 16)
-	z.emit(newInstruction(Z80_LD_HL_NN, vrHL, vrSize))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, vrSize))
 	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
 	z.emit(newInstruction(Z80_LD_SP_HL, vrSP, vrHL))
 	return nil
@@ -809,7 +809,7 @@ func (z *instructionSelectorZ80) SelectFunctionEpilogue(fn *zsm.SemFunctionDecl,
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
 	vrSP := z.vrAlloc.Allocate(Z80RegSP)
 	vrSize := z.vrAlloc.AllocateImmediate(int32(frameSize), 16)
-	z.emit(newInstruction(Z80_LD_HL_NN, vrHL, vrSize))
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, vrSize))
 	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
 	z.emit(newInstruction(Z80_LD_SP_HL, vrSP, vrHL))
 
@@ -963,7 +963,7 @@ func (z *instructionSelectorZ80) splitImmediateValue16(value *VirtualRegister) (
 // Uses the specified opcode (Z80_LD_HL_R for registers, Z80_LD_HL_N for immediates)
 func (z *instructionSelectorZ80) emitStore16AtHL(vrHL *VirtualRegister, loVR, hiVR *VirtualRegister, opcode Z80Opcode) {
 	z.emit(newInstruction(opcode, vrHL, loVR))
-	z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+	z.emit(newInstructionResult(Z80_INC_RR, vrHL))
 	z.emit(newInstruction(opcode, vrHL, hiVR))
 }
 
@@ -1083,7 +1083,7 @@ func (z *instructionSelectorZ80) emitAddOffsetToHL(vrHL *VirtualRegister, offset
 	if offset < 4 {
 		// For small offsets, use INC HL multiple times
 		for range offset {
-			z.emit(newInstructionResult(Z80_INC_HL, vrHL))
+			z.emit(newInstructionResult(Z80_INC_RR, vrHL))
 		}
 		return
 	}

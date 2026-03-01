@@ -203,14 +203,23 @@ func (info *LivenessInfo) IsLiveOutOf(vrID int, blockID int) bool {
 	return info.LiveOut[blockID][vrID]
 }
 
-func DumpLiveness(fnName string, liveness *LivenessInfo) {
+func DumpBlockLiveness(fnName string, liveness *LivenessInfo) {
 	fmt.Printf("========== Liveness: %s ==========\n", fnName)
 	for blockID, liveIn := range liveness.LiveIn {
 		fmt.Printf("  Block %d:\n", blockID)
+		fmt.Printf("    Use:     %v\n", setToSlice(liveness.Use[blockID]))
+		fmt.Printf("    Def:     %v\n", setToSlice(liveness.Def[blockID]))
 		fmt.Printf("    LiveIn:  %v\n", setToSlice(liveIn))
 		fmt.Printf("    LiveOut: %v\n", setToSlice(liveness.LiveOut[blockID]))
 	}
 	fmt.Println()
+}
+
+func DumpInstructionLiveness(fnName string, blockID int, liveness []map[int]bool) {
+	fmt.Printf("========== Instruction Liveness: %s (Block %d) ==========\n", fnName, blockID)
+	for i, liveSet := range liveness {
+		fmt.Printf("  Instr %d: live VRs = %v\n", i, setToSlice(liveSet))
+	}
 }
 
 // Helper function to convert map[int]bool (VR IDs) to []int
