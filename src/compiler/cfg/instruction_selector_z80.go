@@ -7,8 +7,9 @@ import (
 
 // instructionSelectorZ80 implements InstructionSelector for the Z80
 type instructionSelectorZ80 struct {
-	vrAlloc      *VirtualRegisterAllocator
-	currentBlock *BasicBlock // Current block for instruction emission
+	vrAlloc       *VirtualRegisterAllocator
+	symbolContext map[string]*VirtualRegisterType
+	currentBlock  *BasicBlock // Current block for instruction emission
 }
 
 var Z80RegA = []*Register{&RegA}
@@ -24,9 +25,10 @@ var Z80RegBC = []*Register{&RegBC}
 var Z80RegSP = []*Register{&RegSP}
 
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
-func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSelector {
+func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator, symbolContext map[string]*VirtualRegisterType) InstructionSelector {
 	return &instructionSelectorZ80{
-		vrAlloc: vrAlloc,
+		vrAlloc:       vrAlloc,
+		symbolContext: symbolContext,
 	}
 }
 
@@ -884,11 +886,6 @@ func (z *instructionSelectorZ80) SetCurrentBlock(block *BasicBlock) {
 	z.currentBlock = block
 }
 
-// emit is a helper that emits to the current block
-func (z *instructionSelectorZ80) emit(instr MachineInstruction) {
-	z.currentBlock.MachineInstructions = append(z.currentBlock.MachineInstructions, instr)
-}
-
 // GetCallingConvention returns the calling convention
 func (z *instructionSelectorZ80) GetCallingConvention(funcDecl *zsm.SemFunctionDecl) CallingConvention {
 	return NewCallingConventionZ80()
@@ -1195,4 +1192,9 @@ func orderToMatchRegisters(left, right *VirtualRegister, reg *Register) (first *
 		return right, left
 	}
 	return left, right
+}
+
+// emit is a helper that emits to the current block
+func (z *instructionSelectorZ80) emit(instr MachineInstruction) {
+	z.currentBlock.MachineInstructions = append(z.currentBlock.MachineInstructions, instr)
 }

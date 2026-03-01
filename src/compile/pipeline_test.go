@@ -39,10 +39,10 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 			}
 			cfg.DumpInterference(fnName, ig)
 		}
-	}
 
-	if result.VRAllocator != nil {
-		cfg.DumpAllocation(result.VRAllocator)
+		if vra, ok := result.VrAllocators[fnName]; ok {
+			cfg.DumpAllocation(vra)
+		}
 	}
 
 	return result
@@ -111,33 +111,6 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 	t.Logf("Pipeline completed successfully")
 	t.Logf("Functions processed: %d", len(result.FunctionCFGs))
 	t.Logf("Instructions generated: %d", len(result.Instructions["<all>"]))
-}
-
-// Test pipeline stopping at different stages
-func Test_Pipeline_StopAfterParse(t *testing.T) {
-	sourceCode := `test: () u8 { ret 42 }`
-
-	opts := DefaultPipelineOptions()
-	opts.Source = sourceCode
-	opts.StopAfterParse = true
-
-	result, err := Pipeline(opts)
-
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", result.AST.Errors())
-	}
-
-	if !result.Success {
-		t.Error("Pipeline should have succeeded")
-	}
-
-	if result.AST == nil {
-		t.Error("AST should be present")
-	}
-
-	if result.SemCU != nil {
-		t.Error("Semantic compilation unit should not be present when stopping after parse")
-	}
 }
 
 // Test pipeline with verbose output

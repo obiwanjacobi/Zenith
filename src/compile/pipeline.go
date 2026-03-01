@@ -22,10 +22,8 @@ type CompilationResult struct {
 	FunctionCFGs     map[string]*cfg.CFG
 	LivenessInfo     map[string]*cfg.LivenessInfo
 	InterferenceInfo map[string]*cfg.InterferenceGraph
-	// Note: Register allocation results are stored in VirtualRegister.PhysicalReg
-
-	// Machine code
-	Instructions map[string][]cfg.MachineInstruction
+	Instructions     map[string][]cfg.MachineInstruction
+	VrAllocators     map[string]*cfg.VirtualRegisterAllocator
 
 	// Error tracking
 	Diagnostics    []*compiler.Diagnostic
@@ -35,10 +33,6 @@ type CompilationResult struct {
 
 	// Success flag
 	Success bool
-
-	// internals
-	VRAllocator       *cfg.VirtualRegisterAllocator
-	SelectorForTarget cfg.InstructionSelector
 }
 
 // PipelineOptions configures the compilation pipeline
@@ -48,16 +42,6 @@ type PipelineOptions struct {
 
 	// Target architecture
 	TargetArch string // "z80", etc.
-
-	// Pipeline control flags
-	StopAfterLex                  bool
-	StopAfterParse                bool
-	StopAfterSemantic             bool
-	StopAfterCFG                  bool
-	StopAfterInstructionSelection bool
-	StopAfterLiveness             bool
-	StopAfterInterference         bool
-	StopAfterRegAlloc             bool
 
 	// Debug output
 	Verbose bool
@@ -78,6 +62,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		LivenessInfo:     make(map[string]*cfg.LivenessInfo),
 		InterferenceInfo: make(map[string]*cfg.InterferenceGraph),
 		Instructions:     make(map[string][]cfg.MachineInstruction),
+		VrAllocators:     make(map[string]*cfg.VirtualRegisterAllocator),
 		Success:          false,
 	}
 
@@ -98,11 +83,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	tokenChan := tokenizer.Tokens()
 	result.Tokens = lexer.NewTokenStream(tokenChan, 100)
-
-	if opts.StopAfterLex {
-		result.Success = true
-		return result, nil
-	}
 
 	// ==========================================================================
 	// Stage 2: Syntax Analysis (Parsing)
@@ -132,11 +112,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		return result, fmt.Errorf("parser did not return CompilationUnit")
 	}
 
-	if opts.StopAfterParse {
-		result.Success = true
-		return result, nil
-	}
-
 	// ==========================================================================
 	// Stage 3: Semantic Analysis & IR Generation
 	// ==========================================================================
@@ -159,11 +134,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		return result, fmt.Errorf("semantic analysis failed with %d errors", len(semanticErrors))
 	}
 
-	if opts.StopAfterSemantic {
-		result.Success = true
-		return result, nil
-	}
-
 	// ==========================================================================
 	// Stage 4: Control Flow Graph Construction
 	// ==========================================================================
@@ -183,11 +153,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		}
 	}
 
-	if opts.StopAfterCFG {
-		result.Success = true
-		return result, nil
-	}
-
 	// ==========================================================================
 	// Stage 5: Instruction Selection
 	// ==========================================================================
@@ -195,152 +160,113 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		fmt.Println("==> Stage 5: Instruction Selection")
 	}
 
-	// Create virtual register allocator (shared across all functions)
-	vrAlloc := cfg.NewVirtualRegisterAllocator()
-	result.VRAllocator = vrAlloc
-
-	// Collect CFGs from result.FunctionCFGs map into a slice
-	cfgs := make([]*cfg.CFG, 0, len(result.FunctionCFGs))
-	for _, funcCFG := range result.FunctionCFGs {
-		cfgs = append(cfgs, funcCFG)
-	}
-
 	// TODO: Allow different selectors based on target architecture
 	if opts.TargetArch != "z80" {
 		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
 	}
-	selector := cfg.NewInstructionSelectorZ80(vrAlloc)
-	result.SelectorForTarget = selector
-	// Run instruction selection on the CFGs (modifies CFGs in-place, adds MachineInstructions)
-	err := cfg.SelectInstructions(cfgs, vrAlloc, selector)
-	if err != nil {
-		result.CodeGenErrors = append(result.CodeGenErrors, err)
-		return result, fmt.Errorf("instruction selection failed: %w", err)
-	}
 
-	totalInstrs := make([]cfg.MachineInstruction, 0)
 	for _, funcCFG := range result.FunctionCFGs {
-		totalInstrs = append(totalInstrs, funcCFG.GetAllInstructions()...)
-	}
+		symbolContext := make(map[string]*cfg.VirtualRegisterType)
+		vrAlloc := cfg.NewVirtualRegisterAllocator()
+		result.VrAllocators[funcCFG.FunctionName] = vrAlloc
+		selector := cfg.NewInstructionSelectorZ80(vrAlloc, symbolContext)
 
-	cfg.MarkUnusedVirtualRegisters(vrAlloc.GetAll(), totalInstrs)
-
-	if opts.Verbose {
-		fmt.Printf("  Generated %d machine instructions with virtual registers\n", len(totalInstrs))
-	}
-
-	if opts.StopAfterInstructionSelection {
-		result.Success = true
-		return result, nil
-	}
-
-	// ==========================================================================
-	// Stage 6: Liveness Analysis
-	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 6: Liveness Analysis")
-	}
-
-	for fnName, fnCFG := range result.FunctionCFGs {
-		liveness := cfg.ComputeLiveness(fnCFG)
-		result.LivenessInfo[fnName] = liveness
-
-		if opts.Verbose {
-			fmt.Printf("  Computed liveness for function '%s'\n", fnName)
+		// Run instruction selection on the CFG (modifies CFG in-place, adds MachineInstructions)
+		err := cfg.SelectInstructions(funcCFG, vrAlloc, selector)
+		if err != nil {
+			result.CodeGenErrors = append(result.CodeGenErrors, err)
+			return result, fmt.Errorf("instruction selection failed: %w", err)
 		}
-	}
 
-	if opts.StopAfterLiveness {
-		result.Success = true
-		return result, nil
-	}
+		instructions := funcCFG.GetAllInstructions()
+		result.Instructions[funcCFG.FunctionName] = instructions
+		cfg.MarkUnusedVirtualRegisters(vrAlloc.GetAll(), instructions)
 
-	// ==========================================================================
-	// Stage 7: Interference Graph Construction
-	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 7: Interference Graph Construction")
-	}
-
-	for fnName, liveness := range result.LivenessInfo {
-		fnCFG := result.FunctionCFGs[fnName]
-		interference := cfg.BuildInterferenceGraph(fnCFG, liveness, result.VRAllocator.GetAll())
-		result.InterferenceInfo[fnName] = interference
-
+		// ==========================================================================
+		// Stage 6: Liveness Analysis
+		// ==========================================================================
 		if opts.Verbose {
-			nodes := interference.GetNodes()
-			edgeCount := 0
-			for _, node := range nodes {
-				edgeCount += interference.GetDegree(node)
-			}
-			edgeCount /= 2 // Each edge counted twice
-			fmt.Printf("  Built interference graph for function '%s' with %d nodes, %d edges\n",
-				fnName, len(nodes), edgeCount)
+			fmt.Println("==> Stage 6: Liveness Analysis")
 		}
-	}
 
-	if opts.StopAfterInterference {
-		result.Success = true
-		return result, nil
-	}
+		for fnName, fnCFG := range result.FunctionCFGs {
+			liveness := cfg.ComputeLiveness(fnCFG)
+			result.LivenessInfo[fnName] = liveness
 
-	// ==========================================================================
-	// Stage 8: Register Allocation
-	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 8: Register Allocation")
-	}
-
-	// Create register allocator with target registers
-	allocator := cfg.NewRegisterAllocator(selector.GetTargetRegisters())
-
-	for fnName, fnCFG := range result.FunctionCFGs {
-		interference := result.InterferenceInfo[fnName]
-
-		// Run register allocation (assigns PhysicalReg to each VirtualRegister)
-		// Parent-child VR allocations are kept in sync automatically during allocation
-		allocationSucceeded := allocator.Allocate(fnCFG, interference)
-
-		// If there are unallocated VRs, run second pass to resolve them
-		if !allocationSucceeded {
-			err := allocator.ResolveUnallocated(fnCFG, interference, selector)
-			if err != nil {
-				result.CodeGenErrors = append(result.CodeGenErrors, err)
-				return result, fmt.Errorf("failed to resolve unallocated VRs for %s: %w", fnName, err)
+			if opts.Verbose {
+				fmt.Printf("  Computed liveness for function '%s'\n", fnName)
 			}
 		}
 
+		// ==========================================================================
+		// Stage 7: Interference Graph Construction
+		// ==========================================================================
 		if opts.Verbose {
-			allocated := 0
-			spilled := 0
-			for _, vr := range vrAlloc.GetAll() {
-				switch vr.Type {
-				case cfg.AllocatedRegister:
-					allocated++
-				case cfg.StackLocation:
-					spilled++
+			fmt.Println("==> Stage 7: Interference Graph Construction")
+		}
+
+		for fnName, liveness := range result.LivenessInfo {
+			fnCFG := result.FunctionCFGs[fnName]
+			interference := cfg.BuildInterferenceGraph(fnCFG, liveness, vrAlloc.GetAll())
+			result.InterferenceInfo[fnName] = interference
+
+			if opts.Verbose {
+				nodes := interference.GetNodes()
+				edgeCount := 0
+				for _, node := range nodes {
+					edgeCount += interference.GetDegree(node)
+				}
+				edgeCount /= 2 // Each edge counted twice
+				fmt.Printf("  Built interference graph for function '%s' with %d nodes, %d edges\n",
+					fnName, len(nodes), edgeCount)
+			}
+		}
+
+		// ==========================================================================
+		// Stage 8: Register Allocation
+		// ==========================================================================
+		if opts.Verbose {
+			fmt.Println("==> Stage 8: Register Allocation")
+		}
+
+		// Create register allocator with target registers
+		allocator := cfg.NewRegisterAllocator(selector.GetTargetRegisters())
+
+		for fnName, fnCFG := range result.FunctionCFGs {
+			interference := result.InterferenceInfo[fnName]
+
+			// Run register allocation (assigns PhysicalReg to each VirtualRegister)
+			// Parent-child VR allocations are kept in sync automatically during allocation
+			allocationSucceeded := allocator.Allocate(fnCFG, interference)
+
+			// If there are unallocated VRs, run second pass to resolve them
+			if !allocationSucceeded {
+				err := allocator.ResolveUnallocated(fnCFG, interference, selector)
+				if err != nil {
+					result.CodeGenErrors = append(result.CodeGenErrors, err)
+					return result, fmt.Errorf("failed to resolve unallocated VRs for %s: %w", fnName, err)
 				}
 			}
-			fmt.Printf("  Allocated %d registers, spilled %d for function '%s'\n", allocated, spilled, fnName)
-		}
-	}
 
-	if opts.StopAfterRegAlloc {
-		result.Success = true
-		return result, nil
+			if opts.Verbose {
+				allocated := 0
+				spilled := 0
+				for _, vr := range vrAlloc.GetAll() {
+					switch vr.Type {
+					case cfg.AllocatedRegister:
+						allocated++
+					case cfg.StackLocation:
+						spilled++
+					}
+				}
+				fmt.Printf("  Allocated %d registers, spilled %d for function '%s'\n", allocated, spilled, fnName)
+			}
+		}
 	}
 
 	// ==========================================================================
 	// Stage 9: Code Generation (emit final instructions)
 	// ==========================================================================
-	// Extract instructions from each function's CFG with physical registers assigned
-	allInstructions := []cfg.MachineInstruction{}
-	for _, funcCFG := range result.FunctionCFGs {
-		funcInstructions := funcCFG.GetAllInstructions()
-		result.Instructions[funcCFG.FunctionName] = funcInstructions
-		allInstructions = append(allInstructions, funcInstructions...)
-	}
-	result.Instructions["<all>"] = allInstructions
 
 	// ==========================================================================
 	// Pipeline Complete

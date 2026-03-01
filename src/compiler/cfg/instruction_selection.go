@@ -39,14 +39,12 @@ func NewInstructionSelectionContext(selector InstructionSelector, vrAlloc *Virtu
 // SelectInstructions generates machine instructions for pre-built CFGs
 // Takes a slice of CFGs and populates their MachineInstructions fields
 // Returns the same CFGs with machine instructions added
-func SelectInstructions(cfgs []*CFG, vrAlloc *VirtualRegisterAllocator, selector InstructionSelector) error {
+func SelectInstructions(cfg *CFG, vrAlloc *VirtualRegisterAllocator, selector InstructionSelector) error {
 	// Process each CFG with the shared allocator
-	for _, cfg := range cfgs {
-		ctx := NewInstructionSelectionContext(selector, vrAlloc)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc)
 
-		if err := ctx.selectCFG(cfg); err != nil {
-			return fmt.Errorf("selecting instructions for function %s: %w", cfg.FunctionName, err)
-		}
+	if err := ctx.selectCFG(cfg); err != nil {
+		return fmt.Errorf("selecting instructions for function %s: %w", cfg.FunctionName, err)
 	}
 
 	return nil

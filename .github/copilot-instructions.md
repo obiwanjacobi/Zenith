@@ -2,6 +2,8 @@
 
 Guidelines for generating code in the Zenith compiler project.
 
+Rule #1: don't generate code when not asked to.
+
 ---
 
 ## Project overview
