@@ -22,7 +22,6 @@ type CompilationResult struct {
 	FunctionCFGs     map[string]*cfg.CFG
 	LivenessInfo     map[string]*cfg.LivenessInfo
 	InterferenceInfo map[string]*cfg.InterferenceGraph
-	Instructions     map[string][]cfg.MachineInstruction
 	VrAllocators     map[string]*cfg.VirtualRegisterAllocator
 
 	// Error tracking
@@ -61,7 +60,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		FunctionCFGs:     make(map[string]*cfg.CFG),
 		LivenessInfo:     make(map[string]*cfg.LivenessInfo),
 		InterferenceInfo: make(map[string]*cfg.InterferenceGraph),
-		Instructions:     make(map[string][]cfg.MachineInstruction),
 		VrAllocators:     make(map[string]*cfg.VirtualRegisterAllocator),
 		Success:          false,
 	}
@@ -179,7 +177,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		}
 
 		instructions := funcCFG.GetAllInstructions()
-		result.Instructions[funcCFG.FunctionName] = instructions
 		cfg.MarkUnusedVirtualRegisters(vrAlloc.GetAll(), instructions)
 
 		// ==========================================================================

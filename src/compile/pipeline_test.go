@@ -69,7 +69,6 @@ func Example_pipeline() {
 
 	if result.Success {
 		fmt.Println("Compilation succeeded!")
-		fmt.Printf("Generated %d instructions\n", len(result.Instructions["<all>"]))
 	}
 }
 
@@ -110,7 +109,6 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 
 	t.Logf("Pipeline completed successfully")
 	t.Logf("Functions processed: %d", len(result.FunctionCFGs))
-	t.Logf("Instructions generated: %d", len(result.Instructions["<all>"]))
 }
 
 // Test pipeline with verbose output
