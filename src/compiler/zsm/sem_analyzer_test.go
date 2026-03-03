@@ -272,6 +272,81 @@ func Test_Analyze_AssignmentUndefined_Error(t *testing.T) {
 	assert.Contains(t, errors[0].Error(), "undefined variable")
 }
 
+// Test_Analyze_SubscriptAssignment_NoErrors verifies that a subscript l-value
+// assignment produces no semantic errors.
+func Test_Analyze_SubscriptAssignment_NoErrors(t *testing.T) {
+	code := `main: (arr: u8[]) {
+		arr[0] = 5
+	}`
+	semCU, errors := analyzeCode(t, "Test_Analyze_SubscriptAssignment_NoErrors", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	require.Equal(t, 1, len(funcDecl.Body.Statements))
+
+	assignment, ok := funcDecl.Body.Statements[0].(*SemAssignment)
+	require.True(t, ok, "Statement should be SemAssignment")
+	require.NotNil(t, assignment.Target)
+	assert.Equal(t, "arr", assignment.Target.Name)
+	assert.NotNil(t, assignment.Value)
+}
+
+// Test_Analyze_SubscriptAssignment_TargetType verifies that a subscript assignment
+// captures the index expression and that the array symbol's element type is correct.
+func Test_Analyze_SubscriptAssignment_TargetType(t *testing.T) {
+	code := `main: (arr: u8[]) {
+		arr[0] = 5
+	}`
+	semCU, errors := analyzeCode(t, "Test_Analyze_SubscriptAssignment_TargetType", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	assignment := funcDecl.Body.Statements[0].(*SemAssignment)
+
+	// Target is the array symbol; its type must be an ArrayType.
+	arrayType, ok := assignment.Target.Type.(*ArrayType)
+	require.True(t, ok, "Target.Type should be *ArrayType for a subscript l-value")
+
+	// The element type of the array must be u8.
+	assert.Equal(t, U8Type, arrayType.ElementType(),
+		"element type of subscript assignment target should be u8")
+
+	// The index expression must be captured (constant 0).
+	require.NotNil(t, assignment.TargetIndex, "TargetIndex should be set for subscript l-value")
+	indexConst, ok := assignment.TargetIndex.(*SemConstant)
+	require.True(t, ok, "TargetIndex should be a SemConstant for literal index")
+	assert.Equal(t, 0, indexConst.Value)
+}
+
+// Test_Analyze_SubscriptAssignment_VarIndex verifies that a subscript l-value
+// with a variable index captures both the array symbol and the index expression.
+func Test_Analyze_SubscriptAssignment_VarIndex(t *testing.T) {
+	code := `main: (arr: u8[]) {
+		i: u8 = 0
+		arr[i] = 5
+	}`
+	semCU, errors := analyzeCode(t, "Test_Analyze_SubscriptAssignment_VarIndex", code)
+	requireNoErrors(t, errors)
+
+	funcDecl := semCU.Declarations[0].(*SemFunctionDecl)
+	require.Equal(t, 2, len(funcDecl.Body.Statements))
+
+	assignment, ok := funcDecl.Body.Statements[1].(*SemAssignment)
+	require.True(t, ok, "Second statement should be SemAssignment")
+
+	// Target is the array symbol.
+	assert.Equal(t, "arr", assignment.Target.Name)
+
+	// TargetIndex must be set and must reference the variable 'i'.
+	require.NotNil(t, assignment.TargetIndex, "TargetIndex should be set for subscript l-value")
+	indexRef, ok := assignment.TargetIndex.(*SemSymbolRef)
+	require.True(t, ok, "TargetIndex should be a SemSymbolRef for variable index")
+	assert.Equal(t, "i", indexRef.Symbol.Name)
+
+	// Value must be present.
+	assert.NotNil(t, assignment.Value)
+}
+
 // ============================================================================
 // If, Elfis and Else Tests
 // ============================================================================

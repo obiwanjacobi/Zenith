@@ -7,8 +7,9 @@ import (
 
 // InstructionSelectionContext manages the state during instruction selection
 type InstructionSelectionContext struct {
-	selector InstructionSelector
-	vrAlloc  *VirtualRegisterAllocator
+	selector      InstructionSelector
+	vrAlloc       *VirtualRegisterAllocator
+	symbolContext map[string]VirtualRegisterType
 
 	// Maps zsm symbols to their VirtualRegisters
 	symbolToVReg map[*zsm.Symbol]*VirtualRegister
@@ -27,21 +28,22 @@ type InstructionSelectionContext struct {
 }
 
 // NewInstructionSelectionContext creates a new context for instruction selection
-func NewInstructionSelectionContext(selector InstructionSelector, vrAlloc *VirtualRegisterAllocator) *InstructionSelectionContext {
+func NewInstructionSelectionContext(selector InstructionSelector, vrAlloc *VirtualRegisterAllocator, symbolContext map[string]VirtualRegisterType) *InstructionSelectionContext {
 	return &InstructionSelectionContext{
-		selector:     selector,
-		vrAlloc:      vrAlloc,
-		symbolToVReg: make(map[*zsm.Symbol]*VirtualRegister),
-		exprToVReg:   make(map[zsm.SemExpression]*VirtualRegister),
+		selector:      selector,
+		vrAlloc:       vrAlloc,
+		symbolContext: symbolContext,
+		symbolToVReg:  make(map[*zsm.Symbol]*VirtualRegister),
+		exprToVReg:    make(map[zsm.SemExpression]*VirtualRegister),
 	}
 }
 
 // SelectInstructions generates machine instructions for pre-built CFGs
 // Takes a slice of CFGs and populates their MachineInstructions fields
 // Returns the same CFGs with machine instructions added
-func SelectInstructions(cfg *CFG, vrAlloc *VirtualRegisterAllocator, selector InstructionSelector) error {
+func SelectInstructions(cfg *CFG, vrAlloc *VirtualRegisterAllocator, selector InstructionSelector, symbolContext map[string]VirtualRegisterType) error {
 	// Process each CFG with the shared allocator
-	ctx := NewInstructionSelectionContext(selector, vrAlloc)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc, symbolContext)
 
 	if err := ctx.selectCFG(cfg); err != nil {
 		return fmt.Errorf("selecting instructions for function %s: %w", cfg.FunctionName, err)
@@ -308,8 +310,13 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 		if arrayType.Length() > 0 {
 			// Fixed-size array
 			if decl.Initializer == nil {
-				// No initializer: allocate VR and get stack address
-				vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+				if _, ok := ctx.symbolContext[decl.Symbol.Name]; ok {
+					offset := ctx.currentCFG.StackFrame.AddSlot(decl.Symbol, 16)
+					vrVar = ctx.vrAlloc.AllocateOnStack(decl.Symbol.Name, regSize, offset)
+				} else {
+					// No initializer: allocate VR and get stack address
+					vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+				}
 				ctx.symbolToVReg[decl.Symbol] = vrVar
 
 				dataSize := arrayType.DataSize()
@@ -332,18 +339,28 @@ func (ctx *InstructionSelectionContext) selectVariableDecl(decl *zsm.SemVariable
 			}
 		} else {
 			// Dynamic/zero-length array:
-			vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+			if _, ok := ctx.symbolContext[decl.Symbol.Name]; ok {
+				offset := ctx.currentCFG.StackFrame.AddSlot(decl.Symbol, 16)
+				vrVar = ctx.vrAlloc.AllocateOnStack(decl.Symbol.Name, regSize, offset)
+			} else {
+				vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, Z80Registers16)
+			}
 			ctx.symbolToVReg[decl.Symbol] = vrVar
 		}
 	} else {
 		// Non-array types: allocate as regular VR
-		var regs []*Register
-		if regSize == 8 {
-			regs = Z80Registers8
+		if _, ok := ctx.symbolContext[decl.Symbol.Name]; ok {
+			offset := ctx.currentCFG.StackFrame.AddSlot(decl.Symbol, decl.TypeInfo.Size())
+			vrVar = ctx.vrAlloc.AllocateOnStack(decl.Symbol.Name, regSize, offset)
 		} else {
-			regs = Z80Registers16
+			var regs []*Register
+			if regSize == 8 {
+				regs = Z80Registers8
+			} else {
+				regs = Z80Registers16
+			}
+			vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regs)
 		}
-		vrVar = ctx.vrAlloc.AllocateNamed(decl.Symbol.Name, regs)
 		ctx.symbolToVReg[decl.Symbol] = vrVar
 	}
 
@@ -388,7 +405,22 @@ func (ctx *InstructionSelectionContext) selectAssignment(assign *zsm.SemAssignme
 		return err
 	}
 
-	// Generate move instruction
+	if assign.TargetIndex != nil {
+		// Subscript l-value: store value into arr[index]
+		vrIndex, err := ctx.selectExpression(assign.TargetIndex)
+		if err != nil {
+			return err
+		}
+		arrayType, ok := assign.Target.Type.(*zsm.ArrayType)
+		if !ok {
+			return fmt.Errorf("subscript assignment on non-array target: %s", assign.Target.Name)
+		}
+		elementSize := arrayType.ElementType().Size()
+		regSize := uint8(arrayType.ElementType().Size() * 8)
+		return ctx.selector.SelectStoreIndexed(vrTarget, vrIndex, vrValue, elementSize, regSize)
+	}
+
+	// Plain identifier l-value: move value into target VR
 	regSize := uint8(assign.Target.Type.Size() * 8)
 	err = ctx.selector.SelectMove(vrTarget, vrValue, regSize)
 	return err

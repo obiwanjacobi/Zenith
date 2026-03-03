@@ -163,49 +163,56 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
 	}
 
+	// per function processing
 	for _, funcCFG := range result.FunctionCFGs {
-		symbolContext := make(map[string]*cfg.VirtualRegisterType)
-		vrAlloc := cfg.NewVirtualRegisterAllocator()
-		result.VrAllocators[funcCFG.FunctionName] = vrAlloc
-		selector := cfg.NewInstructionSelectorZ80(vrAlloc, symbolContext)
+		symbolContext := make(map[string]cfg.VirtualRegisterType)
 
-		// Run instruction selection on the CFG (modifies CFG in-place, adds MachineInstructions)
-		err := cfg.SelectInstructions(funcCFG, vrAlloc, selector)
-		if err != nil {
-			result.CodeGenErrors = append(result.CodeGenErrors, err)
-			return result, fmt.Errorf("instruction selection failed: %w", err)
-		}
+		allocationRetryCount := 0
+		allocationSucceeded := false
+		// retry loop for register allocation
+		for ; !allocationSucceeded && allocationRetryCount < 10; allocationRetryCount++ {
+			// clear machine instructions and VR allocations from previous attempt
+			for _, block := range funcCFG.Blocks {
+				block.MachineInstructions = make([]cfg.MachineInstruction, 0)
+			}
 
-		instructions := funcCFG.GetAllInstructions()
-		cfg.MarkUnusedVirtualRegisters(vrAlloc.GetAll(), instructions)
+			vrAlloc := cfg.NewVirtualRegisterAllocator()
+			result.VrAllocators[funcCFG.FunctionName] = vrAlloc
+			selector := cfg.NewInstructionSelectorZ80(vrAlloc)
 
-		// ==========================================================================
-		// Stage 6: Liveness Analysis
-		// ==========================================================================
-		if opts.Verbose {
-			fmt.Println("==> Stage 6: Liveness Analysis")
-		}
+			// Run instruction selection on the CFG (modifies CFG in-place, adds MachineInstructions)
+			err := cfg.SelectInstructions(funcCFG, vrAlloc, selector, symbolContext)
+			if err != nil {
+				result.CodeGenErrors = append(result.CodeGenErrors, err)
+				return result, fmt.Errorf("instruction selection failed: %w", err)
+			}
 
-		for fnName, fnCFG := range result.FunctionCFGs {
-			liveness := cfg.ComputeLiveness(fnCFG)
-			result.LivenessInfo[fnName] = liveness
+			instructions := funcCFG.GetAllInstructions()
+			cfg.MarkUnusedVirtualRegisters(vrAlloc.GetAll(), instructions)
+
+			// ==========================================================================
+			// Stage 6: Liveness Analysis
+			// ==========================================================================
+			if opts.Verbose {
+				fmt.Println("==> Stage 6: Liveness Analysis")
+			}
+
+			liveness := cfg.ComputeLiveness(funcCFG)
+			result.LivenessInfo[funcCFG.FunctionName] = liveness
 
 			if opts.Verbose {
-				fmt.Printf("  Computed liveness for function '%s'\n", fnName)
+				fmt.Printf("  Computed liveness for function '%s' (%d)\n", funcCFG.FunctionName, allocationRetryCount)
 			}
-		}
 
-		// ==========================================================================
-		// Stage 7: Interference Graph Construction
-		// ==========================================================================
-		if opts.Verbose {
-			fmt.Println("==> Stage 7: Interference Graph Construction")
-		}
+			// ==========================================================================
+			// Stage 7: Interference Graph Construction
+			// ==========================================================================
+			if opts.Verbose {
+				fmt.Println("==> Stage 7: Interference Graph Construction")
+			}
 
-		for fnName, liveness := range result.LivenessInfo {
-			fnCFG := result.FunctionCFGs[fnName]
-			interference := cfg.BuildInterferenceGraph(fnCFG, liveness, vrAlloc.GetAll())
-			result.InterferenceInfo[fnName] = interference
+			interference := cfg.BuildInterferenceGraph(funcCFG, liveness, vrAlloc.GetAll())
+			result.InterferenceInfo[funcCFG.FunctionName] = interference
 
 			if opts.Verbose {
 				nodes := interference.GetNodes()
@@ -214,50 +221,67 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 					edgeCount += interference.GetDegree(node)
 				}
 				edgeCount /= 2 // Each edge counted twice
-				fmt.Printf("  Built interference graph for function '%s' with %d nodes, %d edges\n",
-					fnName, len(nodes), edgeCount)
+				fmt.Printf("  Built interference graph for function '%s' with %d nodes, %d edges (%d)\n",
+					funcCFG.FunctionName, len(nodes), edgeCount, allocationRetryCount)
 			}
-		}
 
-		// ==========================================================================
-		// Stage 8: Register Allocation
-		// ==========================================================================
-		if opts.Verbose {
-			fmt.Println("==> Stage 8: Register Allocation")
-		}
+			// ==========================================================================
+			// Stage 8: Register Allocation
+			// ==========================================================================
+			if opts.Verbose {
+				fmt.Println("==> Stage 8: Register Allocation")
+			}
 
-		// Create register allocator with target registers
-		allocator := cfg.NewRegisterAllocator(selector.GetTargetRegisters())
+			// Create register allocator with target registers
+			allocator := cfg.NewRegisterAllocator(selector.GetTargetRegisters())
 
-		for fnName, fnCFG := range result.FunctionCFGs {
-			interference := result.InterferenceInfo[fnName]
+			//interference := result.InterferenceInfo[funcCFG.FunctionName]
 
 			// Run register allocation (assigns PhysicalReg to each VirtualRegister)
 			// Parent-child VR allocations are kept in sync automatically during allocation
-			allocationSucceeded := allocator.Allocate(fnCFG, interference)
+			allocationSucceeded, spilled := allocator.Allocate(funcCFG, interference)
+
+			if allocationSucceeded {
+				if opts.Verbose {
+					allocated := 0
+					spilled := 0
+					for _, vr := range vrAlloc.GetAll() {
+						switch vr.Type {
+						case cfg.AllocatedRegister:
+							allocated++
+						case cfg.StackLocation:
+							spilled++
+						}
+					}
+					fmt.Printf("  Allocated %d registers, spilled %d for function '%s' (%d)\n", allocated, spilled, funcCFG.FunctionName, allocationRetryCount)
+				}
+			}
+
+			if spilled != "" {
+				if _, ok := symbolContext[spilled]; ok {
+					return result, fmt.Errorf("    Spilled variable '%s' was not honored by the Instruction Selection. Aborting.\n", spilled)
+				}
+
+				symbolContext[spilled] = cfg.StackLocation
+
+				if opts.Verbose {
+					fmt.Printf("  Spilled variable '%s' to stack for function '%s' (%d)\n", spilled, funcCFG.FunctionName, allocationRetryCount)
+				}
+			}
 
 			// If there are unallocated VRs, run second pass to resolve them
-			if !allocationSucceeded {
-				err := allocator.ResolveUnallocated(fnCFG, interference, selector)
+			if !allocationSucceeded && spilled == "" {
+				err := allocator.ResolveUnallocated(funcCFG, interference, selector)
 				if err != nil {
 					result.CodeGenErrors = append(result.CodeGenErrors, err)
-					return result, fmt.Errorf("failed to resolve unallocated VRs for %s: %w", fnName, err)
+					return result, fmt.Errorf("failed to resolve unallocated VRs for %s: %w", funcCFG.FunctionName, err)
 				}
 			}
+		}
 
-			if opts.Verbose {
-				allocated := 0
-				spilled := 0
-				for _, vr := range vrAlloc.GetAll() {
-					switch vr.Type {
-					case cfg.AllocatedRegister:
-						allocated++
-					case cfg.StackLocation:
-						spilled++
-					}
-				}
-				fmt.Printf("  Allocated %d registers, spilled %d for function '%s'\n", allocated, spilled, fnName)
-			}
+		if !allocationSucceeded {
+			result.CodeGenErrors = append(result.CodeGenErrors, fmt.Errorf("register allocation failed for function '%s' after %d attempts", funcCFG.FunctionName, allocationRetryCount))
+			return result, fmt.Errorf("register allocation failed for function '%s' after %d attempts", funcCFG.FunctionName, allocationRetryCount)
 		}
 	}
 

@@ -90,11 +90,15 @@ type SemBlock struct {
 func (n *SemBlock) ASTNode() parser.ParserNode { return n.astNode }
 func (n *SemBlock) AST() parser.CodeBlock      { return n.astNode }
 
-// SemAssignment represents a variable assignment
+// SemAssignment represents a variable assignment.
+// For plain assignments (x = val), TargetIndex is nil.
+// For subscript l-value assignments (arr[i] = val), TargetIndex holds the
+// processed index expression and Target is the array symbol.
 type SemAssignment struct {
-	Target  *Symbol
-	Value   SemExpression
-	astNode parser.VariableAssignment
+	Target      *Symbol
+	TargetIndex SemExpression // non-nil when l-value is a subscript
+	Value       SemExpression
+	astNode     parser.VariableAssignment
 }
 
 func (n *SemAssignment) ASTNode() parser.ParserNode     { return n.astNode }

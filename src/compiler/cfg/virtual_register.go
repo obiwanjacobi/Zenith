@@ -194,7 +194,7 @@ func (vra *VirtualRegisterAllocator) AllocateNamed(name string, allowedSet []*Re
 
 // AllocateOnStack creates a virtual register backed by a stack location
 // This is used for parameters and locals that have a permanent stack home
-func (vra *VirtualRegisterAllocator) AllocateOnStack(name string, size uint8, stackOffset uint8) *VirtualRegister {
+func (vra *VirtualRegisterAllocator) AllocateOnStack(name string, size uint8, stackOffset uint16) *VirtualRegister {
 	vr := &VirtualRegister{
 		ID:    vra.nextID,
 		Size:  size,

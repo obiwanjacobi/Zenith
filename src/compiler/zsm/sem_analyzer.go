@@ -435,11 +435,38 @@ func (sa *SemanticAnalyzer) processStatement(node parser.ParserNode) SemStatemen
 }
 
 func (sa *SemanticAnalyzer) processAssignment(node parser.VariableAssignment) *SemAssignment {
-	name := node.Identifier().Text()
-	symbol := sa.currentScope.Lookup(name)
-	if symbol == nil {
-		sa.error(fmt.Sprintf("undefined variable '%s'", name), node)
-		return nil
+	// The l-value is the first child of the assignment node.
+	// It may be a plain identifier or a subscript expression (arr[i]).
+	lvalue := node.Children()[0]
+
+	var targetSymbol *Symbol
+	var targetIndex SemExpression
+
+	if subscriptNode, ok := lvalue.(parser.ExpressionSubscript); ok {
+		// Subscript l-value: resolve the array symbol and process the index.
+		arrayIdent, ok := subscriptNode.Array().(parser.ExpressionIdentifier)
+		if !ok {
+			sa.error("subscript l-value must be an identifier", node)
+			return nil
+		}
+		name := arrayIdent.Identifier().Text()
+		targetSymbol = sa.currentScope.Lookup(name)
+		if targetSymbol == nil {
+			sa.error(fmt.Sprintf("undefined variable '%s'", name), node)
+			return nil
+		}
+		targetIndex = sa.processExpression(subscriptNode.Index())
+		if targetIndex == nil {
+			return nil
+		}
+	} else {
+		// Plain identifier l-value.
+		name := node.Identifier().Text()
+		targetSymbol = sa.currentScope.Lookup(name)
+		if targetSymbol == nil {
+			sa.error(fmt.Sprintf("undefined variable '%s'", name), node)
+			return nil
+		}
 	}
 
 	value := sa.processExpression(node.Expression())
@@ -450,9 +477,10 @@ func (sa *SemanticAnalyzer) processAssignment(node parser.VariableAssignment) *S
 	// TODO: Check type compatibility
 
 	return &SemAssignment{
-		Target:  symbol,
-		Value:   value,
-		astNode: node,
+		Target:      targetSymbol,
+		TargetIndex: targetIndex,
+		Value:       value,
+		astNode:     node,
 	}
 }
 

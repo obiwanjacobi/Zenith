@@ -217,6 +217,11 @@ type InstructionSelector interface {
 	// SelectStore generates instructions to store to memory
 	SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size uint8) (*VirtualRegister, error)
 
+	// SelectStoreIndexed generates instructions to store to memory with a dynamic index
+	// address is the base address, index is the index VR, value is the value to store,
+	// elementSize is bytes per element, size is the store width in bits.
+	SelectStoreIndexed(address *VirtualRegister, index *VirtualRegister, value *VirtualRegister, elementSize uint16, size uint8) error
+
 	// Move register value -of size- from source to target
 	SelectMove(target *VirtualRegister, source *VirtualRegister, size uint8) error
 

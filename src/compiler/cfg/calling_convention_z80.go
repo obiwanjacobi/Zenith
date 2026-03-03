@@ -93,7 +93,7 @@ func NewCallingConventionZ80() CallingConvention {
 	}
 }
 
-func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize uint8) (register *Register, stackOffset uint8, useStack bool) {
+func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize uint8) (register *Register, stackOffset uint16, useStack bool) {
 	switch paramSize {
 	case 8:
 		// 8-bit parameters
@@ -105,7 +105,7 @@ func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize u
 		default:
 			// Stack parameters start after return address (2 bytes)
 			// Stack grows downward, params accessed as [SP + offset]
-			return nil, uint8(2 + (paramIndex-2)*1), true
+			return nil, uint16(2 + (paramIndex-2)*1), true
 		}
 	case 16:
 		// 16-bit parameters
@@ -117,7 +117,7 @@ func (cc *callingConventionZ80) GetParameterLocation(paramIndex int, paramSize u
 		default:
 			// Stack parameters start after return address (2 bytes)
 			// Stack grows downward, params accessed as [SP + offset]
-			return nil, uint8(2 + (paramIndex-2)*2), true
+			return nil, uint16(2 + (paramIndex-2)*2), true
 		}
 	}
 

@@ -7,9 +7,8 @@ import (
 
 // instructionSelectorZ80 implements InstructionSelector for the Z80
 type instructionSelectorZ80 struct {
-	vrAlloc       *VirtualRegisterAllocator
-	symbolContext map[string]*VirtualRegisterType
-	currentBlock  *BasicBlock // Current block for instruction emission
+	vrAlloc      *VirtualRegisterAllocator
+	currentBlock *BasicBlock // Current block for instruction emission
 }
 
 var Z80RegA = []*Register{&RegA}
@@ -25,10 +24,9 @@ var Z80RegBC = []*Register{&RegBC}
 var Z80RegSP = []*Register{&RegSP}
 
 // NewInstructionSelectorZ80 creates a new InstructionSelector for the Z80
-func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator, symbolContext map[string]*VirtualRegisterType) InstructionSelector {
+func NewInstructionSelectorZ80(vrAlloc *VirtualRegisterAllocator) InstructionSelector {
 	return &instructionSelectorZ80{
-		vrAlloc:       vrAlloc,
-		symbolContext: symbolContext,
+		vrAlloc: vrAlloc,
 	}
 }
 
@@ -701,6 +699,50 @@ func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *Vi
 	return vrHL, nil
 }
 
+// SelectStoreIndexed generates instructions to store to memory with a dynamic index
+func (z *instructionSelectorZ80) SelectStoreIndexed(address *VirtualRegister, index *VirtualRegister, value *VirtualRegister, elementSize uint16, size uint8) error {
+	if address.Type == StackAddress {
+		var err error
+		address, err = z.SelectLoadStackAddress(uint16(address.Value))
+		if err != nil {
+			return err
+		}
+	}
+
+	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
+
+	if index.Type == ImmediateValue {
+		offset := uint16(index.Value) * elementSize
+		z.emitAddOffsetToHL(vrHL, offset)
+	} else {
+		vrIndex := z.emitLoadIntoReg16(index, Z80RegistersPP)
+		for ; elementSize > 0; elementSize-- {
+			z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrIndex))
+		}
+	}
+
+	var opcode Z80Opcode
+	if value.Type == ImmediateValue {
+		opcode = Z80_LD_HL_N
+	} else {
+		opcode = Z80_LD_HL_R
+	}
+
+	switch size {
+	case 8:
+		z.emit(newInstruction(opcode, vrHL, value))
+	case 16:
+		var vrLo, vrHi *VirtualRegister
+		if value.Type == ImmediateValue {
+			vrLo, vrHi = z.splitImmediateValue16(value)
+		} else {
+			vrLo, vrHi = z.vrAlloc.AllocateComponents(value)
+		}
+		z.emitStore16AtHL(vrHL, vrLo, vrHi, opcode)
+	}
+	return nil
+}
+
 // SelectMove moves a value from source to target
 // Handles size conversions when necessary (e.g., 16-bit to 8-bit extracts low byte)
 func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *VirtualRegister, size uint8) error {
@@ -741,8 +783,8 @@ func (z *instructionSelectorZ80) SelectMove(target *VirtualRegister, source *Vir
 			z.emit(newInstruction(Z80_LD_R_R, vrTargetHi, vrSourceHi))
 
 		}
-	// case StackLocation:
-	// 	z.emitStoreOnStack(source, target)
+	case StackLocation:
+		z.emitStoreOnStack(source, target)
 	default:
 		return fmt.Errorf("unsupported target register type for move: %v", target.Type)
 	}

@@ -41,13 +41,13 @@ type testContext struct {
 
 // newTestContext creates a new test context with all necessary components initialized
 func newTestContext() *testContext {
-	symbolContext := make(map[string]*VirtualRegisterType)
+	symbolContext := make(map[string]VirtualRegisterType)
 	block := newTestBlock()
 	vrAlloc := NewVirtualRegisterAllocator()
 	selector := NewInstructionSelectorZ80(vrAlloc, symbolContext)
 	selector.SetCurrentBlock(block)
 
-	ctx := NewInstructionSelectionContext(selector, vrAlloc)
+	ctx := NewInstructionSelectionContext(selector, vrAlloc, symbolContext)
 	ctx.currentBlock = block
 	ctx.currentCFG = &CFG{StackFrame: NewStackFrame()}
 

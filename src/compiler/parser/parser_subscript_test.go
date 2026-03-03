@@ -104,3 +104,49 @@ func Test_ParseComplexSubscript(t *testing.T) {
 	}
 	assert.Equal(t, 0, len(cu.Errors()))
 }
+
+// Test_ParseSubscriptAsLValue_Structure verifies that a subscript expression
+// used as an l-value in an assignment produces the correct AST structure:
+// the first child of VariableAssignment must be an ExpressionSubscript,
+// not merely an ExpressionIdentifier (i.e. the index must not be dropped).
+func Test_ParseSubscriptAsLValue_Structure(t *testing.T) {
+	code := `test: () {
+		arr[i] = 5
+	}`
+	cu := parseCode(t, "Test_ParseSubscriptAsLValue_Structure", code)
+	assert.Equal(t, 0, len(cu.Errors()))
+
+	funcDecl, ok := cu.Declarations()[0].(FunctionDeclaration)
+	assert.True(t, ok, "expected a function declaration")
+
+	stmts := funcDecl.Body().Statements()
+	assert.Equal(t, 1, len(stmts), "expected one statement")
+
+	assign, ok := stmts[0].(VariableAssignment)
+	assert.True(t, ok, "expected VariableAssignment")
+
+	// The l-value (first child) must be an ExpressionSubscript, not just an identifier.
+	children := assign.Children()
+	assert.GreaterOrEqual(t, len(children), 2, "expected at least two children (lvalue, rvalue)")
+	assert.NotEqual(t, children[0], children[1])
+
+	subscript, ok := children[0].(ExpressionSubscript)
+	assert.True(t, ok, "l-value should be ExpressionSubscript, not %T", children[0])
+
+	if ok {
+		arrayExpr, ok := subscript.Array().(ExpressionIdentifier)
+		assert.True(t, ok, "array part of subscript should be ExpressionIdentifier")
+		if ok {
+			assert.Equal(t, "arr", arrayExpr.Identifier().Text(), "array name should be 'arr'")
+		}
+
+		indexExpr, ok := subscript.Index().(ExpressionIdentifier)
+		assert.True(t, ok, "index part of subscript should be ExpressionIdentifier")
+		if ok {
+			assert.Equal(t, "i", indexExpr.Identifier().Text(), "index name should be 'i'")
+		}
+	}
+
+	// The r-value must be present.
+	assert.NotNil(t, assign.Expression(), "r-value expression should not be nil")
+}

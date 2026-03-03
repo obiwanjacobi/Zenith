@@ -33,11 +33,17 @@ const (
 	OperandFirst                               // Prioritize operand VRs (original strategy)
 )
 
-// Allocate performs graph coloring register allocation on a CFG
-// Assigns physical registers to VirtualRegisters based on interference graph
-// Uses iterative allocation with different strategies if initial allocation fails
-// Returns true if a second pass (ResolveUnallocated) is needed for remaining unallocated VRs
-func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) bool {
+// Allocate performs graph coloring register allocation on a CFG.
+// Assigns physical registers to VirtualRegisters based on the interference graph.
+// Uses iterative allocation with different strategies if the initial attempt fails.
+//
+// Return values:
+//   - true, nil  — all VRs allocated; done.
+//   - false, nil — all critical VRs allocated but unconstrained operands remain; call ResolveUnallocated.
+//   - false, map — allocation failed; the map contains exactly one entry: the named variable (symbol)
+//     with the highest interference degree that should be demoted to StackLocation in the caller's
+//     symbol context before re-running instruction selection + allocation.
+func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) (bool, string) {
 	// Gather all VRs from CFG, separating candidates from others
 	// Also identify which are results vs operands, and which are constrained
 	candidateVRs := make(map[int]*VirtualRegister)
@@ -76,7 +82,7 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) bool {
 	}
 
 	if len(candidateVRs) == 0 {
-		return true // Nothing to allocate
+		return true, "" // Nothing to allocate
 	}
 
 	// Try allocation with different strategies until one succeeds
@@ -143,17 +149,34 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) bool {
 			// Check if any unconstrained operands remain unallocated
 			for _, vr := range candidateVRs {
 				if vr.Type == CandidateRegister {
-					return false // Second pass needed
+					return false, "" // Second pass needed
 				}
 			}
-			return true // All VRs allocated
+			return true, "" // All VRs allocated
 		}
 	}
 
-	// All strategies failed to allocate critical VRs
-	// This shouldn't happen with the current iterative strategy approach
-	// Return false to attempt second pass (ResolveUnallocated will handle the issue)
-	return false
+	// All strategies failed to allocate critical VRs.
+	// Find the named (source-variable) CandidateRegister VR with the highest interference
+	// degree — that symbol is causing the most register pressure and should be demoted
+	// to StackLocation in the caller's symbol context before the next IS iteration.
+	var bestVR *VirtualRegister
+	bestDegree := -1
+	for _, vr := range candidateVRs {
+		if vr.Name == "" {
+			continue // anonymous temporary — not a spillable symbol
+		}
+		if deg := ig.GetDegree(vr.ID); deg > bestDegree {
+			bestDegree = deg
+			bestVR = vr
+		}
+	}
+	if bestVR != nil {
+		return false, bestVR.Name
+	}
+	// No named VR found — all unallocated VRs are anonymous temporaries.
+	// Fall through to ResolveUnallocated to handle them via move insertion.
+	return false, ""
 }
 
 // ResolveUnallocated resolves unallocated operand VRs by direct allocation with move insertion
