@@ -239,23 +239,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 			// Run register allocation (assigns PhysicalReg to each VirtualRegister)
 			// Parent-child VR allocations are kept in sync automatically during allocation
-			allocationSucceeded, spilled := allocator.Allocate(funcCFG, interference)
-
-			if allocationSucceeded {
-				if opts.Verbose {
-					allocated := 0
-					spilled := 0
-					for _, vr := range vrAlloc.GetAll() {
-						switch vr.Type {
-						case cfg.AllocatedRegister:
-							allocated++
-						case cfg.StackLocation:
-							spilled++
-						}
-					}
-					fmt.Printf("  Allocated %d registers, spilled %d for function '%s' (%d)\n", allocated, spilled, funcCFG.FunctionName, allocationRetryCount)
-				}
-			}
+			allocationSucceeded, spilled := allocator.Allocate(funcCFG, interference, vrAlloc.GetAll())
 
 			if spilled != "" {
 				if _, ok := symbolContext[spilled]; ok {
@@ -271,10 +255,27 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 			// If there are unallocated VRs, run second pass to resolve them
 			if !allocationSucceeded && spilled == "" {
-				err := allocator.ResolveUnallocated(funcCFG, interference, selector)
+				var err error
+				allocationSucceeded, err = allocator.ResolveUnallocated(funcCFG, interference, selector)
 				if err != nil {
 					result.CodeGenErrors = append(result.CodeGenErrors, err)
 					return result, fmt.Errorf("failed to resolve unallocated VRs for %s: %w", funcCFG.FunctionName, err)
+				}
+			}
+
+			if allocationSucceeded {
+				if opts.Verbose {
+					allocated := 0
+					spilled := 0
+					for _, vr := range vrAlloc.GetAll() {
+						switch vr.Type {
+						case cfg.AllocatedRegister:
+							allocated++
+						case cfg.StackLocation:
+							spilled++
+						}
+					}
+					fmt.Printf("  Allocated %d registers, spilled %d for function '%s' (%d)\n", allocated, spilled, funcCFG.FunctionName, allocationRetryCount)
 				}
 			}
 		}

@@ -3,7 +3,7 @@
 Guidelines for generating code in the Zenith compiler project.
 
 Rule #1: don't generate code when not asked to.
-
+Rule #2: after forming a plan for a fix or new feature, ask the user to confirm before generating any code.
 ---
 
 ## Project overview
@@ -73,6 +73,10 @@ Operator precedence (high → low): **Arithmetic → Bitwise → Comparison → 
 ### Equality and comparison operators
 
 `=` is *equality* (not assignment); assignment uses `:=` or the statement form. `<>` is not-equal. Comparison results are `bit` (boolean), consumed directly in `BranchMode` — do not materialise as a byte unless the result is stored.
+
+### Virtual Registers (VRs)
+
+Because some CPU targets have compound registers the `VirtualRegister` maintains references to its "parent" VR and "component" VRs. For example, a 16-bit VR that must be allocated to `HL` will have two 8-bit component VRs (for the high and low bytes) linked to it. The instruction selector must maintain these links correctly when creating new VRs for compound values.
 
 ---
 

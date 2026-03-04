@@ -43,7 +43,7 @@ const (
 //   - false, map — allocation failed; the map contains exactly one entry: the named variable (symbol)
 //     with the highest interference degree that should be demoted to StackLocation in the caller's
 //     symbol context before re-running instruction selection + allocation.
-func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) (bool, string) {
+func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph, allVRs []*VirtualRegister) (bool, string) {
 	// Gather all VRs from CFG, separating candidates from others
 	// Also identify which are results vs operands, and which are constrained
 	candidateVRs := make(map[int]*VirtualRegister)
@@ -51,32 +51,37 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) (bool, st
 	constrainedVRs := make(map[int]bool)
 	seen := make(map[int]bool)
 
+	// addCandidate registers a CandidateRegister VR and, if it is a component, also
+	// registers its named 16-bit parent. This ensures that named 16-bit variables (e.g.
+	// loop indices) that are only referenced in machine instructions through their
+	// component VRs (H/L halves) are still visible to the spill heuristic.
+	var addCandidate func(vr *VirtualRegister, isResult bool)
+	addCandidate = func(vr *VirtualRegister, isResult bool) {
+		if vr == nil || seen[vr.ID] {
+			return
+		}
+		seen[vr.ID] = true
+		if vr.Type == CandidateRegister {
+			candidateVRs[vr.ID] = vr
+			if isResult {
+				resultVRs[vr.ID] = true
+			}
+			if len(vr.AllowedSet) > 0 {
+				constrainedVRs[vr.ID] = true
+			}
+		}
+		// If this VR is a component (e.g. the L half of HL), also surface its named
+		// 16-bit parent so the spill heuristic can consider it as a spill candidate.
+		if p := vr.ParentVR; p != nil && p.Type == CandidateRegister && p.Name != "" {
+			addCandidate(p, false)
+		}
+	}
+
 	for _, block := range cfg.Blocks {
 		for _, instr := range block.MachineInstructions {
-			// Check result
-			if result := instr.GetResult(); result != nil && !seen[result.ID] {
-				seen[result.ID] = true
-				if result.Type == CandidateRegister {
-					candidateVRs[result.ID] = result
-					resultVRs[result.ID] = true
-					if len(result.AllowedSet) > 0 {
-						constrainedVRs[result.ID] = true
-					}
-				}
-			}
-
-			// Check operands
+			addCandidate(instr.GetResult(), true)
 			for _, op := range instr.GetOperands() {
-				if op != nil && !seen[op.ID] {
-					seen[op.ID] = true
-					if op.Type == CandidateRegister {
-						candidateVRs[op.ID] = op
-						// resultVRs[op.ID] remains false (default)
-						if len(op.AllowedSet) > 0 {
-							constrainedVRs[op.ID] = true
-						}
-					}
-				}
+				addCandidate(op, false)
 			}
 		}
 	}
@@ -145,42 +150,84 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) (bool, st
 		}
 
 		if allResultsAllocated && allConstrainedAllocated {
-			// Success! All critical VRs allocated
-			// Check if any unconstrained operands remain unallocated
+			// All critical VRs allocated. Check if any unconstrained operands remain.
+			hasUnallocated := false
 			for _, vr := range candidateVRs {
 				if vr.Type == CandidateRegister {
-					return false, "" // Second pass needed
+					hasUnallocated = true
+					break
 				}
 			}
-			return true, "" // All VRs allocated
+			if !hasUnallocated {
+				return true, "" // All VRs allocated — fully done
+			}
+			// Anonymous temps remain. Try spilling a named symbol to free a register
+			// before falling back to ResolveUnallocated.
+			if name := ra.findSpillCandidate(candidateVRs, allVRs, ig); name != "" {
+				return false, name
+			}
+			return false, "" // Hand off to ResolveUnallocated
 		}
 	}
 
-	// All strategies failed to allocate critical VRs.
-	// Find the named (source-variable) CandidateRegister VR with the highest interference
-	// degree — that symbol is causing the most register pressure and should be demoted
-	// to StackLocation in the caller's symbol context before the next IS iteration.
-	var bestVR *VirtualRegister
-	bestDegree := -1
-	for _, vr := range candidateVRs {
-		if vr.Name == "" {
-			continue // anonymous temporary — not a spillable symbol
-		}
-		if deg := ig.GetDegree(vr.ID); deg > bestDegree {
-			bestDegree = deg
-			bestVR = vr
-		}
-	}
-	if bestVR != nil {
-		return false, bestVR.Name
-	}
-	// No named VR found — all unallocated VRs are anonymous temporaries.
-	// Fall through to ResolveUnallocated to handle them via move insertion.
-	return false, ""
+	// All strategies failed to allocate critical VRs — must spill a named symbol.
+	return false, ra.findSpillCandidate(candidateVRs, allVRs, ig)
 }
 
-// ResolveUnallocated resolves unallocated operand VRs by direct allocation with move insertion
-// This is the second-chance allocation pass that runs after the main Allocate pass
+// findSpillCandidate returns the name of the highest-pressure named symbol that
+// should be demoted to StackLocation on the next IS iteration.
+//
+// It searches two sources in priority order (highest interference degree wins):
+//  1. Named CandidateRegister VRs in candidateVRs — symbols that appear directly
+//     in machine instructions but couldn't be allocated.
+//  2. Named Unused VRs in allVRs that have ComponentVRs — 16-bit source variables
+//     referenced only through 8-bit component VRs (no direct machine instruction
+//     reference). Their degree is the max of their components' degrees.
+//
+// Returns "" when no named spillable symbol exists (only anonymous temps remain).
+func (ra *RegisterAllocator) findSpillCandidate(candidateVRs map[int]*VirtualRegister, allVRs []*VirtualRegister, ig *InterferenceGraph) string {
+	var best *VirtualRegister
+	bestDeg := -1
+
+	for _, vr := range candidateVRs {
+		if vr.Name == "" {
+			continue
+		}
+		if d := ig.GetDegree(vr.ID); d > bestDeg {
+			bestDeg = d
+			best = vr
+		}
+	}
+
+	for _, vr := range allVRs {
+		if vr.Name == "" || vr.Type != Unused {
+			continue
+		}
+		surrogate := 0
+		for _, comp := range vr.ComponentVRs {
+			if d := ig.GetDegree(comp.ID); d > surrogate {
+				surrogate = d
+			}
+		}
+		if surrogate > bestDeg {
+			bestDeg = surrogate
+			best = vr
+		}
+	}
+
+	if best != nil {
+		return best.Name
+	}
+	return ""
+}
+
+// ResolveUnallocated resolves unallocated operand VRs by direct allocation with move insertion.
+// This is the second-chance allocation pass that runs after the main Allocate pass.
+//
+// Returns (allResolved bool, err error):
+//   - allResolved=true  — every CandidateRegister VR is now placed (register or stack).
+//   - allResolved=false — at least one result VR remains as CandidateRegister after the pass;
+//     the caller should inspect the remaining VRs or retry.
 //
 // Strategy:
 // 1. For each instruction with unallocated operands:
@@ -191,7 +238,7 @@ func (ra *RegisterAllocator) Allocate(cfg *CFG, ig *InterferenceGraph) (bool, st
 //
 // This respects instruction constraints (AllowedSet) and doesn't modify instruction semantics.
 // It "spills to another register" by inserting moves to satisfy architectural requirements.
-func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph, selector InstructionSelector) error {
+func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph, selector InstructionSelector) (bool, error) {
 	// Use pre-computed instruction liveness from interference graph
 	instrLiveness := ig.InstructionLiveness
 
@@ -228,7 +275,7 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 					// Insert reload from stack before instruction
 					reloadInstrs, err := selector.CreateReload(operand, int8(stackOffset))
 					if err != nil {
-						return fmt.Errorf("failed to create reload for VR %d: %w", operand.ID, err)
+						return false, fmt.Errorf("failed to create reload for VR %d: %w", operand.ID, err)
 					}
 					newInstructions = append(newInstructions, reloadInstrs...)
 					continue
@@ -246,14 +293,14 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 					// Value is in another register - insert move
 					moveInstrs, err := selector.CreateMove(operand, sourceVR)
 					if err != nil {
-						return fmt.Errorf("failed to create move for VR %d: %w", operand.ID, err)
+						return false, fmt.Errorf("failed to create move for VR %d: %w", operand.ID, err)
 					}
 					newInstructions = append(newInstructions, moveInstrs...)
 				} else if sourceVR != nil && sourceVR.Type == StackLocation {
 					// Value is on stack - insert reload
 					reloadInstrs, err := selector.CreateReload(operand, int8(sourceVR.Value))
 					if err != nil {
-						return fmt.Errorf("failed to create reload for VR %d: %w", operand.ID, err)
+						return false, fmt.Errorf("failed to create reload for VR %d: %w", operand.ID, err)
 					}
 					newInstructions = append(newInstructions, reloadInstrs...)
 				}
@@ -268,7 +315,20 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 		block.MachineInstructions = newInstructions
 	}
 
-	return nil
+	// Final scan: check whether any VR (result or operand) is still unplaced.
+	for _, block := range cfg.Blocks {
+		for _, instr := range block.MachineInstructions {
+			if r := instr.GetResult(); r != nil && r.Type == CandidateRegister {
+				return false, nil
+			}
+			for _, op := range instr.GetOperands() {
+				if op != nil && op.Type == CandidateRegister {
+					return false, nil
+				}
+			}
+		}
+	}
+	return true, nil
 }
 
 // pickRegisterFromAllowedSetAtPoint selects a register from AllowedSet that's not used by live VRs
@@ -684,9 +744,12 @@ func MarkUnusedVirtualRegisters(allVRs []*VirtualRegister, instructions []Machin
 		}
 	}
 
-	// check all VRs against used list and mark unused ones
+	// Only demote CandidateRegister VRs that were never referenced.
+	// StackLocation and ImmediateValue VRs are not allocation candidates to
+	// begin with — demoting them to Unused would cause the spill heuristic to
+	// re-suggest already-spilled variables on the next retry.
 	for _, vr := range allVRs {
-		if !usedVRs[vr.ID] {
+		if vr.Type == CandidateRegister && !usedVRs[vr.ID] {
 			vr.Unused()
 		}
 	}

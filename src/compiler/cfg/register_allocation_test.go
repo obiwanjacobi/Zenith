@@ -39,7 +39,7 @@ func TestRegisterAllocation_NoInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	_, _ = allocator.Allocate(cfg, ig)
+	_, _ = allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	// Both should be allocated (they can share the same register)
 	if vr1.Type != AllocatedRegister {
@@ -92,7 +92,7 @@ func TestRegisterAllocation_WithInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	_, _ = allocator.Allocate(cfg, ig)
+	_, _ = allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	// All should be allocated (Z80 has enough registers for 3 VRs)
 	if vr1.Type != AllocatedRegister || vr2.Type != AllocatedRegister || vr3.Type != AllocatedRegister {
@@ -137,7 +137,7 @@ func TestRegisterAllocation_ConstrainedRegister(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	needSecondPass, _ := allocator.Allocate(cfg, ig)
+	needSecondPass, _ := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	if needSecondPass {
 	}
@@ -190,7 +190,7 @@ func TestRegisterAllocation_MultipleInterference(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	needSecondPass, _ := allocator.Allocate(cfg, ig)
+	needSecondPass, _ := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	if needSecondPass {
 	}
@@ -286,7 +286,7 @@ func TestRegisterAllocation_Loop(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	_, _ = allocator.Allocate(cfg, ig)
+	_, _ = allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	// All three should be allocated (Z80 has enough registers)
 	if vr1.Type != AllocatedRegister || vr2.Type != AllocatedRegister || vr3.Type != AllocatedRegister {
@@ -336,7 +336,7 @@ func TestRegisterAllocation_16Bit(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	needSecondPass, _ := allocator.Allocate(cfg, ig)
+	needSecondPass, _ := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	if needSecondPass {
 	}
@@ -388,7 +388,7 @@ func TestRegisterAllocation_SkipsNonCandidates(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	_, _ = allocator.Allocate(cfg, ig)
+	_, _ = allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	// vr1 should be allocated
 	if vr1.Type != AllocatedRegister {
@@ -477,7 +477,7 @@ func TestRegisterAllocation_Branching(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, vrAlloc.GetAll())
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	needSecondPass, _ := allocator.Allocate(cfg, ig)
+	needSecondPass, _ := allocator.Allocate(cfg, ig, vrAlloc.GetAll())
 
 	if needSecondPass {
 	}
@@ -513,7 +513,7 @@ func TestRegisterAllocation_EmptyCFG(t *testing.T) {
 	ig := BuildInterferenceGraph(cfg, liveness, []*VirtualRegister{})
 
 	allocator := NewRegisterAllocator(Z80Registers)
-	needSecondPass, _ := allocator.Allocate(cfg, ig)
+	needSecondPass, _ := allocator.Allocate(cfg, ig, []*VirtualRegister{})
 
 	if needSecondPass {
 	}

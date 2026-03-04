@@ -260,6 +260,28 @@ func BuildInterferenceGraph(cfg *CFG, liveness *LivenessInfo, allVRs []*VirtualR
 		}
 	}
 
+	// Post-pass: propagate component VR interference edges to their 16-bit parent VRs.
+	// On Z80 there is no 16-bit LD, so a 16-bit variable (e.g. 'l', 'j') is always
+	// referenced in machine instructions only through its two 8-bit component VRs.
+	// Those components therefore accumulate all the real interference edges, while the
+	// parent has degree zero and is invisible to the spill heuristic.
+	// Giving the parent the union of its children's edges fixes that: the parent now
+	// competes for the same register space and gets a realistic pressure ranking.
+	for _, vr := range allVRs {
+		if len(vr.ComponentVRs) == 0 {
+			continue
+		}
+		for _, comp := range vr.ComponentVRs {
+			for _, neighborID := range ig.GetNeighbors(comp.ID) {
+				if neighborVR, exists := vrMap[neighborID]; exists {
+					ig.AddEdgeWithVRs(vr, neighborVR)
+				} else {
+					ig.AddEdge(vr.ID, neighborID)
+				}
+			}
+		}
+	}
+
 	return ig
 }
 

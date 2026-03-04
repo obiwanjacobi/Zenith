@@ -44,7 +44,7 @@ func newTestContext() *testContext {
 	symbolContext := make(map[string]VirtualRegisterType)
 	block := newTestBlock()
 	vrAlloc := NewVirtualRegisterAllocator()
-	selector := NewInstructionSelectorZ80(vrAlloc, symbolContext)
+	selector := NewInstructionSelectorZ80(vrAlloc)
 	selector.SetCurrentBlock(block)
 
 	ctx := NewInstructionSelectionContext(selector, vrAlloc, symbolContext)
