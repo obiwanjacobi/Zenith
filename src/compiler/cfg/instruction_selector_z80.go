@@ -81,18 +81,21 @@ func (z *instructionSelectorZ80) SelectSubtract(left, right *VirtualRegister) (*
 	vrA := z.vrAlloc.Allocate(Z80RegA)
 	switch size {
 	case 8:
-		result = z.vrAlloc.Allocate(Z80Registers8)
 		// 8-bit subtract: SUB uses A register implicitly
-		z.emit(newInstruction(Z80_LD_R_R, vrA, left))
-		z.emit(newInstruction(Z80_SUB_R, vrA, right))
+		result = z.vrAlloc.Allocate(Z80Registers8)
+		vrLeft := z.emitLoadIntoReg8(left, Z80Registers8)
+		z.emit(newInstruction(Z80_LD_R_R, vrA, vrLeft))
+		vrRight := z.emitLoadIntoReg8(right, Z80Registers8)
+		z.emit(newInstruction(Z80_SUB_R, vrA, vrRight))
 		z.emit(newInstruction(Z80_LD_R_R, result, vrA))
 	case 16:
 		// 16-bit subtract: SBC HL, rr
 		result = z.vrAlloc.Allocate(Z80Registers16)
 		vrHL := z.emitLoadIntoReg16(left, Z80RegHL)
+		vrBCDE := z.emitLoadIntoReg16(right, Z80RegistersPP)
 		// Clear carry flag first (OR A)
 		z.emit(newInstruction(Z80_OR_R, vrA, vrA))
-		z.emit(newInstruction(Z80_SBC_HL_RR, vrHL, right))
+		z.emit(newInstruction(Z80_SBC_HL_RR, vrHL, vrBCDE))
 		// Store result back - decompose into component moves
 		resultLo, resultHi := z.getOrAllocateComponents(result)
 		vrL := z.vrAlloc.Allocate(Z80RegL)
@@ -664,14 +667,6 @@ func (z *instructionSelectorZ80) SelectLoadStackAddress(stackOffset uint16) (*Vi
 
 // SelectStore generates instructions to store to memory
 func (z *instructionSelectorZ80) SelectStore(address *VirtualRegister, value *VirtualRegister, offset uint16, size uint8) (*VirtualRegister, error) {
-	// // Materialize stack addresses
-	// if address.Type == StackAddress {
-	// 	var err error
-	// 	address, err = z.SelectLoadStackAddress(uint16(address.Value))
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
 
 	vrHL := z.emitLoadIntoReg16(address, Z80RegHL)
 	z.emitAddOffsetToHL(vrHL, offset)
@@ -1008,16 +1003,14 @@ func (z *instructionSelectorZ80) emitStore16AtHL(vrHL *VirtualRegister, loVR, hi
 
 func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, targetRegs []*Register) *VirtualRegister {
 	if targetRegs[0].Size != 8 {
-		return nil // Target register must be 8-bit
+		panic(fmt.Sprintf("emitLoadIntoReg8: target register %v is not 8-bit", targetRegs[0].Name))
 	}
 
 	var vrTarget *VirtualRegister
-	if !value.MatchRegisters(targetRegs) {
-		vrTarget = z.vrAlloc.Allocate(targetRegs)
-		if value.Type == ImmediateValue {
-			// Load immediate value into targetReg
-			z.emit(newInstruction(Z80_LD_R_N, vrTarget, value))
-		} else if len(value.AllowedSet) > 0 {
+	switch value.Type {
+	case CandidateRegister, AllocatedRegister:
+		if !value.MatchRegisters(targetRegs) {
+			vrTarget = z.vrAlloc.Allocate(targetRegs)
 			// Handle size mismatch: if source is 16-bit, extract low byte
 			sourceVR := value
 			if value.Size == 16 {
@@ -1026,10 +1019,18 @@ func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, target
 			}
 			// LD targetReg, value
 			z.emit(newInstruction(Z80_LD_R_R, vrTarget, sourceVR))
+			// else - cannot do it => nil
+		} else {
+			vrTarget = value
 		}
-		// else - cannot do it => nil
-	} else {
-		vrTarget = value
+	case ImmediateValue:
+		// Load immediate value into targetReg
+		vrTarget = z.vrAlloc.Allocate(targetRegs)
+		z.emit(newInstruction(Z80_LD_R_N, vrTarget, value))
+	case StackLocation:
+		vrTarget = z.vrAlloc.Allocate(targetRegs)
+		vrStack, _ := z.SelectLoadStackAddress(uint16(value.Value))
+		z.emit(newInstruction(Z80_LD_R_HL, vrTarget, vrStack))
 	}
 	return vrTarget
 }
@@ -1037,25 +1038,16 @@ func (z *instructionSelectorZ80) emitLoadIntoReg8(value *VirtualRegister, target
 // emitLoadIntoReg16 loads a 16-bit value (register or immediate) into the target register
 func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targetRegs []*Register) *VirtualRegister {
 	if targetRegs[0].Size != 16 {
-		return nil // Target register must be 16-bit
+		panic(fmt.Sprintf("emitLoadIntoReg16: target register %v is not 16-bit", targetRegs[0].Name))
 	}
 
 	var vrTarget *VirtualRegister
-	// Check if value is already constrained to exactly the target registers
-	if !value.MatchRegisters(targetRegs) {
-		vrTarget = z.vrAlloc.Allocate(targetRegs)
-		if value.Type == ImmediateValue {
-			// Load immediate value into targetReg
-			// Create instruction with immediate as operand, target as result
-			z.emit(newInstruction(Z80_LD_RR_NN, vrTarget, value))
-		} else if len(value.AllowedSet) > 0 {
+	switch value.Type {
+	case CandidateRegister, AllocatedRegister:
+		// Check if value is already constrained to exactly the target registers
+		if !value.MatchRegisters(targetRegs) {
+			vrTarget = z.vrAlloc.Allocate(targetRegs)
 			// Move 16-bit register by decomposing into component 8-bit moves.
-			// The liveness analysis will track that using component registers
-			// marks the parent VR as used via Register.Composition relationships.
-			// The parent VR (vrTarget) will be marked as used by MarkUnusedVirtualRegisters
-			// because its components are used.
-
-			// Create linked component VRs for target
 			vrTargetLo, vrTargetHi := z.getOrAllocateComponents(vrTarget)
 
 			// LD targetReg[Lo], value[Lo]
@@ -1070,19 +1062,38 @@ func (z *instructionSelectorZ80) emitLoadIntoReg16(value *VirtualRegister, targe
 				vrZero := z.vrAlloc.AllocateImmediate(0, 8)
 				z.emit(newInstruction(Z80_LD_R_N, vrTargetHi, vrZero))
 			}
+		} else {
+			vrTarget = value
 		}
-		// else - cannot do it => nil
-	} else {
-		vrTarget = value
+	case ImmediateValue:
+		// Load immediate value into targetReg
+		vrTarget = z.vrAlloc.Allocate(targetRegs)
+		z.emit(newInstruction(Z80_LD_RR_NN, vrTarget, value))
+	case StackLocation:
+		vrTarget = z.vrAlloc.Allocate(targetRegs)
+		vrTargetLo, vrTargetHi := z.getOrAllocateComponents(vrTarget)
+		vrStack, _ := z.SelectLoadStackAddress(uint16(value.Value))
+		switch value.Size {
+		case 8:
+			z.emit(newInstruction(Z80_LD_R_HL, vrTargetLo, vrStack))
+			vrZero := z.vrAlloc.AllocateImmediate(0, 8)
+			z.emit(newInstruction(Z80_LD_R_N, vrTargetHi, vrZero))
+		case 16:
+			z.emit(newInstruction(Z80_LD_R_HL, vrTargetLo, vrStack))
+			z.emit(newInstruction(Z80_INC_RR, vrStack, vrStack))
+			z.emit(newInstruction(Z80_LD_R_HL, vrTargetHi, vrStack))
+		}
 	}
 	return vrTarget
 }
 
 func (z *instructionSelectorZ80) emitStoreOnStack(value *VirtualRegister, stackTarget *VirtualRegister) *VirtualRegister {
 
+	// load stack address into HL
 	vrHL := z.vrAlloc.Allocate(Z80RegHL)
+	vrOffset := z.vrAlloc.AllocateImmediate(int32(stackTarget.Value), 16)
+	z.emit(newInstruction(Z80_LD_RR_NN, vrHL, vrOffset))
 	vrSP := z.vrAlloc.Allocate(Z80RegSP)
-	z.emitAddOffsetToHL(vrHL, uint16(stackTarget.Value))
 	z.emit(newInstruction(Z80_ADD_HL_RR, vrHL, vrSP))
 
 	switch value.Size {
@@ -1093,7 +1104,7 @@ func (z *instructionSelectorZ80) emitStoreOnStack(value *VirtualRegister, stackT
 		case CandidateRegister:
 			z.emit(newInstruction(Z80_LD_HL_R, vrHL, value))
 		default:
-			return nil // unsupported value type
+			panic(fmt.Sprintf("emitStoreOnStack: unsupported value type for 8-bit store: %v", value.Type))
 		}
 	case 16:
 		switch value.Type {
@@ -1104,10 +1115,10 @@ func (z *instructionSelectorZ80) emitStoreOnStack(value *VirtualRegister, stackT
 			loVR, hiVR := z.vrAlloc.AllocateComponents(value)
 			z.emitStore16AtHL(vrHL, loVR, hiVR, Z80_LD_HL_R)
 		default:
-			return nil // unsupported value type
+			panic(fmt.Sprintf("emitStoreOnStack: unsupported value type for 16-bit store: %v", value.Type))
 		}
 	default:
-		return nil // unsupported size
+		panic(fmt.Sprintf("emitStoreOnStack: unsupported size: %d", value.Size))
 	}
 
 	return vrHL

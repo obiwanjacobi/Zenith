@@ -242,7 +242,7 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 	// Use pre-computed instruction liveness from interference graph
 	instrLiveness := ig.InstructionLiveness
 
-	for blockID, block := range cfg.Blocks {
+	for _, block := range cfg.Blocks {
 		newInstructions := make([]MachineInstruction, 0, len(block.MachineInstructions))
 
 		for instrIdx, instr := range block.MachineInstructions {
@@ -259,11 +259,13 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 					continue
 				}
 
-				// Unallocated operand - needs resolution
+				// Unallocated operand - needs resolution.
 
-				// Pick a register from AllowedSet - these are the ONLY valid registers for this operand
-				// The instruction selector already determined these constraints
-				liveAtInstr := instrLiveness[blockID][instrIdx]
+				// Pick a register from AllowedSet - these are the ONLY valid registers for this operand.
+				// Use block.ID (not the slice index) to look up per-instruction liveness: the liveness
+				// map is keyed by BasicBlock.ID, which is not necessarily equal to the block's position
+				// in cfg.Blocks.
+				liveAtInstr := instrLiveness[block.ID][instrIdx]
 				targetReg := ra.pickRegisterFromAllowedSetAtPoint(operand, liveAtInstr, cfg)
 				if targetReg == nil {
 					// No register from AllowedSet is available - must spill to stack
@@ -281,31 +283,49 @@ func (ra *RegisterAllocator) ResolveUnallocated(cfg *CFG, ig *InterferenceGraph,
 					continue
 				}
 
-				// Allocate operand to the target register from AllowedSet
+				// Snapshot the current location of the value BEFORE mutating the VR.
+				// In the non-SSA model the operand VR and its definition-site VR are the same
+				// pointer, so calling Assign first would destroy the source information.
+				sourceVR := ra.findValueSource(cfg, operand.ID)
+				var prevPhysReg *Register
+				var prevType VirtualRegisterType
+				var prevStackOffset int32
+				if sourceVR != nil {
+					prevType = sourceVR.Type
+					prevPhysReg = sourceVR.PhysicalReg
+					prevStackOffset = sourceVR.Value
+				}
+
+				// Allocate the operand to the target register.
+				// Because VRs are shared pointers in the non-SSA model, this single assignment
+				// propagates to every instruction that references the same VR — no additional
+				// move is needed just to "place" the value.
 				operand.Assign(targetReg)
-				// Immediately sync parent-child allocations to keep data current
+				// Immediately sync parent-child allocations to keep data current.
 				syncParentChildAllocations(operand)
 
-				// Now find where this value is currently located
-				// If the operand VR was defined as a result elsewhere, find that definition
-				sourceVR := ra.findValueSource(cfg, operand.ID)
-				if sourceVR != nil && sourceVR.Type == AllocatedRegister {
-					// Value is in another register - insert move
-					moveInstrs, err := selector.CreateMove(operand, sourceVR)
+				// A move IS needed only when the value was previously held in a *different*
+				// physical register (i.e. an architectural constraint at this use site conflicts
+				// with the register the primary pass assigned elsewhere).
+				if prevType == AllocatedRegister && prevPhysReg != nil && prevPhysReg != targetReg {
+					srcSnapshot := &VirtualRegister{
+						ID:          operand.ID,
+						Size:        operand.Size,
+						Type:        AllocatedRegister,
+						PhysicalReg: prevPhysReg,
+					}
+					moveInstrs, err := selector.CreateMove(operand, srcSnapshot)
 					if err != nil {
 						return false, fmt.Errorf("failed to create move for VR %d: %w", operand.ID, err)
 					}
 					newInstructions = append(newInstructions, moveInstrs...)
-				} else if sourceVR != nil && sourceVR.Type == StackLocation {
-					// Value is on stack - insert reload
-					reloadInstrs, err := selector.CreateReload(operand, int8(sourceVR.Value))
+				} else if prevType == StackLocation {
+					reloadInstrs, err := selector.CreateReload(operand, int8(prevStackOffset))
 					if err != nil {
 						return false, fmt.Errorf("failed to create reload for VR %d: %w", operand.ID, err)
 					}
 					newInstructions = append(newInstructions, reloadInstrs...)
 				}
-				// If sourceVR is nil, the value might be an input parameter or undefined
-				// The instruction selector's CreateMove should handle this case
 			}
 
 			// Append the original instruction (unchanged)

@@ -21,10 +21,16 @@ type machineInstructionZ80 struct {
 
 // newInstruction creates a new Z80 instruction
 func newInstruction(opcode Z80Opcode, result, operand *VirtualRegister) *machineInstructionZ80 {
-	operands := []*VirtualRegister{}
-	if operand != nil {
-		operands = append(operands, operand)
+	if result == nil {
+		panic("newInstruction: result register is nil")
 	}
+	if operand == nil {
+		panic("newInstruction: operand register is nil")
+	}
+
+	operands := []*VirtualRegister{}
+	operands = append(operands, operand)
+
 	return &machineInstructionZ80{
 		opcode:   opcode,
 		result:   result,
