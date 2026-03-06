@@ -76,7 +76,14 @@ Operator precedence (high → low): **Arithmetic → Bitwise → Comparison → 
 
 ### Virtual Registers (VRs)
 
-Because some CPU targets have compound registers the `VirtualRegister` maintains references to its "parent" VR and "component" VRs. For example, a 16-bit VR that must be allocated to `HL` will have two 8-bit component VRs (for the high and low bytes) linked to it. The instruction selector must maintain these links correctly when creating new VRs for compound values.
+VRs are **immutable once assigned** — each expression result allocates a new VR with an `AllowedSet` encoding the Z80 instruction's register requirement. Distinct Go types model each kind of value:
+
+- `TempVR` — an unallocated virtual register with an `AllowedSet` of candidate physical registers.
+- `PhysVR` — a VR that has been assigned a physical register after allocation.
+- `ImmVR` — a compile-time constant (never register-allocated).
+- `StackVR` — a value permanently backed by a stack slot.
+
+Register composition (`HL = H + L`) is a **hardware fact** encoded in the register descriptor (`Register.Composition`). To access a sub-register byte, allocate a new `TempVR` constrained to that sub-register (e.g. `{L}` for the low byte of HL). There are no parent/child pointer fields on VR types.
 
 ---
 
@@ -98,9 +105,17 @@ Because some CPU targets have compound registers the `VirtualRegister` maintains
 
 These principles are inferred from the implementation and must be respected when generating new code.
 
-### Non-SSA VirtualRegister model
+### SSA-style immutable VR model
 
-The compiler does **not** use Static Single Assignment (SSA) form. Each source-level variable maps to exactly one `VirtualRegister` for its entire lifetime (tracked via `InstructionSelectionContext.symbolToVReg`). Reassignments generate an explicit `LD r, r` move into the *existing* VR — they do **not** create a new VR or insert phi (φ) nodes. There are no phi nodes anywhere in the system. Do not introduce phi nodes, value renaming on reassignment, or SSA-style numbering.
+Every expression result allocates a **new** VR. A VR's physical register assignment is **terminal** — once assigned, it is never changed. Concretely:
+
+- Instruction selection never mutates a VR that has already been used as an operand elsewhere.
+- No aliasing: two instructions holding the same VR pointer always agree on its state.
+- Variable reassignments lower to an explicit `LD` copy into a new VR. The peephole pass eliminates any resulting no-op copies.
+
+Explicit copy instructions are emitted at control-flow merge points (if/for join nodes) to unify values arriving from different paths. There are no phi (φ) nodes — copies serve the same purpose without requiring a phi-elimination step.
+
+Source-level variables are tracked via `InstructionSelectionContext.symbolToVReg`, which maps each `Symbol` to its **current** live VR. On reassignment, `symbolToVReg` is updated to point to the new VR; the old VR is left unchanged.
 
 ### Two-level IR inside BasicBlock
 
@@ -122,12 +137,15 @@ All variable reassignments are lowered to explicit `LD r, r` move instructions a
 
 Only arrays and structs receive stack slots (allocated during `allocateFrameSlots`). Scalars live entirely in VRs. The entry and exit `BasicBlock`s are reserved placeholders; prologue and epilogue instructions are only emitted into them *after* instruction selection has determined whether a stack frame is needed at all.
 
-### Constraint-first, two-pass register allocation
+### Constraint propagation + linear scan
 
-Register allocation is graph-colouring (Chaitin-style) over an interference graph derived from liveness analysis. Key points:
-- VRs with a non-empty `AllowedSet` encode Z80 architectural constraints (e.g. `[A]` for arithmetic, `[HL]` for 16-bit results). These are processed first (`ConstrainedFirst` strategy).
-- If any VRs remain unallocated after the coloring pass, a second pass (`ResolveUnallocated`) inserts move instructions at each instruction site to satisfy remaining constraints. This is the expected fallback, not an error.
-- Multiple coloring strategies are tried in sequence (`ConstrainedFirst → ResultFirst → OperandFirst`) before falling back to the second pass.
+Register allocation is a **single-pass linear scan** over the instruction sequence. There is no retry loop, no second fallback pass, and no interference graph.
+
+1. **Constraint propagation (copy coalescing):** Before the scan, walk copy instructions (`LD vrDst, vrSrc`) and propagate constraints — if one side is constrained to a single register and the other is unconstrained, the unconstrained VR inherits the same `AllowedSet`. This pre-colors VRs through copy chains without a separate analysis phase.
+2. **Linear scan:** Walk instructions forward. `TempVR`s with a single-register `AllowedSet` are pre-colored. Unconstrained `TempVR`s are assigned greedily to any available register of the correct size not currently occupied by a live VR.
+3. **Spill:** If no register is available, spill the longest-lived unconstrained `TempVR` to a stack slot and insert a reload before its next use.
+
+Compound register topology is respected automatically: assigning a 16-bit VR to `HL` marks both `H` and `L` as occupied, using `Register.Composition` from the register descriptor. No per-VR tracking is needed.
 
 ### BranchMode avoids materialising booleans
 
@@ -136,6 +154,17 @@ When a boolean-producing expression (comparison, logical-and/or) is consumed dir
 ### Instruction descriptors are the source of truth for machine facts
 
 All architectural facts (opcode encoding, cycle counts, byte size, flag effects, operand kinds) live in `InstrDescriptor` variables in `instructions_z80.go`. Liveness analysis and the emitter rely on `AffectedFlags` / `DependentFlags` being accurate. Never hard-code these facts in instruction selection logic — always define or reuse a descriptor.
+
+### Generate-then-clean (peephole)
+
+Instruction selection emits **correct, straightforward code**. It does not try to avoid redundant moves or no-op copies — that is the sole responsibility of the peephole pass.
+
+After register allocation, the peephole pass makes one forward scan and removes local patterns:
+- `LD r, r` — self-move (result of two VRs pre-colored to the same register).
+- `LD r1, r2; LD r2, r1` — back-and-forth pair.
+- Other 1–3 instruction patterns documented in `emit/z80.md`.
+
+Do **not** add complexity to `Select*` methods to avoid generating these patterns. All optimisation logic belongs exclusively in the peephole pass.
 
 ---
 
@@ -147,20 +176,20 @@ Source text
   → parser/parser.go     (AST nodes)
   → zsm/sem_analyzer.go  (semantic model, SemXxx nodes)
   → cfg/cfg.go           (Control Flow Graph, BasicBlock)
-  → cfg/instruction_selection.go  (VirtualRegister machine instructions)
-  → cfg/liveness.go      (liveness analysis)
-  → cfg/interference.go  (interference graph)
-  → cfg/register_allocation.go (graph-coloring allocation → physical registers)
-  → emit/                (assembly text output)
+  → cfg/instruction_selection.go  (VR machine instructions; copies at merge points)
+  → cfg/liveness.go      (live range computation)
+  → cfg/register_allocation.go    (constraint propagation + linear scan → physical registers)
+  → emit/                (peephole pass, then assembly text output)
 ```
 
 ---
 
 ## CFG and instruction selection
 
-- All instructions operate on `VirtualRegister` values — never reference physical registers directly in selection logic. Look up the pre-defined register-set slices in `calling_convention_z80.go` and use the right width (8-bit or 16-bit) for the source type being compiled.
-- Constrain a VR's allowed register set to the **minimum** the instruction genuinely requires. Over-constraining causes unnecessary spills; under-constraining produces incorrect code.
-- `VirtualRegister` has an `AllowedSet` field and `ParentVR`/`ComponentVRs` links for 16-bit pairs — consult the existing code to understand the pattern before adding new VRs.
+- All instructions operate on VR values — never reference physical registers directly in selection logic. Look up the pre-defined register-set slices in `calling_convention_z80.go` and use the right width (8-bit or 16-bit) for the source type being compiled.
+- Every `Select*` call must return a **new** `TempVR`. Never mutate a VR received as an operand — VRs are immutable once assigned.
+- Constrain a VR's `AllowedSet` to exactly what the instruction requires. Over-constraining wastes registers; under-constraining produces wrong code.
+- Sub-registers (e.g. `H`, `L`) are just `TempVR`s with a single-entry `AllowedSet`. The relationship to the parent register (`HL`) is encoded in `Register.Composition` — no parent/child fields on VR types.
 - Emit machine instructions via the selector's emit helpers (look at existing `Select*` methods for the pattern). Do not construct instructions outside of selector methods.
 - Every new opcode **must** have a corresponding descriptor (in `cfg/instructions_z80.go`) with accurate flag-effect fields. Liveness analysis reads those fields — getting them wrong silently breaks register allocation.
 - `ExprContext` carries the evaluation mode through the expression tree. Always propagate it:
@@ -185,11 +214,13 @@ Source text
 
 ## Register allocation
 
-Register allocation uses **graph colouring**. Key constraints to respect when writing instruction selection:
+Register allocation uses **constraint propagation + linear scan**. Key rules:
 
-- Set `AllowedSet` as narrow as the instruction genuinely requires — over-constraining causes unnecessary spills, under-constraining produces wrong code.
-- A second pass handles VRs that remain unallocated after the primary coloring pass by inserting moves — this is the expected fallback, not an error condition.
-- When splitting a 16-bit result into 8-bit components, use the established helper in the selector rather than allocating the component VRs independently. Consult existing 16-bit operations for the pattern.
+- Set `AllowedSet` to exactly what the instruction genuinely requires. Over-constraining wastes registers; under-constraining produces wrong code.
+- The allocator makes a **single forward pass**. There is no retry, no second fallback pass, and no interference graph construction.
+- Compound register allocation (`HL` occupies both `H` and `L`) is handled automatically via `Register.Composition` — no per-VR tracking needed.
+- Spills produce a `StackVR` with a reload inserted before its first use. The stack frame size is updated accordingly.
+- To access a sub-register byte of a 16-bit result, allocate a new `TempVR` constrained to the sub-register (e.g. `{L}`). After allocation both will resolve to the correct physical register — the peephole pass removes any resulting self-moves.
 
 ---
 
@@ -203,10 +234,12 @@ A `CallingConvention` interface abstracts parameter and return-value placement. 
 
 ---
 
-## Liveness and interference
+## Liveness analysis
 
-- Liveness analysis works at the `VirtualRegister` ID level; CPU flags are tracked as implicit VRs.
-- When adding a new machine instruction type, implement `GetResult()` and `GetOperands()` correctly — liveness and the interference graph depend on them to determine which VRs are live simultaneously.
+Liveness analysis computes **live ranges** (first definition to last use) for each `TempVR`. These drive the linear-scan allocator's spill decisions.
+
+- When adding a new machine instruction type, implement `GetResult()` and `GetOperands()` correctly — liveness depends on them to determine which VRs are simultaneously live.
+- CPU flags are tracked implicitly via `AffectedFlags` / `DependentFlags` in the instruction descriptor. Do not add explicit flag VRs.
 
 ---
 
