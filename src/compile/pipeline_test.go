@@ -3,15 +3,13 @@ package compile
 import (
 	"fmt"
 	"testing"
-	"zenith/compiler/cfg"
-	z80 "zenith/compiler/cfg/z80"
 )
 
 func RunPipeline(t *testing.T, source string) *CompilationResult {
 	opts := DefaultPipelineOptions()
 	opts.Source = source
 	opts.TargetArch = "z80"
-	//opts.Verbose = true
+	opts.Verbose = true
 
 	result, err := Pipeline(opts)
 
@@ -23,13 +21,6 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 	}
 	for _, serr := range result.SemanticErrors {
 		fmt.Printf("  SemErr: %s\n", serr.Error())
-	}
-
-	for fnName, funcCFG := range result.FunctionCFGs {
-		cfg.DumpTAC(fnName, funcCFG)
-		for _, block := range funcCFG.Blocks {
-			z80.DumpMachineInstructions(block)
-		}
 	}
 
 	return result

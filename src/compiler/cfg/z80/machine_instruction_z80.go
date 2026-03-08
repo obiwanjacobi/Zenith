@@ -58,6 +58,27 @@ func (m *MachineInstrZ80) GetOperands() []cfg.VROperand {
 	return ops
 }
 
+// IsCopy returns the dst and src TempVRs when this is a LD r, r copy.
+// Used by the generic constraint-propagation pass.
+func (m *MachineInstrZ80) IsCopy() (dst *cfg.TempVR, src *cfg.TempVR, ok bool) {
+	if m.Opcode != Z80_LD_R_R {
+		return nil, nil, false
+	}
+	d, dOK := m.Result.(*cfg.TempVR)
+	s, sOK := m.Src1.(*cfg.TempVR)
+	if !dOK || !sOK {
+		return nil, nil, false
+	}
+	return d, s, true
+}
+
+// SubstituteVRs replaces every TempVR operand with its allocated PhysVR or StackVR.
+func (m *MachineInstrZ80) SubstituteVRs(assigned map[int]*cfg.PhysVR, spilled map[int]*cfg.StackVR) {
+	m.Result = cfg.SubstituteOne(m.Result, assigned, spilled)
+	m.Src1 = cfg.SubstituteOne(m.Src1, assigned, spilled)
+	m.Src2 = cfg.SubstituteOne(m.Src2, assigned, spilled)
+}
+
 // String formats the instruction as a human-readable assembly line.
 func (m *MachineInstrZ80) String() string {
 	var parts []string

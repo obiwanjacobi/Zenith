@@ -15,6 +15,17 @@ type MachineInstruction interface {
 	GetResult() VROperand     // the single VROperand written by this instruction (nil if none)
 	GetOperands() []VROperand // all VROperands read by this instruction
 	String() string
+
+	// IsCopy returns the dst and src TempVRs when this instruction is a
+	// register-to-register copy (e.g. Z80 LD r, r). Used by constraint
+	// propagation to pre-colour VRs through copy chains. Returns ok=false
+	// for all other instruction kinds.
+	IsCopy() (dst *TempVR, src *TempVR, ok bool)
+
+	// SubstituteVRs replaces every TempVR operand in this instruction with the
+	// PhysVR (or StackVR) assigned during register allocation. Called once per
+	// instruction after the linear scan completes.
+	SubstituteVRs(assigned map[int]*PhysVR, spilled map[int]*StackVR)
 }
 
 // ============================================================================

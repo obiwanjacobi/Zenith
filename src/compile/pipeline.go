@@ -204,8 +204,37 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// ==========================================================================
-	// Stage 7: Liveness Analysis      (TODO)
-	// Stage 8: Register Allocation    (TODO)
+	// Stage 7: Liveness Analysis + Register Allocation
+	// ==========================================================================
+	if opts.Verbose {
+		fmt.Println("==> Stage 7: Register Allocation")
+	}
+
+	for fnName, funcCFG := range result.FunctionCFGs {
+		if err := cfg.AllocateRegisters(funcCFG); err != nil {
+			result.CodeGenErrors = append(result.CodeGenErrors, err)
+			return result, fmt.Errorf("register allocation failed for '%s': %w", fnName, err)
+		}
+	}
+
+	// ==========================================================================
+	// Stage 8: Peephole Optimisation
+	// ==========================================================================
+	if opts.Verbose {
+		fmt.Println("==> Stage 8: Peephole Optimisation")
+	}
+
+	for _, funcCFG := range result.FunctionCFGs {
+		z80.RunPeephole(funcCFG)
+
+		if opts.Verbose {
+			for _, block := range funcCFG.Blocks {
+				z80.DumpMachineInstructions(block)
+			}
+		}
+	}
+
+	// ==========================================================================
 	// Stage 9: Code Emission          (TODO)
 	// ==========================================================================
 

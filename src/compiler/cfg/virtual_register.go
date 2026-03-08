@@ -69,6 +69,11 @@ type StackVR struct {
 func (v *StackVR) Size() uint8    { return v.size }
 func (v *StackVR) String() string { return fmt.Sprintf("[SP+%d]", v.Offset) }
 
+// NewStackVR creates a StackVR for a spilled virtual register.
+func NewStackVR(name string, offset uint16, size uint8) *StackVR {
+	return &StackVR{Name: name, Offset: offset, size: size}
+}
+
 // ============================================================================
 // PhysVR — post-allocation physical register
 // ============================================================================

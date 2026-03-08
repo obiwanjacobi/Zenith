@@ -62,3 +62,11 @@ func (fl *StackFrame) HasSlot(symbol *zsm.Symbol) bool {
 	_, ok := fl.slots[symbol]
 	return ok
 }
+
+// AddSpillSlot allocates an anonymous stack slot for a spilled register.
+// Returns the byte offset from SP at function entry.
+func (fl *StackFrame) AddSpillSlot(size uint16) uint16 {
+	offset := fl.nextOffset
+	fl.nextOffset += size
+	return offset
+}
