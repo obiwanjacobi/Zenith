@@ -258,7 +258,178 @@ func (s *instructionSelectorZ80) SelectCopy(block *cfg.BasicBlock, t *cfg.TacCop
 	}
 }
 
-// ── Private helpers ───────────────────────────────────────────────────────────
+// ── Arithmetic / logical ──────────────────────────────────────────────────────
+
+// SelectBinOp: Dst = Left Op Right
+func (s *instructionSelectorZ80) SelectBinOp(block *cfg.BasicBlock, t *cfg.TacBinOp) {
+	switch t.Op {
+	case cfg.TacAdd:
+		if t.Size == 8 {
+			s.selectAdd8(block, t)
+		} else {
+			s.selectAdd16(block, t)
+		}
+	case cfg.TacSub:
+		if t.Size == 8 {
+			s.selectSub8(block, t)
+		} else {
+			s.selectSub16(block, t)
+		}
+	case cfg.TacMul:
+		if t.Size == 8 {
+			s.selectMulDiv8(block, t, "__mul8")
+		} else {
+			s.selectMulDiv16(block, t, "__mul16")
+		}
+	case cfg.TacDiv:
+		if t.Size == 8 {
+			s.selectMulDiv8(block, t, "__div8")
+		} else {
+			s.selectMulDiv16(block, t, "__div16")
+		}
+	default:
+		panic("SelectBinOp: bitwise ops (AND/OR/XOR) not yet implemented")
+	}
+}
+
+// selectAdd8: A = left + right  →  Dst
+//
+//	LD A, left
+//	ADD A, right   (ADD A, n if right is immediate)
+//	LD dst, A
+func (s *instructionSelectorZ80) selectAdd8(block *cfg.BasicBlock, t *cfg.TacBinOp) {
+	aVR := s.reg8(&RegA)
+	emitInstr(block, Z80_LD_R_R, aVR, t.Left, nil)
+
+	addVR := s.reg8(&RegA)
+	if _, isImm := t.Right.(*cfg.ImmVR); isImm {
+		emitInstr(block, Z80_ADD_A_N, addVR, aVR, t.Right)
+	} else {
+		emitInstr(block, Z80_ADD_A_R, addVR, aVR, t.Right)
+	}
+
+	t.Dst.AllowedSet = []*cfg.Register{&RegA}
+	emitInstr(block, Z80_LD_R_R, t.Dst, addVR, nil)
+}
+
+// selectSub8: A = left - right  →  Dst
+//
+//	LD A, left
+//	SUB right      (SUB n if right is immediate)
+//	LD dst, A
+func (s *instructionSelectorZ80) selectSub8(block *cfg.BasicBlock, t *cfg.TacBinOp) {
+	aVR := s.reg8(&RegA)
+	emitInstr(block, Z80_LD_R_R, aVR, t.Left, nil)
+
+	subVR := s.reg8(&RegA)
+	if _, isImm := t.Right.(*cfg.ImmVR); isImm {
+		emitInstr(block, Z80_SUB_N, subVR, aVR, t.Right)
+	} else {
+		emitInstr(block, Z80_SUB_R, subVR, aVR, t.Right)
+	}
+
+	t.Dst.AllowedSet = []*cfg.Register{&RegA}
+	emitInstr(block, Z80_LD_R_R, t.Dst, subVR, nil)
+}
+
+// selectAdd16: HL = left + right  →  Dst
+//
+//	LD HL, left
+//	LD DE, right
+//	ADD HL, DE
+//	LD dst, HL
+func (s *instructionSelectorZ80) selectAdd16(block *cfg.BasicBlock, t *cfg.TacBinOp) {
+	hlVR := s.reg16(&RegHL)
+	emitInstr(block, Z80_LD_RR_NN, hlVR, t.Left, nil)
+
+	deVR := s.reg16(&RegDE)
+	emitInstr(block, Z80_LD_RR_NN, deVR, t.Right, nil)
+
+	addHL := s.reg16(&RegHL)
+	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, deVR)
+
+	t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+	emitInstr(block, Z80_LD_R_R, t.Dst, addHL, nil)
+}
+
+// selectSub16: HL = left - right  →  Dst
+//
+//	LD HL, left
+//	LD DE, right
+//	AND A          ; clear carry flag
+//	SBC HL, DE
+//	LD dst, HL
+func (s *instructionSelectorZ80) selectSub16(block *cfg.BasicBlock, t *cfg.TacBinOp) {
+	hlVR := s.reg16(&RegHL)
+	emitInstr(block, Z80_LD_RR_NN, hlVR, t.Left, nil)
+
+	deVR := s.reg16(&RegDE)
+	emitInstr(block, Z80_LD_RR_NN, deVR, t.Right, nil)
+
+	// AND A clears the carry flag without altering HL or DE.
+	aVR := s.reg8(&RegA)
+	emitInstr(block, Z80_AND_R, aVR, aVR, nil)
+
+	sbcHL := s.reg16(&RegHL)
+	emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, deVR)
+
+	t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+	emitInstr(block, Z80_LD_R_R, t.Dst, sbcHL, nil)
+}
+
+// selectMulDiv8: delegate 8-bit mul/div to a runtime helper.
+//
+// Calling convention: param0→E, param1→C; return→A (but helper returns u16 in DE for mul).
+//
+//	LD E, left
+//	LD C, right
+//	CALL __mul8 / __div8
+//	LD dst, A   (div) or LD dst, DE  (mul, result is u16)
+func (s *instructionSelectorZ80) selectMulDiv8(block *cfg.BasicBlock, t *cfg.TacBinOp, helper string) {
+	eVR := s.reg8(&RegE)
+	emitInstr(block, Z80_LD_R_R, eVR, t.Left, nil)
+
+	cVR := s.reg8(&RegC)
+	emitInstr(block, Z80_LD_R_R, cVR, t.Right, nil)
+
+	if helper == "__mul8" {
+		// mul8 widens: u8 × u8 → u16 result in DE
+		resultVR := s.reg16(&RegDE)
+		emitCall(block, helper, resultVR)
+		t.Dst.AllowedSet = []*cfg.Register{&RegDE}
+		emitInstr(block, Z80_LD_R_R, t.Dst, resultVR, nil)
+	} else {
+		// div8 quotient in A
+		resultVR := s.reg8(&RegA)
+		emitCall(block, helper, resultVR)
+		t.Dst.AllowedSet = []*cfg.Register{&RegA}
+		emitInstr(block, Z80_LD_R_R, t.Dst, resultVR, nil)
+	}
+}
+
+// selectMulDiv16: delegate 16-bit mul/div to a runtime helper.
+//
+// Calling convention: param0→DE, param1→BC; return→DE.
+//
+//	LD DE, left
+//	LD BC, right
+//	CALL __mul16 / __div16
+//	LD dst, DE
+func (s *instructionSelectorZ80) selectMulDiv16(block *cfg.BasicBlock, t *cfg.TacBinOp, helper string) {
+	deVR := s.reg16(&RegDE)
+	emitInstr(block, Z80_LD_RR_NN, deVR, t.Left, nil)
+
+	bcVR := s.reg16(&RegBC)
+	emitInstr(block, Z80_LD_RR_NN, bcVR, t.Right, nil)
+
+	resultVR := s.reg16(&RegDE)
+	emitCall(block, helper, resultVR)
+
+	t.Dst.AllowedSet = []*cfg.Register{&RegDE}
+	emitInstr(block, Z80_LD_R_R, t.Dst, resultVR, nil)
+}
+
+// ── Private helpers ─────────────────────────────────────────────────────────────
 
 // moveToHL emits a LD HL, src and returns the constrained HL TempVR.
 func (s *instructionSelectorZ80) moveToHL(block *cfg.BasicBlock, src cfg.VROperand) *cfg.TempVR {

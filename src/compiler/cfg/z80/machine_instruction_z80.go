@@ -25,6 +25,8 @@ import (
 //	Src2     — second source operand (nil if unused)
 //	Target   — branch/call destination block (nil for non-control-flow instrs)
 //	           Block layout decides JP vs JR at emit time.
+//	Label    — symbolic call target name for CALL_NN to named functions/helpers
+//	           (empty for jumps resolved via Target).
 type MachineInstrZ80 struct {
 	Opcode   Z80Opcode
 	CondCode ConditionCode
@@ -32,6 +34,7 @@ type MachineInstrZ80 struct {
 	Src1     cfg.VROperand   // first read operand (nil if unused)
 	Src2     cfg.VROperand   // second read operand (nil if unused)
 	Target   *cfg.BasicBlock // branch/call destination (nil if unused)
+	Label    string          // symbolic call target (non-empty for CALL_NN to named labels)
 }
 
 // GetResult returns the VROperand written by this instruction, or nil.
@@ -61,7 +64,9 @@ func (m *MachineInstrZ80) String() string {
 	if m.Src2 != nil {
 		parts = append(parts, m.Src2.String())
 	}
-	if m.Target != nil {
+	if m.Label != "" {
+		parts = append(parts, m.Label)
+	} else if m.Target != nil {
 		parts = append(parts, fmt.Sprintf("Block%d", m.Target.ID))
 	}
 	if m.Result != nil {
@@ -99,15 +104,14 @@ func emitBranch(block *cfg.BasicBlock, opcode Z80Opcode, cc ConditionCode, targe
 	return mi
 }
 
-// emitCall appends a CALL instruction that reads Src1 (callee label encoded as
-// a synthetic ImmVR) and writes Result.
-// The caller passes a labelVR holding the numeric address / label index as a
-// placeholder; the emitter resolves it to a symbol during assembly output.
-func emitCall(block *cfg.BasicBlock, result cfg.VROperand, labelVR cfg.VROperand) *MachineInstrZ80 {
+// emitCall appends a CALL nn instruction to a named function or runtime helper.
+// label is the symbolic target name (e.g. "myFunc" or "__mul8").
+// result is the VR that receives the return value (nil for void calls).
+func emitCall(block *cfg.BasicBlock, label string, result cfg.VROperand) *MachineInstrZ80 {
 	mi := &MachineInstrZ80{
 		Opcode: Z80_CALL_NN,
+		Label:  label,
 		Result: result,
-		Src1:   labelVR,
 	}
 	block.MachineInstructions = append(block.MachineInstructions, mi)
 	return mi

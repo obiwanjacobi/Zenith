@@ -46,6 +46,10 @@ type InstructionSelector interface {
 	// SelectCopy handles TacCopy: Dst = Src.
 	SelectCopy(block *BasicBlock, instr *TacCopy)
 
+	// ── Arithmetic / logical ─────────────────────────────────────────────────────
+
+	// SelectBinOp handles TacBinOp: Dst = Left Op Right.
+	SelectBinOp(block *BasicBlock, instr *TacBinOp)
 }
 
 // SelectInstructions runs instruction selection over the entire function CFG.
@@ -79,6 +83,8 @@ func selectOne(sel InstructionSelector, block *BasicBlock, tac TacInstruction) e
 		sel.SelectStackAddr(block, t)
 	case *TacCopy:
 		sel.SelectCopy(block, t)
+	case *TacBinOp:
+		sel.SelectBinOp(block, t)
 	default:
 		return fmt.Errorf("instruction selector: unhandled TAC %T", tac)
 	}
