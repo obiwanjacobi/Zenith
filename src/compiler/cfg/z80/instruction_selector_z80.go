@@ -555,6 +555,118 @@ func (s *instructionSelectorZ80) SelectBranchIf(block *cfg.BasicBlock, t *cfg.Ta
 	emitBranch(block, Z80_JP_NN, Cond_None, t.Else)
 }
 
+// ── Calls and returns ─────────────────────────────────────────────────────────
+
+// SelectCall: Dst = Fn(Args...)
+//
+// Arguments are placed into registers using the calling convention:
+//
+//	param 0 (8-bit) → E,  param 0 (16-bit) → DE
+//	param 1 (8-bit) → C,  param 1 (16-bit) → BC
+//	further params  → stack (not yet implemented)
+//
+// Return value is moved into Dst if non-nil:
+//
+//	8-bit return  → A
+//	16-bit return → DE
+func (s *instructionSelectorZ80) SelectCall(block *cfg.BasicBlock, t *cfg.TacCall) {
+	for i, arg := range t.Args {
+		reg, _, onStack := s.cc.GetParameterLocation(i, arg.Size())
+		if onStack {
+			panic("SelectCall: stack-passed arguments not yet implemented")
+		}
+		argVR := s.alloc.Alloc(arg.Size(), []*cfg.Register{reg})
+		if arg.Size() == 8 {
+			emitInstr(block, Z80_LD_R_R, argVR, arg, nil)
+		} else {
+			emitInstr(block, Z80_LD_RR_NN, argVR, arg, nil)
+		}
+	}
+
+	var resultVR *cfg.TempVR
+	if t.Dst != nil {
+		retReg := s.cc.GetReturnValueRegister(t.RetSize)
+		resultVR = s.alloc.Alloc(t.RetSize, []*cfg.Register{retReg})
+	}
+	emitCall(block, t.Fn, resultVR)
+
+	if t.Dst != nil {
+		retReg := s.cc.GetReturnValueRegister(t.RetSize)
+		t.Dst.AllowedSet = []*cfg.Register{retReg}
+		emitInstr(block, Z80_LD_R_R, t.Dst, resultVR, nil)
+	}
+}
+
+// SelectReturn: return [Value]
+//
+// Move Value into the return register (A for 8-bit, DE for 16-bit) then RET.
+func (s *instructionSelectorZ80) SelectReturn(block *cfg.BasicBlock, t *cfg.TacReturn) {
+	if t.Value != nil {
+		retReg := s.cc.GetReturnValueRegister(t.Value.Size())
+		retVR := s.alloc.Alloc(t.Value.Size(), []*cfg.Register{retReg})
+		if t.Value.Size() == 8 {
+			emitInstr(block, Z80_LD_R_R, retVR, t.Value, nil)
+		} else {
+			emitInstr(block, Z80_LD_RR_NN, retVR, t.Value, nil)
+		}
+	}
+	emitInstr(block, Z80_RET, nil, nil, nil)
+}
+
+// ── Unary operations ──────────────────────────────────────────────────────────
+
+// SelectUnary: Dst = Op Operand
+//
+//	INC / DEC: INC r / DEC r (8-bit); INC rr / DEC rr (16-bit)
+//	NEG:       LD A, operand ; NEG ; LD dst, A
+//	BNOT:      LD A, operand ; CPL ; LD dst, A  (8-bit only; 16-bit: byte-wise)
+func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUnary) {
+	switch t.Op {
+	case cfg.TacIncrement:
+		if t.Size == 8 {
+			incVR := s.reg8(&RegA)
+			emitInstr(block, Z80_LD_R_R, incVR, t.Operand, nil)
+			resVR := s.reg8(&RegA)
+			emitInstr(block, Z80_INC_R, resVR, incVR, nil)
+			t.Dst.AllowedSet = []*cfg.Register{&RegA}
+			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
+		} else {
+			hlVR := s.reg16(&RegHL)
+			emitInstr(block, Z80_LD_RR_NN, hlVR, t.Operand, nil)
+			resVR := s.reg16(&RegHL)
+			emitInstr(block, Z80_INC_RR, resVR, hlVR, nil)
+			t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
+		}
+	case cfg.TacDecrement:
+		if t.Size == 8 {
+			decVR := s.reg8(&RegA)
+			emitInstr(block, Z80_LD_R_R, decVR, t.Operand, nil)
+			resVR := s.reg8(&RegA)
+			emitInstr(block, Z80_DEC_R, resVR, decVR, nil)
+			t.Dst.AllowedSet = []*cfg.Register{&RegA}
+			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
+		} else {
+			hlVR := s.reg16(&RegHL)
+			emitInstr(block, Z80_LD_RR_NN, hlVR, t.Operand, nil)
+			resVR := s.reg16(&RegHL)
+			emitInstr(block, Z80_DEC_RR, resVR, hlVR, nil)
+			t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
+		}
+	case cfg.TacNegate:
+		// NEG only operates on A.
+		aVR := s.reg8(&RegA)
+		emitInstr(block, Z80_LD_R_R, aVR, t.Operand, nil)
+		resVR := s.reg8(&RegA)
+		emitInstr(block, Z80_NEG, resVR, aVR, nil)
+		t.Dst.AllowedSet = []*cfg.Register{&RegA}
+		emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
+	case cfg.TacBitwiseNot:
+		panic("SelectUnary: TacBitwiseNot not yet implemented (Z80_CPL opcode not defined)")
+	}
+}
+
 // selectBitwise8: A = left op right  →  Dst
 //
 //	LD A, left

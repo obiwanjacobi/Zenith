@@ -64,6 +64,19 @@ type InstructionSelector interface {
 
 	// SelectBranchIf handles TacBranchIf: branch on a pre-computed boolean operand.
 	SelectBranchIf(block *BasicBlock, instr *TacBranchIf)
+
+	// ── Calls and returns ──────────────────────────────────────────────────
+
+	// SelectCall handles TacCall: Dst = Fn(Args...).
+	SelectCall(block *BasicBlock, instr *TacCall)
+
+	// SelectReturn handles TacReturn: return [Value].
+	SelectReturn(block *BasicBlock, instr *TacReturn)
+
+	// ── Unary operations ─────────────────────────────────────────────────────
+
+	// SelectUnary handles TacUnary: Dst = Op Operand.
+	SelectUnary(block *BasicBlock, instr *TacUnary)
 }
 
 // SelectInstructions runs instruction selection over the entire function CFG.
@@ -107,6 +120,12 @@ func selectOne(sel InstructionSelector, block *BasicBlock, tac TacInstruction) e
 		sel.SelectJump(block, t)
 	case *TacBranchIf:
 		sel.SelectBranchIf(block, t)
+	case *TacCall:
+		sel.SelectCall(block, t)
+	case *TacReturn:
+		sel.SelectReturn(block, t)
+	case *TacUnary:
+		sel.SelectUnary(block, t)
 	default:
 		return fmt.Errorf("instruction selector: unhandled TAC %T", tac)
 	}
