@@ -162,13 +162,23 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// ==========================================================================
-	// Stage 5: TAC Lowering (target-independent)
+	// Stages 5–9: Per-function code generation
 	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 5: TAC Lowering")
-	}
+	// All backend stages run to completion for one function before moving to
+	// the next, so verbose output groups naturally by function.
+	//
+	//   5: TAC Lowering             (target-independent)
+	//   6: Instruction Selection    (target-specific, pre-regalloc)
+	//   7: Register Allocation      (target-independent linear scan)
+	//   8: Peephole Optimisation    (target-specific)
+	//   9: Prologue / Epilogue      (target-specific, post-regalloc)
 
 	for fnName, funcCFG := range result.FunctionCFGs {
+		// ── Stage 5: TAC Lowering ─────────────────────────────────────────────
+		if opts.Verbose {
+			fmt.Printf("==> [%s] Stage 5: TAC Lowering\n", fnName)
+		}
+
 		alloc := &cfg.TempVRAllocator{}
 		if err := cfg.LowerTAC(funcCFG, alloc, regsets); err != nil {
 			result.CodeGenErrors = append(result.CodeGenErrors, err)
@@ -179,23 +189,13 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		if opts.Verbose {
 			cfg.DumpTAC(fnName, funcCFG)
 		}
-	}
 
-	// ==========================================================================
-	// Stage 6: Instruction Selection
-	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 6: Instruction Selection")
-	}
+		// ── Stage 6: Instruction Selection ───────────────────────────────────
+		if opts.Verbose {
+			fmt.Printf("==> [%s] Stage 6: Instruction Selection\n", fnName)
+		}
 
-	// selectors is kept alive so Stage 9 can call SelectPrologue/SelectEpilogue
-	// after register allocation has finalised the stack frame size.
-	selectors := make(map[string]cfg.InstructionSelector)
-
-	for fnName, funcCFG := range result.FunctionCFGs {
-		alloc := result.VRAllocators[fnName]
 		sel := z80.NewInstructionSelectorZ80(alloc)
-		selectors[fnName] = sel
 		if err := cfg.SelectInstructions(sel, funcCFG); err != nil {
 			result.CodeGenErrors = append(result.CodeGenErrors, err)
 			return result, fmt.Errorf("instruction selection failed for '%s': %w", fnName, err)
@@ -206,30 +206,22 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 				z80.DumpMachineInstructions(block)
 			}
 		}
-	}
 
-	// ==========================================================================
-	// Stage 7: Liveness Analysis + Register Allocation
-	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 7: Register Allocation")
-	}
+		// ── Stage 7: Register Allocation ─────────────────────────────────────
+		if opts.Verbose {
+			fmt.Printf("==> [%s] Stage 7: Register Allocation\n", fnName)
+		}
 
-	for fnName, funcCFG := range result.FunctionCFGs {
 		if err := cfg.AllocateRegisters(funcCFG); err != nil {
 			result.CodeGenErrors = append(result.CodeGenErrors, err)
 			return result, fmt.Errorf("register allocation failed for '%s': %w", fnName, err)
 		}
-	}
 
-	// ==========================================================================
-	// Stage 8: Peephole Optimisation
-	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 8: Peephole Optimisation")
-	}
+		// ── Stage 8: Peephole Optimisation ───────────────────────────────────
+		if opts.Verbose {
+			fmt.Printf("==> [%s] Stage 8: Peephole Optimisation\n", fnName)
+		}
 
-	for _, funcCFG := range result.FunctionCFGs {
 		z80.RunPeephole(funcCFG)
 
 		if opts.Verbose {
@@ -237,21 +229,21 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 				z80.DumpMachineInstructions(block)
 			}
 		}
-	}
 
-	// ==========================================================================
-	// Stage 9: Prologue / Epilogue Emission
-	// ==========================================================================
-	// Stack frame size is now final (regalloc has added any spill slots), so
-	// SelectPrologue and SelectEpilogue can read the correct StackFrame.Size().
-	if opts.Verbose {
-		fmt.Println("==> Stage 9: Prologue / Epilogue Emission")
-	}
+		// ── Stage 9: Prologue / Epilogue ──────────────────────────────────────
+		// StackFrame.Size() is final after regalloc — spill slots have been added.
+		if opts.Verbose {
+			fmt.Printf("==> [%s] Stage 9: Prologue / Epilogue\n", fnName)
+		}
 
-	for fnName, funcCFG := range result.FunctionCFGs {
-		sel := selectors[fnName]
 		sel.SelectPrologue(funcCFG.Entry, funcCFG)
 		sel.SelectEpilogue(funcCFG.Exit, funcCFG)
+
+		if opts.Verbose {
+			for _, block := range funcCFG.Blocks {
+				z80.DumpMachineInstructions(block)
+			}
+		}
 	}
 
 	// ==========================================================================

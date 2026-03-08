@@ -78,6 +78,9 @@ func (s *instructionSelectorZ80) SelectPrologue(entryBlock *cfg.BasicBlock, fnCF
 func (s *instructionSelectorZ80) SelectEpilogue(exitBlock *cfg.BasicBlock, fnCFG *cfg.CFG) {
 	frameSize := fnCFG.StackFrame.Size()
 	if frameSize == 0 {
+		exitBlock.MachineInstructions = append(exitBlock.MachineInstructions,
+			&MachineInstrZ80{Opcode: Z80_RET},
+		)
 		return
 	}
 	hlPhys := &cfg.PhysVR{Reg: &RegHL}
@@ -86,6 +89,7 @@ func (s *instructionSelectorZ80) SelectEpilogue(exitBlock *cfg.BasicBlock, fnCFG
 		&MachineInstrZ80{Opcode: Z80_LD_RR_NN, Result: hlPhys, Src1: cfg.NewImmVR(int32(frameSize), 16)},
 		&MachineInstrZ80{Opcode: Z80_ADD_HL_RR, Result: hlPhys, Src1: hlPhys, Src2: spPhys},
 		&MachineInstrZ80{Opcode: Z80_LD_SP_HL, Result: spPhys, Src1: hlPhys},
+		&MachineInstrZ80{Opcode: Z80_RET},
 	}
 	exitBlock.MachineInstructions = append(teardown, exitBlock.MachineInstructions...)
 }
@@ -651,8 +655,9 @@ func (s *instructionSelectorZ80) SelectCall(block *cfg.BasicBlock, t *cfg.TacCal
 
 // SelectReturn: return [Value]
 //
-// Move Value into the return register (A for 8-bit, DE for 16-bit) then RET.
-func (s *instructionSelectorZ80) SelectReturn(block *cfg.BasicBlock, t *cfg.TacReturn) {
+// Move Value into the return register (A for 8-bit, DE for 16-bit) then jump
+// to the exit block. The exit block's epilogue (SelectEpilogue) emits RET.
+func (s *instructionSelectorZ80) SelectReturn(block *cfg.BasicBlock, exitBlock *cfg.BasicBlock, t *cfg.TacReturn) {
 	if t.Value != nil {
 		retReg := s.cc.GetReturnValueRegister(t.Value.Size())
 		retVR := s.alloc.Alloc(t.Value.Size(), []*cfg.Register{retReg})
@@ -662,7 +667,7 @@ func (s *instructionSelectorZ80) SelectReturn(block *cfg.BasicBlock, t *cfg.TacR
 			s.emitLD16(block, retVR, t.Value)
 		}
 	}
-	emitInstr(block, Z80_RET, nil, nil, nil)
+	emitBranch(block, Z80_JP_NN, Cond_None, exitBlock)
 }
 
 // ── Unary operations ──────────────────────────────────────────────────────────

@@ -96,7 +96,7 @@ type InstructionSelector interface {
 	SelectCall(block *BasicBlock, instr *TacCall)
 
 	// SelectReturn handles TacReturn: return [Value].
-	SelectReturn(block *BasicBlock, instr *TacReturn)
+	SelectReturn(block *BasicBlock, exitBlock *BasicBlock, instr *TacReturn)
 }
 
 // SelectInstructions runs instruction selection over the entire function CFG.
@@ -110,7 +110,7 @@ func SelectInstructions(sel InstructionSelector, fnCFG *CFG) error {
 
 	for _, block := range fnCFG.Blocks {
 		for _, tac := range block.TAC {
-			if err := selectOne(sel, block, tac); err != nil {
+			if err := selectOne(sel, block, fnCFG.Exit, tac); err != nil {
 				return err
 			}
 		}
@@ -118,7 +118,7 @@ func SelectInstructions(sel InstructionSelector, fnCFG *CFG) error {
 	return nil
 }
 
-func selectOne(sel InstructionSelector, block *BasicBlock, tac TacInstruction) error {
+func selectOne(sel InstructionSelector, block *BasicBlock, exitBlock *BasicBlock, tac TacInstruction) error {
 	switch t := tac.(type) {
 	case *TacLoad:
 		sel.SelectLoad(block, t)
@@ -149,7 +149,7 @@ func selectOne(sel InstructionSelector, block *BasicBlock, tac TacInstruction) e
 	case *TacCall:
 		sel.SelectCall(block, t)
 	case *TacReturn:
-		sel.SelectReturn(block, t)
+		sel.SelectReturn(block, exitBlock, t)
 	default:
 		return fmt.Errorf("instruction selector: unhandled TAC %T", tac)
 	}
