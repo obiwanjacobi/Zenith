@@ -12,6 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Minimal register sets used by TAC lowering tests.
+// TAC lowering is target-independent; these are generic placeholders so that
+// AllowedSet is never nil without tying the tests to a specific architecture.
+var (
+	testReg8  = &Register{Name: "R8", Size: 8}
+	testReg16 = &Register{Name: "R16", Size: 16}
+	testRegs8  = []*Register{testReg8}
+	testRegs16 = []*Register{testReg16}
+)
+
 // ============================================================================
 // Test helpers
 // ============================================================================
@@ -22,7 +32,7 @@ func lowerTACFromCode(t *testing.T, code string) *CFG {
 	t.Helper()
 	fnCFG := buildCFGFromCode(t, code)
 	alloc := &TempVRAllocator{}
-	regsets := RegisterSets{Regs8: Z80Registers8, Regs16: Z80Registers16}
+	regsets := RegisterSets{Regs8: testRegs8, Regs16: testRegs16}
 	require.NoError(t, LowerTAC(fnCFG, alloc, regsets))
 	return fnCFG
 }
@@ -42,7 +52,7 @@ func buildAllLoweredCFGs(t *testing.T, code string) []*CFG {
 
 	cfgs := BuildCFGs(semCU)
 	alloc := &TempVRAllocator{}
-	regsets := RegisterSets{Regs8: Z80Registers8, Regs16: Z80Registers16}
+	regsets := RegisterSets{Regs8: testRegs8, Regs16: testRegs16}
 	for _, fnCFG := range cfgs {
 		require.NoError(t, LowerTAC(fnCFG, alloc, regsets))
 	}

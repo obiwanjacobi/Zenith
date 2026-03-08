@@ -6,6 +6,7 @@ import (
 
 	"zenith/compiler"
 	"zenith/compiler/cfg"
+	z80 "zenith/compiler/cfg/z80"
 	"zenith/compiler/lexer"
 	"zenith/compiler/parser"
 	"zenith/compiler/zsm"
@@ -19,8 +20,8 @@ type CompilationResult struct {
 	SemCU  *zsm.SemCompilationUnit
 
 	// Per-function CFG and analysis results
-	FunctionCFGs  map[string]*cfg.CFG
-	VRAllocators  map[string]*cfg.TempVRAllocator
+	FunctionCFGs map[string]*cfg.CFG
+	VRAllocators map[string]*cfg.TempVRAllocator
 
 	// Error tracking
 	Diagnostics    []*compiler.Diagnostic
@@ -159,8 +160,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	regsets := cfg.RegisterSets{
-		Regs8:  cfg.Z80Registers8,
-		Regs16: cfg.Z80Registers16,
+		Regs8:  z80.Z80Registers8,
+		Regs16: z80.Z80Registers16,
 	}
 
 	for fnName, funcCFG := range result.FunctionCFGs {

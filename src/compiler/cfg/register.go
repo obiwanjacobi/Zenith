@@ -39,3 +39,30 @@ const (
 	AddrRelative  AddressingMode = 1 << 4 // PC-relative addressing
 	AddrImplicit  AddressingMode = 1 << 5 // No explicit operands
 )
+
+// AsPairs splits a 16-bit register into its low and high byte components.
+// If the register has no composition (e.g. A, SP), returns itself as low and nil as high.
+func (reg *Register) AsPairs() (lowReg *Register, highReg *Register) {
+	if len(reg.Composition) == 2 {
+		lowReg = reg.Composition[0]
+		highReg = reg.Composition[1]
+	} else {
+		lowReg = reg
+		highReg = nil
+	}
+	return lowReg, highReg
+}
+
+// ToPairs splits a slice of registers into parallel low/high byte slices.
+func ToPairs(regs []*Register) (lowRegs []*Register, highRegs []*Register) {
+	lowRegs = make([]*Register, 0, len(regs))
+	highRegs = make([]*Register, 0, len(regs))
+	for _, reg := range regs {
+		low, high := reg.AsPairs()
+		lowRegs = append(lowRegs, low)
+		if high != nil {
+			highRegs = append(highRegs, high)
+		}
+	}
+	return lowRegs, highRegs
+}

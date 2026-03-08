@@ -1,4 +1,4 @@
-package cfg
+package z80
 
 // Z80 Instruction Descriptors
 // Static instances of InstrDescriptorZ80 for all Z80 opcodes

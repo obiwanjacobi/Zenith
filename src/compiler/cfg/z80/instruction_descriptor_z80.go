@@ -1,4 +1,4 @@
-package cfg
+package z80
 
 import (
 	"fmt"

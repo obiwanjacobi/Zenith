@@ -1,4 +1,4 @@
-package cfg
+package z80
 
 // 8-bit single registers
 var RegA = Register{Name: "A", Size: 8, RegisterId: 7}
@@ -51,35 +51,6 @@ var Z80RegistersRR = []*Register{
 // indirect alternative registers (BC|DE) to HL
 var Z80RegistersPP = []*Register{
 	&RegBC, &RegDE,
-}
-
-// AsPairs splits a 16-bit register into its low and high byte registers
-// if the register is not a pair, returns the register itself as low and nil as high
-func (reg *Register) AsPairs() (lowReg *Register, highReg *Register) {
-	if len(reg.Composition) == 2 {
-		lowReg = reg.Composition[0]
-		highReg = reg.Composition[1]
-	} else {
-		lowReg = reg
-		highReg = nil
-	}
-	return lowReg, highReg
-}
-
-// ToPairs splits 16-bit registers into its low and high byte registers
-// if the register is not a pair, returns the register itself as low and high
-func ToPairs(regs []*Register) (lowRegs []*Register, highRegs []*Register) {
-	lowRegs = make([]*Register, 0)
-	highRegs = make([]*Register, 0)
-
-	for _, reg := range regs {
-		low, high := reg.AsPairs()
-		lowRegs = append(lowRegs, low)
-		if high != nil {
-			highRegs = append(highRegs, high)
-		}
-	}
-	return lowRegs, highRegs
 }
 
 // callingConventionZ80 implements a standard calling convention for Z80
