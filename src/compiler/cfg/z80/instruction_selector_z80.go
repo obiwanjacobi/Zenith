@@ -110,29 +110,15 @@ func (s *instructionSelectorZ80) SelectLoad(block *cfg.BasicBlock, t *cfg.TacLoa
 	hlVR := s.addressWithOffset(block, t.Base, t.Offset)
 
 	if t.Size == 8 {
-		// LD A, (HL)
-		aVR := s.reg8(&RegA)
+		// LD r, (HL)
+		aVR := s.any8()
 		emitInstr(block, Z80_LD_R_HL, aVR, hlVR, nil)
 
-		// LD dst, A  (peephole removes if dst also ends up in A)
-		dst := s.alloc.Alloc(8, Z80Registers8)
-		t.Dst.AllowedSet = dst.AllowedSet
+		// LD dst, r  (peephole removes if dst ends up in same register)
+		t.Dst.AllowedSet = Z80Registers8
 		emitInstr(block, Z80_LD_R_R, t.Dst, aVR, nil)
 	} else {
-		// 16-bit: load low byte then high byte.
-		// LD E, (HL) ; INC HL ; LD D, (HL)  → result in DE
-		eVR := s.reg8(&RegE)
-		emitInstr(block, Z80_LD_R_HL, eVR, hlVR, nil)
-
-		incHL := s.reg16(&RegHL)
-		emitInstr(block, Z80_INC_RR, incHL, hlVR, nil)
-
-		dVR := s.reg8(&RegD)
-		emitInstr(block, Z80_LD_R_HL, dVR, incHL, nil)
-
-		deVR := s.reg16(&RegDE)
-		emitInstr(block, Z80_LD_R_R, t.Dst, deVR, nil) // pseudo: move DE→dst
-		t.Dst.AllowedSet = []*cfg.Register{&RegDE}
+		s.emitLoadHL16(block, hlVR, t.Dst)
 	}
 }
 
@@ -156,21 +142,12 @@ func (s *instructionSelectorZ80) SelectLoadIndexed(block *cfg.BasicBlock, t *cfg
 	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, deVR)
 
 	if t.Size == 8 {
-		aVR := s.reg8(&RegA)
+		aVR := s.any8()
 		emitInstr(block, Z80_LD_R_HL, aVR, addHL, nil)
 		t.Dst.AllowedSet = Z80Registers8
 		emitInstr(block, Z80_LD_R_R, t.Dst, aVR, nil)
 	} else {
-		// 16-bit: LD E,(HL); INC HL; LD D,(HL) → DE
-		eVR := s.reg8(&RegE)
-		emitInstr(block, Z80_LD_R_HL, eVR, addHL, nil)
-		incHL := s.reg16(&RegHL)
-		emitInstr(block, Z80_INC_RR, incHL, addHL, nil)
-		dVR := s.reg8(&RegD)
-		emitInstr(block, Z80_LD_R_HL, dVR, incHL, nil)
-		t.Dst.AllowedSet = []*cfg.Register{&RegDE}
-		deResult := s.reg16(&RegDE)
-		emitInstr(block, Z80_LD_R_R, t.Dst, deResult, nil)
+		s.emitLoadHL16(block, addHL, t.Dst)
 	}
 }
 
@@ -188,21 +165,12 @@ func (s *instructionSelectorZ80) SelectStore(block *cfg.BasicBlock, t *cfg.TacSt
 	hlVR := s.addressWithOffset(block, t.Base, t.Offset)
 
 	if t.Size == 8 {
-		aVR := s.reg8(&RegA)
-		emitInstr(block, Z80_LD_R_R, aVR, t.Value, nil)
-		emitInstr(block, Z80_LD_HL_R, hlVR, aVR, nil)
+		rVR := s.any8()
+		emitInstr(block, Z80_LD_R_R, rVR, t.Value, nil)
+		emitInstr(block, Z80_LD_HL_R, hlVR, rVR, nil)
 	} else {
-		// 16-bit: store low byte then high byte.
-		// LD (HL), E ; INC HL ; LD (HL), D
-		// Require value in DE.
-		deVR := s.reg16(&RegDE)
-		emitInstr(block, Z80_LD_R_R, deVR, t.Value, nil)
-		eVR := s.reg8(&RegE)
-		emitInstr(block, Z80_LD_HL_R, hlVR, eVR, nil)
-		incHL := s.reg16(&RegHL)
-		emitInstr(block, Z80_INC_RR, incHL, hlVR, nil)
-		dVR := s.reg8(&RegD)
-		emitInstr(block, Z80_LD_HL_R, incHL, dVR, nil)
+		// 16-bit: store lo byte then hi byte using any PP register (BC or DE).
+		s.emitStoreHL16(block, hlVR, t.Value)
 	}
 }
 
@@ -215,18 +183,12 @@ func (s *instructionSelectorZ80) SelectStoreIndexed(block *cfg.BasicBlock, t *cf
 	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, deVR)
 
 	if t.Size == 8 {
-		aVR := s.reg8(&RegA)
-		emitInstr(block, Z80_LD_R_R, aVR, t.Value, nil)
-		emitInstr(block, Z80_LD_HL_R, addHL, aVR, nil)
+		rVR := s.any8()
+		emitInstr(block, Z80_LD_R_R, rVR, t.Value, nil)
+		emitInstr(block, Z80_LD_HL_R, addHL, rVR, nil)
 	} else {
-		deResult := s.reg16(&RegDE)
-		emitInstr(block, Z80_LD_R_R, deResult, t.Value, nil)
-		eVR := s.reg8(&RegE)
-		emitInstr(block, Z80_LD_HL_R, addHL, eVR, nil)
-		incHL := s.reg16(&RegHL)
-		emitInstr(block, Z80_INC_RR, incHL, addHL, nil)
-		dVR := s.reg8(&RegD)
-		emitInstr(block, Z80_LD_HL_R, incHL, dVR, nil)
+		// 16-bit: store lo byte then hi byte using any PP register (BC or DE).
+		s.emitStoreHL16(block, addHL, t.Value)
 	}
 }
 
@@ -244,22 +206,13 @@ func (s *instructionSelectorZ80) SelectInitSeq(block *cfg.BasicBlock, t *cfg.Tac
 
 	for i, val := range t.Values {
 		if t.ElemSize == 1 {
-			// LD A, val ; LD (HL), A
-			aVR := s.reg8(&RegA)
-			emitInstr(block, Z80_LD_R_R, aVR, val, nil)
-			emitInstr(block, Z80_LD_HL_R, hlVR, aVR, nil)
+			// LD r, val ; LD (HL), r
+			rVR := s.any8()
+			emitInstr(block, Z80_LD_R_R, rVR, val, nil)
+			emitInstr(block, Z80_LD_HL_R, hlVR, rVR, nil)
 		} else {
-			// 16-bit element: store L then H.
-			// Require val in DE; store E then D.
-			deVR := s.reg16(&RegDE)
-			emitInstr(block, Z80_LD_R_R, deVR, val, nil)
-			eVR := s.reg8(&RegE)
-			emitInstr(block, Z80_LD_HL_R, hlVR, eVR, nil)
-			incHL := s.reg16(&RegHL)
-			emitInstr(block, Z80_INC_RR, incHL, hlVR, nil)
-			hlVR = incHL
-			dVR := s.reg8(&RegD)
-			emitInstr(block, Z80_LD_HL_R, hlVR, dVR, nil)
+			// 16-bit element: store lo byte then hi byte using any PP register (BC or DE).
+			hlVR = s.emitStoreHL16(block, hlVR, val)
 		}
 
 		// INC HL between elements (but not after the last one).
@@ -405,18 +358,18 @@ func (s *instructionSelectorZ80) selectSub8(block *cfg.BasicBlock, t *cfg.TacBin
 // selectAdd16: HL = left + right  →  Dst
 //
 //	LD HL, left
-//	LD DE, right
-//	ADD HL, DE
+//	LD pp, right   (pp = BC or DE)
+//	ADD HL, pp
 //	LD dst, HL
 func (s *instructionSelectorZ80) selectAdd16(block *cfg.BasicBlock, t *cfg.TacBinOp) {
 	hlVR := s.reg16(&RegHL)
 	s.emitLD16(block, hlVR, t.Left)
 
-	deVR := s.reg16(&RegDE)
-	s.emitLD16(block, deVR, t.Right)
+	ppVR := s.alloc.Alloc(16, Z80RegistersPP)
+	s.emitLD16(block, ppVR, t.Right)
 
 	addHL := s.reg16(&RegHL)
-	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, deVR)
+	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, ppVR)
 
 	t.Dst.AllowedSet = []*cfg.Register{&RegHL}
 	s.emitLD16(block, t.Dst, addHL)
@@ -425,23 +378,23 @@ func (s *instructionSelectorZ80) selectAdd16(block *cfg.BasicBlock, t *cfg.TacBi
 // selectSub16: HL = left - right  →  Dst
 //
 //	LD HL, left
-//	LD DE, right
+//	LD pp, right   (pp = BC or DE)
 //	AND A          ; clear carry flag
-//	SBC HL, DE
+//	SBC HL, pp
 //	LD dst, HL
 func (s *instructionSelectorZ80) selectSub16(block *cfg.BasicBlock, t *cfg.TacBinOp) {
 	hlVR := s.reg16(&RegHL)
 	s.emitLD16(block, hlVR, t.Left)
 
-	deVR := s.reg16(&RegDE)
-	s.emitLD16(block, deVR, t.Right)
+	ppVR := s.alloc.Alloc(16, Z80RegistersPP)
+	s.emitLD16(block, ppVR, t.Right)
 
-	// AND A clears the carry flag without altering HL or DE.
+	// AND A clears the carry flag without altering HL or the second operand.
 	aVR := s.reg8(&RegA)
 	emitInstr(block, Z80_AND_R, aVR, aVR, nil)
 
 	sbcHL := s.reg16(&RegHL)
-	emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, deVR)
+	emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, ppVR)
 
 	t.Dst.AllowedSet = []*cfg.Register{&RegHL}
 	s.emitLD16(block, t.Dst, sbcHL)
@@ -525,13 +478,13 @@ func (s *instructionSelectorZ80) SelectBranchCond(block *cfg.BasicBlock, t *cfg.
 	} else {
 		hlVR := s.reg16(&RegHL)
 		s.emitLD16(block, hlVR, left)
-		deVR := s.reg16(&RegDE)
-		s.emitLD16(block, deVR, right)
-		// AND A clears carry before SBC HL, DE.
+		ppVR := s.alloc.Alloc(16, Z80RegistersPP)
+		s.emitLD16(block, ppVR, right)
+		// AND A clears carry before SBC HL, pp.
 		aVR := s.reg8(&RegA)
 		emitInstr(block, Z80_AND_R, aVR, aVR, nil)
 		sbcHL := s.reg16(&RegHL)
-		emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, deVR)
+		emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, ppVR)
 	}
 
 	emitBranch(block, Z80_JP_CC_NN, cc, t.Then)
@@ -569,12 +522,12 @@ func (s *instructionSelectorZ80) SelectCompare(block *cfg.BasicBlock, t *cfg.Tac
 	} else {
 		hlVR := s.reg16(&RegHL)
 		s.emitLD16(block, hlVR, left)
-		deVR := s.reg16(&RegDE)
-		s.emitLD16(block, deVR, right)
+		ppVR := s.alloc.Alloc(16, Z80RegistersPP)
+		s.emitLD16(block, ppVR, right)
 		aVR := s.reg8(&RegA)
 		emitInstr(block, Z80_AND_R, aVR, aVR, nil) // clear carry
 		sbcHL := s.reg16(&RegHL)
-		emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, deVR)
+		emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, ppVR)
 	}
 
 	// Materialise: LD A, 0 ; JR inverse_cc, +1 ; INC A
@@ -681,11 +634,11 @@ func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUn
 	switch t.Op {
 	case cfg.TacIncrement:
 		if t.Size == 8 {
-			incVR := s.reg8(&RegA)
+			incVR := s.any8()
 			emitInstr(block, Z80_LD_R_R, incVR, t.Operand, nil)
-			resVR := s.reg8(&RegA)
+			resVR := s.any8()
 			emitInstr(block, Z80_INC_R, resVR, incVR, nil)
-			t.Dst.AllowedSet = []*cfg.Register{&RegA}
+			t.Dst.AllowedSet = Z80Registers8
 			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
 		} else {
 			hlVR := s.reg16(&RegHL)
@@ -697,11 +650,11 @@ func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUn
 		}
 	case cfg.TacDecrement:
 		if t.Size == 8 {
-			decVR := s.reg8(&RegA)
+			decVR := s.any8()
 			emitInstr(block, Z80_LD_R_R, decVR, t.Operand, nil)
-			resVR := s.reg8(&RegA)
+			resVR := s.any8()
 			emitInstr(block, Z80_DEC_R, resVR, decVR, nil)
-			t.Dst.AllowedSet = []*cfg.Register{&RegA}
+			t.Dst.AllowedSet = Z80Registers8
 			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
 		} else {
 			hlVR := s.reg16(&RegHL)
@@ -837,44 +790,90 @@ func (s *instructionSelectorZ80) addressWithOffset(block *cfg.BasicBlock, base c
 		return hlVR
 	}
 
-	// LD DE, offset
+	// LD pp, offset  (pp = BC or DE)
 	offsetImm := cfg.NewImmVR(int32(offset), 16)
-	deVR := s.reg16(&RegDE)
-	emitInstr(block, Z80_LD_RR_NN, deVR, offsetImm, nil)
+	ppVR := s.alloc.Alloc(16, Z80RegistersPP)
+	emitInstr(block, Z80_LD_RR_NN, ppVR, offsetImm, nil)
 
-	// ADD HL, DE
+	// ADD HL, pp
 	addHL := s.reg16(&RegHL)
-	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, deVR)
+	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, ppVR)
 	return addHL
 }
 
-// scaleIndex returns a TempVR in DE holding Index scaled by ElemSize.
-// ElemSize 1: DE = Index (zero-extended from 8-bit if needed).
-// ElemSize 2: DE = Index * 2 (via ADD HL,HL on a scratch HL, result moved to DE).
+// scaleIndex returns a TempVR in a PP register (BC or DE) holding Index scaled
+// by ElemSize. ElemSize 1: pp = Index (zero-extended from 8-bit if needed).
+// ElemSize 2: pp = Index * 2 (via ADD HL,HL on a scratch HL, result moved to pp).
 func (s *instructionSelectorZ80) scaleIndex(block *cfg.BasicBlock, index cfg.VROperand, elemSize uint8) *cfg.TempVR {
-	deVR := s.reg16(&RegDE)
+	ppVR := s.alloc.Alloc(16, Z80RegistersPP)
 
 	if index.Size() == 8 {
-		// Zero-extend 8-bit index into DE: LD E, index; LD D, 0
-		eVR := s.reg8(&RegE)
-		emitInstr(block, Z80_LD_R_R, eVR, index, nil)
-		dVR := s.reg8(&RegD)
-		zeroImm := cfg.NewImmVR(0, 8)
-		emitInstr(block, Z80_LD_R_N, dVR, zeroImm, nil)
+		// Zero-extend 8-bit index: lo = index, hi = 0
+		ppLos, ppHis := cfg.ToPairs(ppVR.AllowedSet)
+		loVR := s.alloc.Alloc(8, ppLos)
+		emitInstr(block, Z80_LD_R_R, loVR, index, nil)
+		hiVR := s.alloc.Alloc(8, ppHis)
+		emitInstr(block, Z80_LD_R_N, hiVR, cfg.NewImmVR(0, 8), nil)
 	} else {
-		// 16-bit index already fits in DE.
-		s.emitLD16(block, deVR, index)
+		// 16-bit index: load directly into pp.
+		s.emitLD16(block, ppVR, index)
 	}
 
 	if elemSize == 2 {
-		// DE *= 2: move DE to HL, ADD HL,HL, move back to DE.
+		// pp *= 2: move to HL, ADD HL,HL, move back to pp.
 		hlVR := s.reg16(&RegHL)
-		s.emitLD16(block, hlVR, deVR)
+		s.emitLD16(block, hlVR, ppVR)
 		emitInstr(block, Z80_ADD_HL_RR, hlVR, hlVR, nil)
-		s.emitLD16(block, deVR, hlVR)
+		s.emitLD16(block, ppVR, hlVR)
 	}
 
-	return deVR
+	return ppVR
+}
+
+// emitLoadHL16 loads a 16-bit value from (HL):(HL+1) into dst.
+// lo byte constrained to {C,E}, hi byte to {B,D} so constraint propagation
+// can unify them with dst's sub-registers and eliminate the copy instructions.
+func (s *instructionSelectorZ80) emitLoadHL16(block *cfg.BasicBlock, hlVR *cfg.TempVR, dst *cfg.TempVR) {
+	loVR := s.alloc.Alloc(8, []*cfg.Register{&RegC, &RegE})
+	emitInstr(block, Z80_LD_R_HL, loVR, hlVR, nil)
+
+	incHL := s.reg16(&RegHL)
+	emitInstr(block, Z80_INC_RR, incHL, hlVR, nil)
+
+	hiVR := s.alloc.Alloc(8, []*cfg.Register{&RegB, &RegD})
+	emitInstr(block, Z80_LD_R_HL, hiVR, incHL, nil)
+
+	dst.AllowedSet = Z80RegistersPP
+	dstLos, dstHis := cfg.ToPairs(dst.AllowedSet)
+	emitInstr(block, Z80_LD_R_R, s.alloc.Alloc(8, dstLos), loVR, nil)
+	emitInstr(block, Z80_LD_R_R, s.alloc.Alloc(8, dstHis), hiVR, nil)
+}
+
+// emitStoreHL16 stores a 16-bit value into (HL) [lo byte] and (HL+1) [hi byte]
+// using any PP register pair (BC or DE) as scratch. Returns an HL TempVR
+// pointing at the hi-byte address (after the internal INC HL), so the caller
+// can INC HL once more to advance past the full 16-bit element.
+func (s *instructionSelectorZ80) emitStoreHL16(block *cfg.BasicBlock, hlVR *cfg.TempVR, val cfg.VROperand) *cfg.TempVR {
+	loVR := s.alloc.Alloc(8, []*cfg.Register{&RegC, &RegE})
+	hiVR := s.alloc.Alloc(8, []*cfg.Register{&RegB, &RegD})
+
+	switch v := val.(type) {
+	case *cfg.ImmVR:
+		emitInstr(block, Z80_LD_R_N, loVR, cfg.NewImmVR(v.Value&0xFF, 8), nil)
+		emitInstr(block, Z80_LD_R_N, hiVR, cfg.NewImmVR((v.Value>>8)&0xFF, 8), nil)
+	case *cfg.TempVR:
+		srcLos, srcHis := cfg.ToPairs(v.AllowedSet)
+		emitInstr(block, Z80_LD_R_R, loVR, s.alloc.Alloc(8, srcLos), nil)
+		emitInstr(block, Z80_LD_R_R, hiVR, s.alloc.Alloc(8, srcHis), nil)
+	default:
+		panic("emitStoreHL16: unexpected VROperand type")
+	}
+
+	emitInstr(block, Z80_LD_HL_R, hlVR, loVR, nil)
+	incHL := s.reg16(&RegHL)
+	emitInstr(block, Z80_INC_RR, incHL, hlVR, nil)
+	emitInstr(block, Z80_LD_HL_R, incHL, hiVR, nil)
+	return incHL
 }
 
 // emitLD16 emits a 16-bit load of src into dst using real Z80 instructions.
