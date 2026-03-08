@@ -430,7 +430,7 @@ func (cfg *CFG) String() string {
 	sb.WriteString("CFG:\n")
 	for _, block := range cfg.Blocks {
 		sb.WriteString(fmt.Sprintf("  Block %d (%s):\n", block.ID, block.GetFullLabel()))
-			sb.WriteString(fmt.Sprintf("    SemInstructions: %d\n", len(block.SemInstructions)))
+		sb.WriteString(fmt.Sprintf("    SemInstructions: %d\n", len(block.SemInstructions)))
 		sb.WriteString(fmt.Sprintf("    TAC: %d\n", len(block.TAC)))
 		sb.WriteString(fmt.Sprintf("    MachineInstructions: %d\n", len(block.MachineInstructions)))
 		sb.WriteString("    Successors: ")

@@ -3,6 +3,7 @@ package compile
 import (
 	"fmt"
 	"testing"
+	"zenith/compiler/cfg"
 )
 
 func RunPipeline(t *testing.T, source string) *CompilationResult {
@@ -23,26 +24,9 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 		fmt.Printf("  SemErr: %s\n", serr.Error())
 	}
 
-	// for fnName, funcCFG := range result.FunctionCFGs {
-	// 	cfg.DumpCFG(fnName, funcCFG, cfg.DumpInstructions)
-
-	// 	//dump liveness
-	// 	// if li, ok := result.LivenessInfo[fnName]; ok {
-	// 	// 	cfg.DumpBlockLiveness(fnName, li)
-	// 	// }
-
-	// 	// Also dump interference graph
-	// 	if ig, exists := result.InterferenceInfo[fnName]; exists {
-	// 		for _, block := range funcCFG.Blocks {
-	// 			cfg.DumpInstructionLiveness(fnName, block.ID, ig.InstructionLiveness[block.ID])
-	// 		}
-	// 		cfg.DumpInterference(fnName, ig)
-	// 	}
-
-	// 	if vra, ok := result.VrAllocators[fnName]; ok {
-	// 		cfg.DumpAllocation(vra)
-	// 	}
-	// }
+	for fnName, funcCFG := range result.FunctionCFGs {
+		cfg.DumpTAC(fnName, funcCFG)
+	}
 
 	return result
 }
