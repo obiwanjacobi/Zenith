@@ -287,8 +287,26 @@ func (s *instructionSelectorZ80) SelectBinOp(block *cfg.BasicBlock, t *cfg.TacBi
 		} else {
 			s.selectMulDiv16(block, t, "__div16")
 		}
+	case cfg.TacAnd:
+		if t.Size == 8 {
+			s.selectBitwise8(block, Z80_AND_R, Z80_AND_N, t.Left, t.Right, t.Dst)
+		} else {
+			s.selectBitwise16(block, Z80_AND_R, t.Left, t.Right, t.Dst)
+		}
+	case cfg.TacOr:
+		if t.Size == 8 {
+			s.selectBitwise8(block, Z80_OR_R, Z80_OR_N, t.Left, t.Right, t.Dst)
+		} else {
+			s.selectBitwise16(block, Z80_OR_R, t.Left, t.Right, t.Dst)
+		}
+	case cfg.TacXor:
+		if t.Size == 8 {
+			s.selectBitwise8(block, Z80_XOR_R, Z80_XOR_N, t.Left, t.Right, t.Dst)
+		} else {
+			s.selectBitwise16(block, Z80_XOR_R, t.Left, t.Right, t.Dst)
+		}
 	default:
-		panic("SelectBinOp: bitwise ops (AND/OR/XOR) not yet implemented")
+		panic("SelectBinOp: unhandled TacOp")
 	}
 }
 
@@ -427,6 +445,209 @@ func (s *instructionSelectorZ80) selectMulDiv16(block *cfg.BasicBlock, t *cfg.Ta
 
 	t.Dst.AllowedSet = []*cfg.Register{&RegDE}
 	emitInstr(block, Z80_LD_R_R, t.Dst, resultVR, nil)
+}
+
+// ── Comparisons and control flow ──────────────────────────────────────────────
+
+// SelectBranchCond: fused compare + conditional branch.
+//
+// 8-bit:  LD A, left ; CP right ; JP cc, then ; JP else
+// 16-bit: LD HL, left ; LD DE, right ; AND A ; SBC HL, DE ; JP cc, then ; JP else
+//
+// GT and LE swap operands so the carry-based condition code works correctly.
+func (s *instructionSelectorZ80) SelectBranchCond(block *cfg.BasicBlock, t *cfg.TacBranchCond) {
+	cc, swap := cmpOpToCondAndSwap(t.Op)
+	left, right := t.Left, t.Right
+	if swap {
+		left, right = right, left
+	}
+
+	if t.Size == 8 {
+		aVR := s.reg8(&RegA)
+		emitInstr(block, Z80_LD_R_R, aVR, left, nil)
+		if _, isImm := right.(*cfg.ImmVR); isImm {
+			emitInstr(block, Z80_CP_N, nil, aVR, right)
+		} else {
+			emitInstr(block, Z80_CP_R, nil, aVR, right)
+		}
+	} else {
+		hlVR := s.reg16(&RegHL)
+		emitInstr(block, Z80_LD_RR_NN, hlVR, left, nil)
+		deVR := s.reg16(&RegDE)
+		emitInstr(block, Z80_LD_RR_NN, deVR, right, nil)
+		// AND A clears carry before SBC HL, DE.
+		aVR := s.reg8(&RegA)
+		emitInstr(block, Z80_AND_R, aVR, aVR, nil)
+		sbcHL := s.reg16(&RegHL)
+		emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, deVR)
+	}
+
+	emitBranch(block, Z80_JP_CC_NN, cc, t.Then)
+	emitBranch(block, Z80_JP_NN, Cond_None, t.Else)
+}
+
+// SelectCompare: Dst = (Left Op Right), materialising a bit value into a register.
+//
+// Pattern (8-bit):
+//
+//	LD A, left
+//	CP right       ; (CP n for immediates)
+//	LD A, 0
+//	JR inverse_cc, +1   ; skip INC A when condition is false
+//	INC A               ; A = 1 when condition is true
+//	LD dst, A
+//
+// The JR offset is always +1 because INC r is exactly 1 byte.
+// 16-bit uses AND A; SBC HL, DE to set the same flags, then the same tail.
+func (s *instructionSelectorZ80) SelectCompare(block *cfg.BasicBlock, t *cfg.TacCompare) {
+	cc, swap := cmpOpToCondAndSwap(t.Op)
+	left, right := t.Left, t.Right
+	if swap {
+		left, right = right, left
+	}
+
+	if t.Size == 8 {
+		aVR := s.reg8(&RegA)
+		emitInstr(block, Z80_LD_R_R, aVR, left, nil)
+		if _, isImm := right.(*cfg.ImmVR); isImm {
+			emitInstr(block, Z80_CP_N, nil, aVR, right)
+		} else {
+			emitInstr(block, Z80_CP_R, nil, aVR, right)
+		}
+	} else {
+		hlVR := s.reg16(&RegHL)
+		emitInstr(block, Z80_LD_RR_NN, hlVR, left, nil)
+		deVR := s.reg16(&RegDE)
+		emitInstr(block, Z80_LD_RR_NN, deVR, right, nil)
+		aVR := s.reg8(&RegA)
+		emitInstr(block, Z80_AND_R, aVR, aVR, nil) // clear carry
+		sbcHL := s.reg16(&RegHL)
+		emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, deVR)
+	}
+
+	// Materialise: LD A, 0 ; JR inverse_cc, +1 ; INC A
+	zeroA := s.reg8(&RegA)
+	emitInstr(block, Z80_LD_R_N, zeroA, cfg.NewImmVR(0, 8), nil)
+	emitRelJump(block, invertCond(cc), 1) // skip INC A if condition false
+	oneA := s.reg8(&RegA)
+	emitInstr(block, Z80_INC_R, oneA, zeroA, nil)
+
+	t.Dst.AllowedSet = []*cfg.Register{&RegA}
+	emitInstr(block, Z80_LD_R_R, t.Dst, oneA, nil)
+}
+
+// SelectJump: unconditional branch to target.
+func (s *instructionSelectorZ80) SelectJump(block *cfg.BasicBlock, t *cfg.TacJump) {
+	emitBranch(block, Z80_JP_NN, Cond_None, t.Target)
+}
+
+// SelectBranchIf: branch on a pre-computed boolean (bit value in a register).
+//
+//	LD A, cond
+//	AND A          ; set Z if zero, NZ if non-zero
+//	JP NZ, then    ; jump to then if true
+//	JP else
+func (s *instructionSelectorZ80) SelectBranchIf(block *cfg.BasicBlock, t *cfg.TacBranchIf) {
+	aVR := s.reg8(&RegA)
+	emitInstr(block, Z80_LD_R_R, aVR, t.Cond, nil)
+	emitInstr(block, Z80_AND_R, aVR, aVR, nil)
+	emitBranch(block, Z80_JP_CC_NN, Cond_NZ, t.Then)
+	emitBranch(block, Z80_JP_NN, Cond_None, t.Else)
+}
+
+// selectBitwise8: A = left op right  →  Dst
+//
+//	LD A, left
+//	AND/OR/XOR right   (immediate variant if right is ImmVR)
+//	LD dst, A
+func (s *instructionSelectorZ80) selectBitwise8(block *cfg.BasicBlock, regOp, immOp Z80Opcode, left, right cfg.VROperand, dst *cfg.TempVR) {
+	aVR := s.reg8(&RegA)
+	emitInstr(block, Z80_LD_R_R, aVR, left, nil)
+
+	resVR := s.reg8(&RegA)
+	if _, isImm := right.(*cfg.ImmVR); isImm {
+		emitInstr(block, immOp, resVR, aVR, right)
+	} else {
+		emitInstr(block, regOp, resVR, aVR, right)
+	}
+
+	dst.AllowedSet = []*cfg.Register{&RegA}
+	emitInstr(block, Z80_LD_R_R, dst, resVR, nil)
+}
+
+// selectBitwise16: HL = left op right  →  Dst
+//
+// Z80 has no 16-bit AND/OR/XOR, so operate byte-wise on H/L and D/E.
+//
+//	LD HL, left ; LD DE, right
+//	LD A, L ; AND/OR/XOR E ; LD L, A
+//	LD A, H ; AND/OR/XOR D ; LD H, A
+//	LD dst, HL
+func (s *instructionSelectorZ80) selectBitwise16(block *cfg.BasicBlock, regOp Z80Opcode, left, right cfg.VROperand, dst *cfg.TempVR) {
+	hlVR := s.reg16(&RegHL)
+	emitInstr(block, Z80_LD_RR_NN, hlVR, left, nil)
+	deVR := s.reg16(&RegDE)
+	emitInstr(block, Z80_LD_RR_NN, deVR, right, nil)
+
+	// Low byte: L op E → L
+	aVR := s.reg8(&RegA)
+	lVR := s.reg8(&RegL)
+	emitInstr(block, Z80_LD_R_R, aVR, lVR, nil)
+	eVR := s.reg8(&RegE)
+	resL := s.reg8(&RegA)
+	emitInstr(block, regOp, resL, aVR, eVR)
+	newL := s.reg8(&RegL)
+	emitInstr(block, Z80_LD_R_R, newL, resL, nil)
+
+	// High byte: H op D → H
+	a2VR := s.reg8(&RegA)
+	hVR := s.reg8(&RegH)
+	emitInstr(block, Z80_LD_R_R, a2VR, hVR, nil)
+	dVR := s.reg8(&RegD)
+	resH := s.reg8(&RegA)
+	emitInstr(block, regOp, resH, a2VR, dVR)
+	newH := s.reg8(&RegH)
+	emitInstr(block, Z80_LD_R_R, newH, resH, nil)
+
+	dst.AllowedSet = []*cfg.Register{&RegHL}
+	emitInstr(block, Z80_LD_R_R, dst, hlVR, nil)
+}
+
+// invertCond returns the logical inverse of a condition code.
+func invertCond(cc ConditionCode) ConditionCode {
+	switch cc {
+	case Cond_Z:
+		return Cond_NZ
+	case Cond_NZ:
+		return Cond_Z
+	case Cond_C:
+		return Cond_NC
+	case Cond_NC:
+		return Cond_C
+	default:
+		panic("invertCond: unsupported ConditionCode")
+	}
+}
+
+// cmpOpToCondAndSwap returns the Z80 condition code for a TacCmpOp and whether// the left/right operands should be swapped before emitting the comparison.
+// All mappings assume unsigned semantics (CP / SBC HL,rr carry flag).
+func cmpOpToCondAndSwap(op cfg.TacCmpOp) (ConditionCode, bool) {
+	switch op {
+	case cfg.TacCmpEqual:
+		return Cond_Z, false
+	case cfg.TacCmpNotEqual:
+		return Cond_NZ, false
+	case cfg.TacCmpLess:
+		return Cond_C, false
+	case cfg.TacCmpGreaterEq:
+		return Cond_NC, false
+	case cfg.TacCmpGreater:
+		return Cond_C, true // emit CP left with right in A → carry if right < left
+	case cfg.TacCmpLessEq:
+		return Cond_NC, true // emit CP left with right in A → no-carry if right >= left
+	default:
+		panic("cmpOpToCondAndSwap: unknown TacCmpOp")
+	}
 }
 
 // ── Private helpers ─────────────────────────────────────────────────────────────

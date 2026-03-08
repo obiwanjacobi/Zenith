@@ -50,6 +50,20 @@ type InstructionSelector interface {
 
 	// SelectBinOp handles TacBinOp: Dst = Left Op Right.
 	SelectBinOp(block *BasicBlock, instr *TacBinOp)
+
+	// ── Comparisons and control flow ─────────────────────────────────────
+
+	// SelectBranchCond handles TacBranchCond: fused compare + conditional branch.
+	SelectBranchCond(block *BasicBlock, instr *TacBranchCond)
+
+	// SelectCompare handles TacCompare: Dst = (Left Op Right), materialising a bit.
+	SelectCompare(block *BasicBlock, instr *TacCompare)
+
+	// SelectJump handles TacJump: unconditional branch.
+	SelectJump(block *BasicBlock, instr *TacJump)
+
+	// SelectBranchIf handles TacBranchIf: branch on a pre-computed boolean operand.
+	SelectBranchIf(block *BasicBlock, instr *TacBranchIf)
 }
 
 // SelectInstructions runs instruction selection over the entire function CFG.
@@ -85,6 +99,14 @@ func selectOne(sel InstructionSelector, block *BasicBlock, tac TacInstruction) e
 		sel.SelectCopy(block, t)
 	case *TacBinOp:
 		sel.SelectBinOp(block, t)
+	case *TacBranchCond:
+		sel.SelectBranchCond(block, t)
+	case *TacCompare:
+		sel.SelectCompare(block, t)
+	case *TacJump:
+		sel.SelectJump(block, t)
+	case *TacBranchIf:
+		sel.SelectBranchIf(block, t)
 	default:
 		return fmt.Errorf("instruction selector: unhandled TAC %T", tac)
 	}

@@ -27,14 +27,17 @@ import (
 //	           Block layout decides JP vs JR at emit time.
 //	Label    — symbolic call target name for CALL_NN to named functions/helpers
 //	           (empty for jumps resolved via Target).
+//	ImmOffset — fixed relative byte offset for JR cc used in boolean materialisation
+//	           sequences; only non-zero when Target and Label are both empty.
 type MachineInstrZ80 struct {
-	Opcode   Z80Opcode
-	CondCode ConditionCode
-	Result   cfg.VROperand   // written operand (nil if none)
-	Src1     cfg.VROperand   // first read operand (nil if unused)
-	Src2     cfg.VROperand   // second read operand (nil if unused)
-	Target   *cfg.BasicBlock // branch/call destination (nil if unused)
-	Label    string          // symbolic call target (non-empty for CALL_NN to named labels)
+	Opcode    Z80Opcode
+	CondCode  ConditionCode
+	Result    cfg.VROperand   // written operand (nil if none)
+	Src1      cfg.VROperand   // first read operand (nil if unused)
+	Src2      cfg.VROperand   // second read operand (nil if unused)
+	Target    *cfg.BasicBlock // branch/call destination (nil if unused)
+	Label     string          // symbolic call target (non-empty for CALL_NN to named labels)
+	ImmOffset int8            // fixed JR byte offset for materialisation sequences
 }
 
 // GetResult returns the VROperand written by this instruction, or nil.
@@ -68,6 +71,8 @@ func (m *MachineInstrZ80) String() string {
 		parts = append(parts, m.Label)
 	} else if m.Target != nil {
 		parts = append(parts, fmt.Sprintf("Block%d", m.Target.ID))
+	} else if m.ImmOffset != 0 {
+		parts = append(parts, fmt.Sprintf("%+d", m.ImmOffset))
 	}
 	if m.Result != nil {
 		// Result appears first for load/move instructions in assembly notation.
@@ -112,6 +117,19 @@ func emitCall(block *cfg.BasicBlock, label string, result cfg.VROperand) *Machin
 		Opcode: Z80_CALL_NN,
 		Label:  label,
 		Result: result,
+	}
+	block.MachineInstructions = append(block.MachineInstructions, mi)
+	return mi
+}
+
+// emitRelJump appends a JR cc, offset instruction with a fixed byte offset.
+// Used only in boolean materialisation sequences where the skip target is always
+// exactly 1 byte ahead (the INC r that sets the result to 1).
+func emitRelJump(block *cfg.BasicBlock, cc ConditionCode, offset int8) *MachineInstrZ80 {
+	mi := &MachineInstrZ80{
+		Opcode:    Z80_JR_CC_E,
+		CondCode:  cc,
+		ImmOffset: offset,
 	}
 	block.MachineInstructions = append(block.MachineInstructions, mi)
 	return mi
