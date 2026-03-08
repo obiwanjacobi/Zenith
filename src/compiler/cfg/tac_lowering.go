@@ -111,6 +111,23 @@ func (ctx *tacLoweringCtx) lowerBlock(block *BasicBlock) {
 	for _, stmt := range block.SemInstructions {
 		ctx.lowerStmt(block, stmt)
 	}
+	// Emit an unconditional jump for blocks with a single successor that have
+	// not already terminated with a branch (e.g. for.inc → for.cond, for.body
+	// → for.inc). Conditional-branch blocks (for.cond, if-cond, select) emit
+	// their own TacBranchCond/TacJump via lowerStmt, so we guard against
+	// double-emission by checking the last TAC instruction.
+	if len(block.Successors) == 1 {
+		alreadyTerminated := false
+		if n := len(block.TAC); n > 0 {
+			switch block.TAC[n-1].(type) {
+			case *TacJump, *TacBranchCond, *TacBranchIf, *TacReturn:
+				alreadyTerminated = true
+			}
+		}
+		if !alreadyTerminated {
+			emit(block, &TacJump{Target: block.Successors[0]})
+		}
+	}
 }
 
 // ============================================================================
