@@ -664,6 +664,8 @@ func (sa *SemanticAnalyzer) processExpression(node parser.Expression) SemExpress
 		result = sa.processSubscript(n)
 	case parser.ExpressionArrayInitializer:
 		result = sa.processArrayInitializer(n)
+	case parser.ExpressionPrecedence:
+		result = sa.processExpression(n.Inner())
 	case parser.ExpressionTypeInitializer:
 		result = sa.processTypeInitializer(n)
 	case parser.ExpressionIdentifier:
