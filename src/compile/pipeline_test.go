@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 	"zenith/compiler/cfg"
+	z80 "zenith/compiler/cfg/z80"
 )
 
 func RunPipeline(t *testing.T, source string) *CompilationResult {
@@ -26,6 +27,9 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 
 	for fnName, funcCFG := range result.FunctionCFGs {
 		cfg.DumpTAC(fnName, funcCFG)
+		for _, block := range funcCFG.Blocks {
+			z80.DumpMachineInstructions(block.MachineInstructions)
+		}
 	}
 
 	return result
@@ -82,6 +86,21 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 	}
 	if len(result.FunctionCFGs) == 0 {
 		t.Error("CFG was not generated")
+	}
+	// Only check machine instructions once the selector handles all TAC node types.
+	if result.Success {
+		for fnName, funcCFG := range result.FunctionCFGs {
+			hasInstrs := false
+			for _, block := range funcCFG.Blocks {
+				if len(block.MachineInstructions) > 0 {
+					hasInstrs = true
+					break
+				}
+			}
+			if !hasInstrs {
+				t.Errorf("no machine instructions generated for function '%s'", fnName)
+			}
+		}
 	}
 	// if len(result.LivenessInfo) == 0 {
 	// 	t.Error("Liveness analysis was not performed")

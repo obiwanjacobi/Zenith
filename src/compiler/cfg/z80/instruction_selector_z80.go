@@ -17,8 +17,8 @@ type instructionSelectorZ80 struct {
 }
 
 // NewInstructionSelectorZ80 returns a new Z80 instruction selector.
-func NewInstructionSelectorZ80(alloc *cfg.TempVRAllocator, cc CallingConvention) cfg.InstructionSelector {
-	return &instructionSelectorZ80{alloc: alloc, cc: cc}
+func NewInstructionSelectorZ80(alloc *cfg.TempVRAllocator) cfg.InstructionSelector {
+	return &instructionSelectorZ80{alloc: alloc, cc: NewCallingConventionZ80()}
 }
 
 // ── Allocator helpers ─────────────────────────────────────────────────────────

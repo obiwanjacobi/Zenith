@@ -178,7 +178,28 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// ==========================================================================
-	// Stage 6: Instruction Selection  (TODO)
+	// Stage 6: Instruction Selection
+	// ==========================================================================
+	if opts.Verbose {
+		fmt.Println("==> Stage 6: Instruction Selection")
+	}
+
+	for fnName, funcCFG := range result.FunctionCFGs {
+		alloc := result.VRAllocators[fnName]
+		sel := z80.NewInstructionSelectorZ80(alloc)
+		if err := cfg.SelectInstructions(sel, funcCFG); err != nil {
+			result.CodeGenErrors = append(result.CodeGenErrors, err)
+			return result, fmt.Errorf("instruction selection failed for '%s': %w", fnName, err)
+		}
+
+		if opts.Verbose {
+			for _, block := range funcCFG.Blocks {
+				z80.DumpMachineInstructions(block.MachineInstructions)
+			}
+		}
+	}
+
+	// ==========================================================================
 	// Stage 7: Liveness Analysis      (TODO)
 	// Stage 8: Register Allocation    (TODO)
 	// Stage 9: Code Emission          (TODO)
