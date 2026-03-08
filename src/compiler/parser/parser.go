@@ -7,10 +7,11 @@ import (
 )
 
 type parserContext struct {
-	source  *compiler.Source
-	tokens  lexer.TokenStream
-	current lexer.Token
-	errors  []*compiler.Diagnostic
+	source      *compiler.Source
+	tokens      lexer.TokenStream
+	current     lexer.Token
+	errors      []*compiler.Diagnostic
+	inCondition bool // true while parsing a branch/loop condition; suppresses expressionTypeInitializer
 }
 
 func (ctx *parserContext) appendError(errors *[]*compiler.Diagnostic, msg string) {
@@ -153,7 +154,7 @@ func collectErrors(node ParserNode, errors []*compiler.Diagnostic) []*compiler.D
 }
 
 func Parse(source *compiler.Source, tokens lexer.TokenStream) (ParserNode, []*compiler.Diagnostic) {
-	ctx := parserContext{source, tokens, nil, make([]*compiler.Diagnostic, 0, 10)}
+	ctx := parserContext{source: source, tokens: tokens, current: nil, errors: make([]*compiler.Diagnostic, 0, 10)}
 	if ctx.next(skipEOL) != nil {
 		node := ctx.compilationUnit()
 

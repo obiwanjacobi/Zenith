@@ -747,7 +747,9 @@ func (ctx *parserContext) statementIf() ParserNode {
 
 	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
+	ctx.inCondition = true
 	condition := ctx.expression()
+	ctx.inCondition = false
 	if condition == nil {
 		ctx.appendError(&errors, "expected condition after 'if'")
 	} else {
@@ -802,7 +804,9 @@ func (ctx *parserContext) statementElsif() ParserNode {
 
 	errors := make([]*compiler.Diagnostic, 0)
 	children := []ParserNode{}
+	ctx.inCondition = true
 	condition := ctx.expression()
+	ctx.inCondition = false
 	if condition == nil {
 		ctx.appendError(&errors, "expected condition after 'elsif'")
 	} else {
@@ -872,7 +876,9 @@ func (ctx *parserContext) statementFor() ParserNode {
 	}
 
 	// Condition (required)
+	ctx.inCondition = true
 	condition := ctx.expression()
+	ctx.inCondition = false
 	if condition == nil {
 		ctx.appendError(&errors, "expected condition in for loop")
 	} else {
@@ -1389,15 +1395,18 @@ func (ctx *parserContext) expressionPostfix() ParserNode {
 
 // expressionPrimary: handles base expressions (literals, identifiers, parentheses, etc.)
 func (ctx *parserContext) expressionPrimary() ParserNode {
-	// Try alternatives in order
-	// Array literals use [] and precedence uses (), so no ambiguity
+	// Try alternatives in order.
+	// expressionTypeInitializer must come before expressionIdentifier so that
+	// struct literals like Point{x=1} are recognised (both start with an identifier).
+	// When inCondition is true, expressionTypeInitializer short-circuits to nil so
+	// that `flag {body}` in an if-condition is never mistaken for a struct literal.
 	return ctx.parseOr([]func() ParserNode{
-		ctx.expressionArrayInitializer,
 		ctx.expressionPrecedence,
 		ctx.expressionFunctionInvocation,
 		ctx.expressionTypeInitializer,
 		ctx.expressionLiteral,
 		ctx.expressionIdentifier,
+		ctx.expressionArrayInitializer,
 	})
 }
 
@@ -1500,6 +1509,13 @@ func (ctx *parserContext) expressionArrayInitializer() ParserNode {
 
 // expression_type_initializer: type_ref type_initializer
 func (ctx *parserContext) expressionTypeInitializer() ParserNode {
+	// Struct literals must not appear as branch/loop conditions: if the parser
+	// is currently resolving a condition expression, skip this alternative so
+	// that `identifierName { body }` cannot be consumed as a struct literal.
+	if ctx.inCondition {
+		return nil
+	}
+
 	mark := ctx.mark()
 
 	typeRefNode := ctx.typeReference()

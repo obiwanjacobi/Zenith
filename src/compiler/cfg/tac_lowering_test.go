@@ -328,43 +328,40 @@ caller: () {
 // 10. Logical-not in branch → then/else swapped, no TacUnary emitted
 // ============================================================================
 
-// TODO: Disabled — blocked by two bugs tracked in src/todo.md:
-//   1. Parser greedily parses `flag {` as an expressionTypeInitializer (struct
-//      literal), consuming the if-body before the code block is recognised.
-//   2. sem_analyzer.go does not handle parser.ExpressionPrecedence — `not (x < 10)`
-//      falls through to the default case and returns an "unknown expression type" error.
-// Fix both bugs, then rewrite this test to use `if not (x < 10) {}` directly.
-//
-// func TestTACLowering_LogicalNotBranchInversion(t *testing.T) {
-// 	code := `main: () {
-// 		x: u8 = 5
-// 		if not (x < 10) {
-// 			x = 1
-// 		}
-// 	}`
-// 	fnCFG := lowerTACFromCode(t, code)
-//
-// 	// Must have a TacBranchCond — not (comparison) must be fused, not materialised.
-// 	var bc *TacBranchCond
-// 	for _, block := range fnCFG.Blocks {
-// 		if v := findFirst[*TacBranchCond](block.TAC); v != nil {
-// 			bc = v
-// 			break
-// 		}
-// 	}
-// 	require.NotNil(t, bc, "expected TacBranchCond even for negated condition")
-//
-// 	// Logical-not inversion is structural (then/else swap); no TacUnary must
-// 	// appear as a NOT instruction.
-// 	for _, block := range fnCFG.Blocks {
-// 		for _, instr := range block.TAC {
-// 			if u, ok := instr.(*TacUnary); ok {
-// 				assert.NotEqual(t, TacBitwiseNot, u.Op, "logical-not in branch must not emit TacUnary(BNOT)")
-// 				assert.NotEqual(t, TacNegate, u.Op, "logical-not in branch must not emit TacUnary(NEG)")
-// 			}
-// 		}
-// 	}
-// }
+// ============================================================================
+// 10. Logical-not in branch → then/else swapped, no TacUnary emitted
+// ============================================================================
+
+func TestTACLowering_LogicalNotBranchInversion(t *testing.T) {
+	code := `main: () {
+		x: u8 = 5
+		if not (x < 10) {
+			x = 1
+		}
+	}`
+	fnCFG := lowerTACFromCode(t, code)
+
+	// Must have a TacBranchCond — not (comparison) must be fused, not materialised.
+	var bc *TacBranchCond
+	for _, block := range fnCFG.Blocks {
+		if v := findFirst[*TacBranchCond](block.TAC); v != nil {
+			bc = v
+			break
+		}
+	}
+	require.NotNil(t, bc, "expected TacBranchCond even for negated condition")
+
+	// Logical-not inversion is structural (then/else swap); no TacUnary must
+	// appear as a NOT instruction.
+	for _, block := range fnCFG.Blocks {
+		for _, instr := range block.TAC {
+			if u, ok := instr.(*TacUnary); ok {
+				assert.NotEqual(t, TacBitwiseNot, u.Op, "logical-not in branch must not emit TacUnary(BNOT)")
+				assert.NotEqual(t, TacNegate, u.Op, "logical-not in branch must not emit TacUnary(NEG)")
+			}
+		}
+	}
+}
 
 // ============================================================================
 // 11. For-loop condition → TacBranchCond with correct then/else block labels

@@ -603,3 +603,35 @@ func Test_ParseArrayInitializerTrailingComma(t *testing.T) {
 	elements := arrayExpr.Initializer().Elements()
 	assert.Equal(t, 3, len(elements), "Should have 3 elements (trailing comma ignored)")
 }
+
+// ============================================================================
+// Regression test for parser Bug #1 (tracked in src/todo.md):
+// expressionTypeInitializer greedily captures the if-body when the condition
+// ends with a bare identifier, because typeReference() succeeds on any
+// identifier and then typeInitializer() consumes the opening '{' of the block.
+//
+// Expected: zero parse errors, the if-statement has a non-nil condition and a
+// non-nil then-block.
+// Actual (unfixed): parse error "expected code block after condition".
+// ============================================================================
+
+func Test_ParseIfConditionBareIdentifier(t *testing.T) {
+
+	code := `main: () {
+		flag: bit = 1
+		if not flag {
+			flag = 0
+		}
+	}`
+	cu, errors := parseCodeError(t, "Test_ParseIfConditionBareIdentifier", code)
+	require.Empty(t, errors, "if-condition ending with a bare identifier must not produce parse errors")
+
+	funcDecl := cu.Declarations()[0].(FunctionDeclaration)
+	body := funcDecl.Body()
+	require.Equal(t, 2, len(body.Statements()), "expected variable decl + if statement")
+
+	ifStmt, ok := body.Statements()[1].(StatementIf)
+	require.True(t, ok, "second statement must be an if")
+	assert.NotNil(t, ifStmt.Condition(), "if condition must be non-nil")
+	assert.NotNil(t, ifStmt.ThenBlock(), "if then-block must be non-nil")
+}
