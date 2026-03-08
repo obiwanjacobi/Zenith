@@ -25,6 +25,13 @@ Added `case parser.ExpressionPrecedence:` to `processExpression` in
 
 ---
 
+## Machine Instructions Z80
+
+- `SelectReturn` should receive the exit-block and emit a JP not a RET.
+- 
+
+---
+
 ## Planned work
 
 - ~~After fixing parser Bug #1, rewrite `TestTACLowering_LogicalNotBranchInversion`~~ ✅ Both
