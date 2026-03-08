@@ -61,6 +61,7 @@ func Test_Pipeline_SimpleFunction(t *testing.T) {
 	opts := DefaultPipelineOptions()
 	opts.Source = sourceCode
 	opts.TargetArch = "z80"
+	opts.Verbose = true
 
 	result, err := Pipeline(opts)
 

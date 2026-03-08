@@ -97,6 +97,9 @@ type CFG struct {
 	FunctionDecl *zsm.SemFunctionDecl // Original function declaration (for parameters, return type)
 	StackFrame   *StackFrame          // Stack frame for symbol-backed slots
 	StackOffset  uint16               // Current stack offset for spills
+	// ParamVRs holds the TempVR allocated for each function parameter (in declaration
+	// order). BindParameters uses these to emit the incoming register-to-VR copies.
+	ParamVRs []*TempVR
 }
 
 // ============================================================================

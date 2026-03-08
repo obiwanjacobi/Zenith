@@ -21,6 +21,75 @@ func NewInstructionSelectorZ80(alloc *cfg.TempVRAllocator) cfg.InstructionSelect
 	return &instructionSelectorZ80{alloc: alloc, cc: NewCallingConventionZ80()}
 }
 
+// ── Prologue / Epilogue ───────────────────────────────────────────────────────
+
+// BindParameters emits a copy from each calling-convention register into its
+// parameter TempVR. Called PRE-regalloc so that the AllowedSet constraint is
+// visible to constraint propagation and the linear scan.
+func (s *instructionSelectorZ80) BindParameters(entryBlock *cfg.BasicBlock, fnCFG *cfg.CFG) {
+	params := fnCFG.FunctionDecl.Parameters
+	for i, paramVR := range fnCFG.ParamVRs {
+		if i >= len(params) {
+			break
+		}
+		size := paramVR.Size()
+		reg, _, onStack := s.cc.GetParameterLocation(i, size)
+		if onStack {
+			// Stack parameters are not in a register; leave the VR unconstrained
+			// so regalloc handles it normally.
+			continue
+		}
+		// Allocate a source VR pinned to the ABI register and emit LD paramVR, ccReg.
+		ccVR := s.alloc.Alloc(size, []*cfg.Register{reg})
+		paramVR.AllowedSet = []*cfg.Register{reg}
+		emitInstr(entryBlock, Z80_LD_R_R, paramVR, ccVR, nil)
+	}
+}
+
+// SelectPrologue emits the stack frame setup into the entry block. Called
+// POST-regalloc so StackFrame.Size() includes any spill slots. Operands are
+// PhysVRs and do not go through register allocation.
+//
+//	LD HL, -frameSize
+//	ADD HL, SP
+//	LD SP, HL
+func (s *instructionSelectorZ80) SelectPrologue(entryBlock *cfg.BasicBlock, fnCFG *cfg.CFG) {
+	frameSize := fnCFG.StackFrame.Size()
+	if frameSize == 0 {
+		return
+	}
+	hlPhys := &cfg.PhysVR{Reg: &RegHL}
+	spPhys := &cfg.PhysVR{Reg: &RegSP}
+	setup := []cfg.MachineInstruction{
+		&MachineInstrZ80{Opcode: Z80_LD_RR_NN, Result: hlPhys, Src1: cfg.NewImmVR(-int32(frameSize), 16)},
+		&MachineInstrZ80{Opcode: Z80_ADD_HL_RR, Result: hlPhys, Src1: hlPhys, Src2: spPhys},
+		&MachineInstrZ80{Opcode: Z80_LD_SP_HL, Result: spPhys, Src1: hlPhys},
+	}
+	entryBlock.MachineInstructions = append(setup, entryBlock.MachineInstructions...)
+}
+
+// SelectEpilogue emits the stack frame teardown into the exit block, prepended
+// before the return-value move and RET. Called POST-regalloc. Operands are
+// PhysVRs and do not go through register allocation.
+//
+//	LD HL, frameSize
+//	ADD HL, SP
+//	LD SP, HL
+func (s *instructionSelectorZ80) SelectEpilogue(exitBlock *cfg.BasicBlock, fnCFG *cfg.CFG) {
+	frameSize := fnCFG.StackFrame.Size()
+	if frameSize == 0 {
+		return
+	}
+	hlPhys := &cfg.PhysVR{Reg: &RegHL}
+	spPhys := &cfg.PhysVR{Reg: &RegSP}
+	teardown := []cfg.MachineInstruction{
+		&MachineInstrZ80{Opcode: Z80_LD_RR_NN, Result: hlPhys, Src1: cfg.NewImmVR(int32(frameSize), 16)},
+		&MachineInstrZ80{Opcode: Z80_ADD_HL_RR, Result: hlPhys, Src1: hlPhys, Src2: spPhys},
+		&MachineInstrZ80{Opcode: Z80_LD_SP_HL, Result: spPhys, Src1: hlPhys},
+	}
+	exitBlock.MachineInstructions = append(teardown, exitBlock.MachineInstructions...)
+}
+
 // ── Allocator helpers ─────────────────────────────────────────────────────────
 
 // reg8 allocates a TempVR constrained to a single 8-bit register.

@@ -21,6 +21,26 @@ import "fmt"
 //     VRs are immutable once allocated.
 //   - Correctness first; redundant LD r,r moves are removed by the peephole pass.
 type InstructionSelector interface {
+	// ── Prologue / Epilogue ──────────────────────────────────────────────────
+
+	// BindParameters emits a copy from each calling-convention register into
+	// its parameter TempVR, constraining the TempVR's AllowedSet to the ABI
+	// register. Called PRE-regalloc during SelectInstructions so that constraint
+	// propagation and the linear scan see the incoming register binding.
+	BindParameters(entryBlock *BasicBlock, fnCFG *CFG)
+
+	// SelectPrologue emits the stack frame setup into the entry block:
+	// LD HL,-n ; ADD HL,SP ; LD SP,HL. Called POST-regalloc so that
+	// StackFrame.Size() reflects all spill slots added during allocation.
+	// Uses PhysVR operands directly; does not go through register allocation.
+	SelectPrologue(entryBlock *BasicBlock, fnCFG *CFG)
+
+	// SelectEpilogue emits the stack frame teardown into the exit block,
+	// prepended before the return-value move and RET: LD HL,n ; ADD HL,SP ;
+	// LD SP,HL. Called POST-regalloc for the same reason as SelectPrologue.
+	// Uses PhysVR operands directly; does not go through register allocation.
+	SelectEpilogue(exitBlock *BasicBlock, fnCFG *CFG)
+
 	// ── Memory ──────────────────────────────────────────────────────────────
 
 	// SelectLoad handles TacLoad: Dst = *(Base + Offset).
@@ -51,6 +71,11 @@ type InstructionSelector interface {
 	// SelectBinOp handles TacBinOp: Dst = Left Op Right.
 	SelectBinOp(block *BasicBlock, instr *TacBinOp)
 
+	// ── Unary operations ─────────────────────────────────────────────────────
+
+	// SelectUnary handles TacUnary: Dst = Op Operand.
+	SelectUnary(block *BasicBlock, instr *TacUnary)
+
 	// ── Comparisons and control flow ─────────────────────────────────────
 
 	// SelectBranchCond handles TacBranchCond: fused compare + conditional branch.
@@ -72,11 +97,6 @@ type InstructionSelector interface {
 
 	// SelectReturn handles TacReturn: return [Value].
 	SelectReturn(block *BasicBlock, instr *TacReturn)
-
-	// ── Unary operations ─────────────────────────────────────────────────────
-
-	// SelectUnary handles TacUnary: Dst = Op Operand.
-	SelectUnary(block *BasicBlock, instr *TacUnary)
 }
 
 // SelectInstructions runs instruction selection over the entire function CFG.
@@ -84,6 +104,10 @@ type InstructionSelector interface {
 // method, and populates each block's MachineInstructions slice.
 // This logic is target-independent and shared across all backends.
 func SelectInstructions(sel InstructionSelector, fnCFG *CFG) error {
+	// Bind incoming parameters to their ABI registers (pre-regalloc: sets
+	// AllowedSet constraints so the linear scan honours the calling convention).
+	sel.BindParameters(fnCFG.Entry, fnCFG)
+
 	for _, block := range fnCFG.Blocks {
 		for _, tac := range block.TAC {
 			if err := selectOne(sel, block, tac); err != nil {
@@ -112,6 +136,8 @@ func selectOne(sel InstructionSelector, block *BasicBlock, tac TacInstruction) e
 		sel.SelectCopy(block, t)
 	case *TacBinOp:
 		sel.SelectBinOp(block, t)
+	case *TacUnary:
+		sel.SelectUnary(block, t)
 	case *TacBranchCond:
 		sel.SelectBranchCond(block, t)
 	case *TacCompare:
@@ -124,8 +150,6 @@ func selectOne(sel InstructionSelector, block *BasicBlock, tac TacInstruction) e
 		sel.SelectCall(block, t)
 	case *TacReturn:
 		sel.SelectReturn(block, t)
-	case *TacUnary:
-		sel.SelectUnary(block, t)
 	default:
 		return fmt.Errorf("instruction selector: unhandled TAC %T", tac)
 	}

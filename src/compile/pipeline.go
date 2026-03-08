@@ -188,9 +188,14 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		fmt.Println("==> Stage 6: Instruction Selection")
 	}
 
+	// selectors is kept alive so Stage 9 can call SelectPrologue/SelectEpilogue
+	// after register allocation has finalised the stack frame size.
+	selectors := make(map[string]cfg.InstructionSelector)
+
 	for fnName, funcCFG := range result.FunctionCFGs {
 		alloc := result.VRAllocators[fnName]
 		sel := z80.NewInstructionSelectorZ80(alloc)
+		selectors[fnName] = sel
 		if err := cfg.SelectInstructions(sel, funcCFG); err != nil {
 			result.CodeGenErrors = append(result.CodeGenErrors, err)
 			return result, fmt.Errorf("instruction selection failed for '%s': %w", fnName, err)
@@ -235,7 +240,22 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// ==========================================================================
-	// Stage 9: Code Emission          (TODO)
+	// Stage 9: Prologue / Epilogue Emission
+	// ==========================================================================
+	// Stack frame size is now final (regalloc has added any spill slots), so
+	// SelectPrologue and SelectEpilogue can read the correct StackFrame.Size().
+	if opts.Verbose {
+		fmt.Println("==> Stage 9: Prologue / Epilogue Emission")
+	}
+
+	for fnName, funcCFG := range result.FunctionCFGs {
+		sel := selectors[fnName]
+		sel.SelectPrologue(funcCFG.Entry, funcCFG)
+		sel.SelectEpilogue(funcCFG.Exit, funcCFG)
+	}
+
+	// ==========================================================================
+	// Stage 10: Code Emission         (TODO)
 	// ==========================================================================
 
 	// ==========================================================================

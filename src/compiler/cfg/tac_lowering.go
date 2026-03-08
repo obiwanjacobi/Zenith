@@ -82,17 +82,20 @@ func LowerTAC(cfg *CFG, alloc *TempVRAllocator, regsets RegisterSets) error {
 	return nil
 }
 
-// seedParameter establishes the initial VR for a function parameter.
+// seedParameter establishes the initial VR for a function parameter and
+// records it in cfg.ParamVRs so SelectPrologue can constrain it to the
+// calling-convention register.
 func (ctx *tacLoweringCtx) seedParameter(sym *zsm.Symbol) {
+	var vr *TempVR
 	switch sym.Type.(type) {
 	case *zsm.ArrayType, *zsm.StructType:
 		// Aggregate params are always passed as a pointer. Give them a 16-bit VR.
-		vr := ctx.alloc.AllocNamed(sym.Name, 16, ctx.regsets.Regs16)
-		ctx.symToVR[sym] = vr
+		vr = ctx.alloc.AllocNamed(sym.Name, 16, ctx.regsets.Regs16)
 	default:
-		vr := ctx.alloc.AllocNamed(sym.Name, uint8(sym.Type.Size()*8), ctx.regClass(sym.Type.Size()))
-		ctx.symToVR[sym] = vr
+		vr = ctx.alloc.AllocNamed(sym.Name, uint8(sym.Type.Size()*8), ctx.regClass(sym.Type.Size()))
 	}
+	ctx.symToVR[sym] = vr
+	ctx.cfg.ParamVRs = append(ctx.cfg.ParamVRs, vr)
 }
 
 // regClass returns the full register class for a type of the given byte size.
