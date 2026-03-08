@@ -12,7 +12,8 @@ import (
 // MachineInstruction is a target-specific instruction produced by the backend
 // instruction selector. Concrete types live in cfg/<target>/ (e.g. cfg/z80/).
 type MachineInstruction interface {
-	machineInstruction() // unexported marker
+	GetResult() VROperand     // the single VROperand written by this instruction (nil if none)
+	GetOperands() []VROperand // all VROperands read by this instruction
 	String() string
 }
 

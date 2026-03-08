@@ -48,6 +48,11 @@ type ImmVR struct {
 func (v *ImmVR) Size() uint8    { return v.size }
 func (v *ImmVR) String() string { return fmt.Sprintf("#%d", v.Value) }
 
+// NewImmVR creates a compile-time constant operand with the given bit width.
+func NewImmVR(value int32, bits uint8) *ImmVR {
+	return &ImmVR{Value: value, size: bits}
+}
+
 // ============================================================================
 // StackVR — stack-allocated slot
 // ============================================================================

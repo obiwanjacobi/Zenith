@@ -4,6 +4,8 @@ Guidelines for generating code in the Zenith compiler project.
 
 Rule #1: don't generate code when not asked to.
 Rule #2: after forming a plan for a fix or new feature, ask the user to confirm before generating any code.
+Rule #3: Do not overthink the implementation. If the user asks for a fix or new feature, generate the most straightforward code that accomplishes the task. Add a comment if it is not the most optimal or elegant solution with what could be improved.
+
 ---
 
 ## Project overview
