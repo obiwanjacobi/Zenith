@@ -1,8 +1,6 @@
 package cfg
 
 import (
-	"fmt"
-
 	"zenith/compiler/zsm"
 )
 
@@ -731,23 +729,4 @@ func binaryToTacOp(op zsm.BinaryOperator) (TacOp, bool) {
 		return TacXor, true
 	}
 	return 0, false
-}
-
-// ============================================================================
-// Helpers to suppress unused-import warnings for fmt
-// ============================================================================
-
-// DumpTAC prints the TAC instructions for every block in fnCFG to stdout.
-func DumpTAC(fnName string, fnCFG *CFG) {
-	fmt.Printf("========== TAC: %s ==========\n", fnName)
-	for _, block := range fnCFG.Blocks {
-		fmt.Printf("  Block %d [%s]:\n", block.ID, block.Label)
-		if len(block.TAC) == 0 {
-			fmt.Printf("    (empty)\n")
-		}
-		for _, instr := range block.TAC {
-			fmt.Printf("    %s\n", instr)
-		}
-	}
-	fmt.Println()
 }

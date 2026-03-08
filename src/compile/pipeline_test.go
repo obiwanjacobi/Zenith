@@ -28,7 +28,7 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 	for fnName, funcCFG := range result.FunctionCFGs {
 		cfg.DumpTAC(fnName, funcCFG)
 		for _, block := range funcCFG.Blocks {
-			z80.DumpMachineInstructions(block.MachineInstructions)
+			z80.DumpMachineInstructions(block)
 		}
 	}
 

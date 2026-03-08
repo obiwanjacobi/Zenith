@@ -149,11 +149,8 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	}
 
 	// ==========================================================================
-	// Stage 5: TAC Lowering (target-independent)
+	// Prep: Target selection
 	// ==========================================================================
-	if opts.Verbose {
-		fmt.Println("==> Stage 5: TAC Lowering")
-	}
 
 	if opts.TargetArch != "z80" {
 		return result, fmt.Errorf("unsupported target architecture: %s", opts.TargetArch)
@@ -162,6 +159,13 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	regsets := cfg.RegisterSets{
 		Regs8:  z80.Z80Registers8,
 		Regs16: z80.Z80Registers16,
+	}
+
+	// ==========================================================================
+	// Stage 5: TAC Lowering (target-independent)
+	// ==========================================================================
+	if opts.Verbose {
+		fmt.Println("==> Stage 5: TAC Lowering")
 	}
 
 	for fnName, funcCFG := range result.FunctionCFGs {
@@ -194,7 +198,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		if opts.Verbose {
 			for _, block := range funcCFG.Blocks {
-				z80.DumpMachineInstructions(block.MachineInstructions)
+				z80.DumpMachineInstructions(block)
 			}
 		}
 	}

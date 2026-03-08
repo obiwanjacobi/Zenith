@@ -119,13 +119,10 @@ func emitCall(block *cfg.BasicBlock, result cfg.VROperand, labelVR cfg.VROperand
 
 // DumpMachineInstructions prints the machine instructions for one block.
 // Satisfies the cfg.DumpCFG dumpInstructions callback signature.
-func DumpMachineInstructions(instrs []cfg.MachineInstruction) {
-	if len(instrs) == 0 {
-		fmt.Println("    (no machine instructions)")
-		return
-	}
+func DumpMachineInstructions(block *cfg.BasicBlock) {
+	fmt.Printf("  Block %d [%s]:\n", block.ID, block.Label)
 	sb := &strings.Builder{}
-	for _, instr := range instrs {
+	for _, instr := range block.MachineInstructions {
 		sb.Reset()
 		sb.WriteString("    ")
 		sb.WriteString(instr.String())

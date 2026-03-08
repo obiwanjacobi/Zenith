@@ -345,7 +345,7 @@ func (t *TacStackAddr) String() string {
 // TacCall calls a function: Dst = Fn(Args...).
 // Dst is nil for void calls.
 type TacCall struct {
-	Dst     *TempVR     // nil for void calls
+	Dst     *TempVR // nil for void calls
 	Fn      string
 	Args    []VROperand
 	RetSize uint8
@@ -377,4 +377,21 @@ func (t *TacReturn) String() string {
 		return fmt.Sprintf("RETURN %s", t.Value)
 	}
 	return "RETURN"
+}
+
+// ===========================================================================
+
+// DumpTAC prints the TAC instructions for every block in fnCFG to stdout.
+func DumpTAC(fnName string, fnCFG *CFG) {
+	fmt.Printf("========== TAC: %s ==========\n", fnName)
+	for _, block := range fnCFG.Blocks {
+		fmt.Printf("  Block %d [%s]:\n", block.ID, block.Label)
+		if len(block.TAC) == 0 {
+			fmt.Printf("    (empty)\n")
+		}
+		for _, instr := range block.TAC {
+			fmt.Printf("    %s\n", instr)
+		}
+	}
+	fmt.Println()
 }
