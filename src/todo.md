@@ -28,7 +28,7 @@ Added `case parser.ExpressionPrecedence:` to `processExpression` in
 ## Machine Instructions Z80
 
 - `SelectReturn` should receive the exit-block and emit a JP not a RET.
-- 
+- block if.merge does not seem to be used.
 
 ---
 
