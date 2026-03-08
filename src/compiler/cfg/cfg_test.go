@@ -72,14 +72,14 @@ func Test_CFG_EmptyFunction(t *testing.T) {
 	assert.Equal(t, LabelExit, cfg.Exit.Label)
 
 	// Entry and exit should be empty (reserved for prologue/epilogue)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Entry should connect to first block (body), which connects to exit
 	assert.Equal(t, 1, len(cfg.Entry.Successors))
 	firstBlock := cfg.Entry.Successors[0]
 	assert.NotEqual(t, cfg.Exit, firstBlock, "Entry should not connect directly to exit")
-	assert.Equal(t, 0, len(firstBlock.Instructions), "Empty function has empty first block")
+	assert.Equal(t, 0, len(firstBlock.SemInstructions), "Empty function has empty first block")
 
 	// First block should connect to exit
 	assert.Equal(t, 1, len(firstBlock.Successors))
@@ -95,13 +95,13 @@ func Test_CFG_SimpleStatements(t *testing.T) {
 	cfg := buildCFGFromCode(t, code)
 
 	// Entry and exit are reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// All statements should be in the first block (body)
 	assert.Equal(t, 1, len(cfg.Entry.Successors))
 	firstBlock := cfg.Entry.Successors[0]
-	assert.Equal(t, 3, len(firstBlock.Instructions))
+	assert.Equal(t, 3, len(firstBlock.SemInstructions))
 
 	// First block connects to exit
 	assert.Equal(t, 1, len(firstBlock.Successors))
@@ -133,14 +133,14 @@ func Test_CFG_IfStatement(t *testing.T) {
 	require.NotNil(t, mergeBlock, "Should have if.merge block")
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// First block should have if statement
-	assert.Equal(t, 1, len(firstBlock.Instructions))
+	assert.Equal(t, 1, len(firstBlock.SemInstructions))
 
 	// Then block should have 1 instruction
-	assert.Equal(t, 1, len(thenBlock.Instructions))
+	assert.Equal(t, 1, len(thenBlock.SemInstructions))
 
 	// Check edges:
 	// entry -> firstBlock
@@ -184,12 +184,12 @@ func Test_CFG_IfElseStatement(t *testing.T) {
 	require.NotNil(t, mergeBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Then and else blocks should each have 1 instruction
-	assert.Equal(t, 1, len(thenBlock.Instructions))
-	assert.Equal(t, 1, len(elseBlock.Instructions))
+	assert.Equal(t, 1, len(thenBlock.SemInstructions))
+	assert.Equal(t, 1, len(elseBlock.SemInstructions))
 
 	// Check edges:
 	// entry -> firstBlock
@@ -242,8 +242,8 @@ func Test_CFG_IfElsifElseStatement(t *testing.T) {
 	require.NotNil(t, mergeBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Check edges:
 	// entry -> firstBlock
@@ -303,8 +303,8 @@ func Test_CFG_ForLoop(t *testing.T) {
 	require.NotNil(t, exitBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Check edges:
 	// entry -> firstBlock
@@ -349,8 +349,8 @@ func Test_CFG_ForLoopOnlyCondition(t *testing.T) {
 	require.NotNil(t, incBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Check edges:
 	// entry -> firstBlock
@@ -421,8 +421,8 @@ func Test_CFG_SelectStatement(t *testing.T) {
 	require.NotNil(t, firstBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Check edges:
 	// entry -> firstBlock
@@ -486,8 +486,8 @@ func Test_CFG_SelectStatementNoElse(t *testing.T) {
 	require.NotNil(t, firstBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Check edges:
 	// entry -> firstBlock
@@ -528,17 +528,17 @@ func Test_CFG_ReturnStatement(t *testing.T) {
 	require.NotNil(t, firstBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// First block should have 2 instructions (variable decl + return)
-	assert.Equal(t, 2, len(firstBlock.Instructions))
+	assert.Equal(t, 2, len(firstBlock.SemInstructions))
 
 	// First block should connect to exit (via return)
 	assert.Contains(t, firstBlock.Successors, cfg.Exit)
 
 	// Verify the return instruction is present
-	retStmt, ok := firstBlock.Instructions[1].(*zsm.SemReturn)
+	retStmt, ok := firstBlock.SemInstructions[1].(*zsm.SemReturn)
 	require.True(t, ok, "Second instruction should be SemReturn")
 	assert.Nil(t, retStmt.Value, "Return without value should have nil Value")
 }
@@ -555,17 +555,17 @@ func Test_CFG_ReturnStatementWithValue(t *testing.T) {
 	require.NotNil(t, firstBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// First block should have 2 instructions
-	assert.Equal(t, 2, len(firstBlock.Instructions))
+	assert.Equal(t, 2, len(firstBlock.SemInstructions))
 
 	// First block should connect to exit
 	assert.Contains(t, firstBlock.Successors, cfg.Exit)
 
 	// Verify the return instruction has a value
-	retStmt, ok := firstBlock.Instructions[1].(*zsm.SemReturn)
+	retStmt, ok := firstBlock.SemInstructions[1].(*zsm.SemReturn)
 	require.True(t, ok, "Second instruction should be SemReturn")
 	assert.NotNil(t, retStmt.Value, "Return with value should have non-nil Value")
 }
@@ -589,12 +589,12 @@ func Test_CFG_ReturnInBranch(t *testing.T) {
 	require.NotNil(t, mergeBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Then block should have return statement
-	require.Equal(t, 1, len(thenBlock.Instructions))
-	retStmt, ok := thenBlock.Instructions[0].(*zsm.SemReturn)
+	require.Equal(t, 1, len(thenBlock.SemInstructions))
+	retStmt, ok := thenBlock.SemInstructions[0].(*zsm.SemReturn)
 	require.True(t, ok, "Then block should contain SemReturn")
 	assert.NotNil(t, retStmt.Value)
 
@@ -647,8 +647,8 @@ func Test_CFG_NestedIfInFor(t *testing.T) {
 	require.NotNil(t, ifMergeBlock)
 
 	// Entry/exit reserved (empty)
-	assert.Equal(t, 0, len(cfg.Entry.Instructions))
-	assert.Equal(t, 0, len(cfg.Exit.Instructions))
+	assert.Equal(t, 0, len(cfg.Entry.SemInstructions))
+	assert.Equal(t, 0, len(cfg.Exit.SemInstructions))
 
 	// Check loop edges:
 	// entry -> firstBlock
@@ -793,7 +793,7 @@ func Test_CFG_MultipleEntryBlocksProblem(t *testing.T) {
 
 		t.Logf("Block %d [%s]: %d stmts, %d predecessors, %d successors",
 			block.ID, block.Label.String(),
-			len(block.Instructions),
+			len(block.SemInstructions),
 			len(block.Predecessors),
 			len(block.Successors))
 	}
@@ -813,7 +813,7 @@ func Test_CFG_MultipleEntryBlocksProblem(t *testing.T) {
 		for _, block := range cfg.Blocks {
 			if block.Label == LabelEntry {
 				t.Logf("\nEntry block %d:", block.ID)
-				t.Logf("  Instructions: %d", len(block.Instructions))
+				t.Logf("  Instructions: %d", len(block.SemInstructions))
 				t.Logf("  Predecessors: %v", blockIDs(block.Predecessors))
 				t.Logf("  Successors: %v", blockIDs(block.Successors))
 			}
@@ -862,7 +862,7 @@ func Test_CFG_MultipleEntryBlocksProblem(t *testing.T) {
 			for _, block := range cfg.Blocks {
 				if block.ID == id {
 					t.Logf("  Unreachable block %d [%s] has %d instructions",
-						id, block.Label.String(), len(block.Instructions))
+						id, block.Label.String(), len(block.SemInstructions))
 				}
 			}
 		}

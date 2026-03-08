@@ -81,8 +81,9 @@ type BasicBlock struct {
 	ID                  int                  // Unique identifier
 	Label               BlockLabel           // Label for this block
 	LabelID             int                  // Optional numeric suffix for label uniqueness
-	Instructions        []zsm.SemStatement   // Statements in this block (IR level)
-	MachineInstructions []MachineInstruction // Generated machine instructions for this block
+	SemInstructions     []zsm.SemStatement   // Semantic IR statements (stage 1 — CFG builder output)
+	TAC                 []TacInstruction     // Target-independent three-address code (stage 2)
+	MachineInstructions []MachineInstruction // Target-specific machine instructions (stage 3)
 	Successors          []*BasicBlock        // Blocks that can follow this one
 	Predecessors        []*BasicBlock        // Blocks that can jump to this one
 }
@@ -155,10 +156,10 @@ func (b *CFGBuilder) BuildCFG(funcDecl *zsm.SemFunctionDecl) *CFG {
 
 // blockTerminates checks if a block ends with a return statement
 func (b *CFGBuilder) blockTerminates(block *BasicBlock) bool {
-	if len(block.Instructions) == 0 {
+	if len(block.SemInstructions) == 0 {
 		return false
 	}
-	lastInstr := block.Instructions[len(block.Instructions)-1]
+	lastInstr := block.SemInstructions[len(block.SemInstructions)-1]
 	_, isReturn := lastInstr.(*zsm.SemReturn)
 	return isReturn
 }
@@ -170,7 +171,8 @@ func (b *CFGBuilder) newBlock(label BlockLabel, referenceID int) *BasicBlock {
 		ID:                  b.nextBlockID,
 		Label:               label,
 		LabelID:             referenceID,
-		Instructions:        []zsm.SemStatement{},
+		SemInstructions:     []zsm.SemStatement{},
+		TAC:                 []TacInstruction{},
 		MachineInstructions: []MachineInstruction{},
 		Successors:          []*BasicBlock{},
 		Predecessors:        []*BasicBlock{},
@@ -206,19 +208,19 @@ func (b *CFGBuilder) processStatement(stmt zsm.SemStatement, exitBlock *BasicBlo
 	switch s := stmt.(type) {
 	case *zsm.SemVariableDecl:
 		// Variable declarations are simple statements
-		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
+		b.currentBlock.SemInstructions = append(b.currentBlock.SemInstructions, s)
 
 	case *zsm.SemAssignment:
 		// Assignments are simple statements
-		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
+		b.currentBlock.SemInstructions = append(b.currentBlock.SemInstructions, s)
 
 	case *zsm.SemExpressionStmt:
 		// Expression statements (e.g., function calls)
-		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
+		b.currentBlock.SemInstructions = append(b.currentBlock.SemInstructions, s)
 
 	case *zsm.SemReturn:
 		// Return statement - add to current block and connect to exit
-		b.currentBlock.Instructions = append(b.currentBlock.Instructions, s)
+		b.currentBlock.SemInstructions = append(b.currentBlock.SemInstructions, s)
 		b.addEdge(b.currentBlock, exitBlock)
 		// Note: currentBlock now terminates, don't create a new block
 
@@ -233,7 +235,7 @@ func (b *CFGBuilder) processStatement(stmt zsm.SemStatement, exitBlock *BasicBlo
 
 	default:
 		// Unknown statement type - add it anyway
-		b.currentBlock.Instructions = append(b.currentBlock.Instructions, stmt)
+		b.currentBlock.SemInstructions = append(b.currentBlock.SemInstructions, stmt)
 	}
 }
 
@@ -261,7 +263,7 @@ func (b *CFGBuilder) processStatement(stmt zsm.SemStatement, exitBlock *BasicBlo
 func (b *CFGBuilder) processIf(ifStmt *zsm.SemIf, exitBlock *BasicBlock) {
 	// Current block evaluates condition and branches
 	condBlock := b.currentBlock
-	condBlock.Instructions = append(condBlock.Instructions, ifStmt)
+	condBlock.SemInstructions = append(condBlock.SemInstructions, ifStmt)
 
 	// Create then block
 	thenBlock := b.newBlock(LabelIfThen, condBlock.ID)
@@ -279,7 +281,7 @@ func (b *CFGBuilder) processIf(ifStmt *zsm.SemIf, exitBlock *BasicBlock) {
 	for _, elsif := range ifStmt.ElsifBlocks {
 		elsifCondBlock := b.newBlock(LabelElsifCond, prevCondBlock.ID)
 		b.addEdge(prevCondBlock, elsifCondBlock)
-		elsifCondBlock.Instructions = append(elsifCondBlock.Instructions, elsif)
+		elsifCondBlock.SemInstructions = append(elsifCondBlock.SemInstructions, elsif)
 
 		elsifThenBlock := b.newBlock(LabelElsifThen, elsifCondBlock.ID)
 		b.addEdge(elsifCondBlock, elsifThenBlock)
@@ -337,14 +339,14 @@ func (b *CFGBuilder) processIf(ifStmt *zsm.SemIf, exitBlock *BasicBlock) {
 func (b *CFGBuilder) processFor(forStmt *zsm.SemFor, exitBlock *BasicBlock) {
 	// Process initializer in current block
 	if forStmt.Initializer != nil {
-		b.currentBlock.Instructions = append(b.currentBlock.Instructions, forStmt.Initializer)
+		b.currentBlock.SemInstructions = append(b.currentBlock.SemInstructions, forStmt.Initializer)
 	}
 
 	// Create condition block
 	initBlock := b.currentBlock
 	condBlock := b.newBlock(LabelForCond, initBlock.ID)
 	b.addEdge(b.currentBlock, condBlock)
-	condBlock.Instructions = append(condBlock.Instructions, forStmt)
+	condBlock.SemInstructions = append(condBlock.SemInstructions, forStmt)
 
 	// Create body block
 	bodyBlock := b.newBlock(LabelForBody, condBlock.ID)
@@ -359,7 +361,7 @@ func (b *CFGBuilder) processFor(forStmt *zsm.SemFor, exitBlock *BasicBlock) {
 	b.addEdge(b.currentBlock, incBlock)
 	if forStmt.Increment != nil {
 		// Store increment as an expression statement
-		incBlock.Instructions = append(incBlock.Instructions, &zsm.SemExpressionStmt{
+		incBlock.SemInstructions = append(incBlock.SemInstructions, &zsm.SemExpressionStmt{
 			Expression: forStmt.Increment,
 		})
 	}
@@ -388,7 +390,7 @@ func (b *CFGBuilder) processFor(forStmt *zsm.SemFor, exitBlock *BasicBlock) {
 func (b *CFGBuilder) processSelect(selectStmt *zsm.SemSelect, exitBlock *BasicBlock) {
 	// Current block evaluates the select expression
 	exprBlock := b.currentBlock
-	exprBlock.Instructions = append(exprBlock.Instructions, selectStmt)
+	exprBlock.SemInstructions = append(exprBlock.SemInstructions, selectStmt)
 
 	// Create merge block (where all cases converge)
 	mergeBlock := b.newBlock(LabelSelectMerge, exprBlock.ID)
@@ -428,8 +430,9 @@ func (cfg *CFG) String() string {
 	sb.WriteString("CFG:\n")
 	for _, block := range cfg.Blocks {
 		sb.WriteString(fmt.Sprintf("  Block %d (%s):\n", block.ID, block.GetFullLabel()))
-		sb.WriteString(fmt.Sprintf("    IR Instructions: %d\n", len(block.Instructions)))
-		sb.WriteString(fmt.Sprintf("    Machine Instructions: %d\n", len(block.MachineInstructions)))
+			sb.WriteString(fmt.Sprintf("    SemInstructions: %d\n", len(block.SemInstructions)))
+		sb.WriteString(fmt.Sprintf("    TAC: %d\n", len(block.TAC)))
+		sb.WriteString(fmt.Sprintf("    MachineInstructions: %d\n", len(block.MachineInstructions)))
 		sb.WriteString("    Successors: ")
 		for _, succ := range block.Successors {
 			sb.WriteString(fmt.Sprintf("%d ", succ.ID))
@@ -473,8 +476,8 @@ func BuildCFGs(compilationUnit *zsm.SemCompilationUnit) []*CFG {
 func DumpCFG(fnName string, fnCFG *CFG, dumpInstructions func([]MachineInstruction)) {
 	fmt.Printf("========== Control Flow Graph: %s (Stack Offset: %d) ==========\n", fnName, fnCFG.StackOffset)
 	for _, block := range fnCFG.Blocks {
-		fmt.Printf("  Block %d [%s]: %d sem-instructions, %d successors\n",
-			block.ID, block.Label, len(block.Instructions), len(block.Successors))
+		fmt.Printf("  Block %d [%s]: %d sem-instructions, %d tac, %d successors\n",
+			block.ID, block.Label, len(block.SemInstructions), len(block.TAC), len(block.Successors))
 		for _, succ := range block.Successors {
 			fmt.Printf("    -> Block %d [%s]\n", succ.ID, succ.Label)
 		}
