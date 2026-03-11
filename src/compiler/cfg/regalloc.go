@@ -45,9 +45,18 @@ func propagateConstraints(fnCFG *CFG) {
 			if !ok {
 				continue
 			}
-			// Propagate only from a single-register source to an unconstrained dst.
+			// Propagate only from a single-register source to an unconstrained dst,
+			// and only when that register is actually in the dst's AllowedSet.
+			// Without the membership check, a cross-class copy like LD {C,E}, L
+			// would collapse {C,E} to {L}, turning the save into a self-move.
 			if len(src.AllowedSet) == 1 && len(dst.AllowedSet) > 1 {
-				dst.AllowedSet = src.AllowedSet
+				srcReg := src.AllowedSet[0]
+				for _, r := range dst.AllowedSet {
+					if r == srcReg {
+						dst.AllowedSet = src.AllowedSet
+						break
+					}
+				}
 			}
 		}
 	}
