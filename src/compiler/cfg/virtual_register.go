@@ -14,26 +14,35 @@ type VROperand interface {
 // ============================================================================
 
 // TempVR is an unallocated virtual register produced by each TAC expression.
-// AllowedSet constrains which physical register the allocator may assign.
+// allowedSet constrains which physical register the allocator may assign.
 // It is always non-empty: unconstrained VRs use a full register-class slice
 // (e.g. Z80Registers8 or Z80Registers16) set at allocation time.
 //
-// VRs are immutable once created: the allocator produces PhysVRs from TempVRs
-// rather than mutating TempVR fields.
+// All fields are private; use the getters to read them. To narrow the
+// constraint at instruction selection time, call ConstrainTo — the explicit
+// escape hatch that makes deliberate mutations visible at the call site.
 type TempVR struct {
-	ID         int
-	Name       string      // optional, for debugging (e.g. source variable name)
-	AllowedSet []*Register // architectural constraint; always non-empty
+	id         int
+	name       string      // optional, for debugging (e.g. source variable name)
+	allowedSet []*Register // architectural constraint; always non-empty
 	size       uint8       // width in bits (8 or 16)
 }
 
-func (v *TempVR) Size() uint8 { return v.size }
+func (v *TempVR) ID() int                { return v.id }
+func (v *TempVR) Name() string           { return v.name }
+func (v *TempVR) AllowedSet() []*Register { return v.allowedSet }
+func (v *TempVR) Size() uint8            { return v.size }
 func (v *TempVR) String() string {
-	if v.Name != "" {
-		return fmt.Sprintf("'%s' t%d", v.Name, v.ID)
+	if v.name != "" {
+		return fmt.Sprintf("'%s' t%d", v.name, v.id)
 	}
-	return fmt.Sprintf("t%d", v.ID)
+	return fmt.Sprintf("t%d", v.id)
 }
+
+// ConstrainTo narrows the AllowedSet of this TempVR to regs. This is the
+// deliberate escape hatch for instruction selection and register allocation,
+// where constraining a pre-existing VR is the correct approach.
+func (v *TempVR) ConstrainTo(regs []*Register) { v.allowedSet = regs }
 
 // ============================================================================
 // ImmVR — compile-time constant
@@ -101,7 +110,7 @@ type TempVRAllocator struct {
 
 // Alloc creates a new TempVR with the given size and register constraint.
 func (a *TempVRAllocator) Alloc(size uint8, allowed []*Register) *TempVR {
-	vr := &TempVR{ID: a.nextID, size: size, AllowedSet: allowed}
+	vr := &TempVR{id: a.nextID, size: size, allowedSet: allowed}
 	a.nextID++
 	return vr
 }
@@ -109,7 +118,7 @@ func (a *TempVRAllocator) Alloc(size uint8, allowed []*Register) *TempVR {
 // AllocNamed creates a named TempVR, used for source-level variables.
 func (a *TempVRAllocator) AllocNamed(name string, size uint8, allowed []*Register) *TempVR {
 	vr := a.Alloc(size, allowed)
-	vr.Name = name
+	vr.name = name
 	return vr
 }
 

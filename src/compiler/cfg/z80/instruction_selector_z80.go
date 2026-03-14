@@ -41,7 +41,7 @@ func (s *instructionSelectorZ80) BindParameters(entryBlock *cfg.BasicBlock, fnCF
 		}
 		// Allocate a source VR pinned to the ABI register and emit LD paramVR, ccReg.
 		ccVR := s.alloc.Alloc(size, []*cfg.Register{reg})
-		paramVR.AllowedSet = []*cfg.Register{reg}
+		paramVR.ConstrainTo([]*cfg.Register{reg})
 		emitInstr(entryBlock, Z80_LD_R_R, paramVR, ccVR, nil)
 	}
 }
@@ -115,7 +115,7 @@ func (s *instructionSelectorZ80) SelectLoad(block *cfg.BasicBlock, t *cfg.TacLoa
 		emitInstr(block, Z80_LD_R_HL, aVR, hlVR, nil)
 
 		// LD dst, r  (peephole removes if dst ends up in same register)
-		t.Dst.AllowedSet = Z80Registers8
+		t.Dst.ConstrainTo(Z80Registers8)
 		emitInstr(block, Z80_LD_R_R, t.Dst, aVR, nil)
 	} else {
 		s.emitLoadHL16(block, hlVR, t.Dst)
@@ -144,7 +144,7 @@ func (s *instructionSelectorZ80) SelectLoadIndexed(block *cfg.BasicBlock, t *cfg
 	if t.Size == 8 {
 		aVR := s.any8()
 		emitInstr(block, Z80_LD_R_HL, aVR, addHL, nil)
-		t.Dst.AllowedSet = Z80Registers8
+		t.Dst.ConstrainTo(Z80Registers8)
 		emitInstr(block, Z80_LD_R_R, t.Dst, aVR, nil)
 	} else {
 		s.emitLoadHL16(block, addHL, t.Dst)
@@ -245,7 +245,7 @@ func (s *instructionSelectorZ80) SelectStackAddr(block *cfg.BasicBlock, t *cfg.T
 	emitInstr(block, Z80_ADD_HL_RR, addHL, hlImm, spVR)
 
 	// LD dst, HL  (dst is any 16-bit — peephole removes self-move)
-	t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+	t.Dst.ConstrainTo([]*cfg.Register{&RegHL})
 	emitInstr(block, Z80_LD_R_R, t.Dst, addHL, nil)
 }
 
@@ -331,7 +331,7 @@ func (s *instructionSelectorZ80) selectAdd8(block *cfg.BasicBlock, t *cfg.TacBin
 		emitInstr(block, Z80_ADD_A_R, addVR, aVR, t.Right)
 	}
 
-	t.Dst.AllowedSet = []*cfg.Register{&RegA}
+	t.Dst.ConstrainTo([]*cfg.Register{&RegA})
 	emitInstr(block, Z80_LD_R_R, t.Dst, addVR, nil)
 }
 
@@ -351,7 +351,7 @@ func (s *instructionSelectorZ80) selectSub8(block *cfg.BasicBlock, t *cfg.TacBin
 		emitInstr(block, Z80_SUB_R, subVR, aVR, t.Right)
 	}
 
-	t.Dst.AllowedSet = []*cfg.Register{&RegA}
+	t.Dst.ConstrainTo([]*cfg.Register{&RegA})
 	emitInstr(block, Z80_LD_R_R, t.Dst, subVR, nil)
 }
 
@@ -371,7 +371,7 @@ func (s *instructionSelectorZ80) selectAdd16(block *cfg.BasicBlock, t *cfg.TacBi
 	addHL := s.reg16(&RegHL)
 	emitInstr(block, Z80_ADD_HL_RR, addHL, hlVR, ppVR)
 
-	t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+	t.Dst.ConstrainTo([]*cfg.Register{&RegHL})
 	s.emitLD16(block, t.Dst, addHL)
 }
 
@@ -396,7 +396,7 @@ func (s *instructionSelectorZ80) selectSub16(block *cfg.BasicBlock, t *cfg.TacBi
 	sbcHL := s.reg16(&RegHL)
 	emitInstr(block, Z80_SBC_HL_RR, sbcHL, hlVR, ppVR)
 
-	t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+	t.Dst.ConstrainTo([]*cfg.Register{&RegHL})
 	s.emitLD16(block, t.Dst, sbcHL)
 }
 
@@ -419,13 +419,13 @@ func (s *instructionSelectorZ80) selectMulDiv8(block *cfg.BasicBlock, t *cfg.Tac
 		// mul8 widens: u8 × u8 → u16 result in DE
 		resultVR := s.reg16(&RegDE)
 		emitCall(block, helper, resultVR)
-		t.Dst.AllowedSet = []*cfg.Register{&RegDE}
+		t.Dst.ConstrainTo([]*cfg.Register{&RegDE})
 		s.emitLD16(block, t.Dst, resultVR)
 	} else {
 		// div8 quotient in A
 		resultVR := s.reg8(&RegA)
 		emitCall(block, helper, resultVR)
-		t.Dst.AllowedSet = []*cfg.Register{&RegA}
+		t.Dst.ConstrainTo([]*cfg.Register{&RegA})
 		emitInstr(block, Z80_LD_R_R, t.Dst, resultVR, nil)
 	}
 }
@@ -448,7 +448,7 @@ func (s *instructionSelectorZ80) selectMulDiv16(block *cfg.BasicBlock, t *cfg.Ta
 	resultVR := s.reg16(&RegDE)
 	emitCall(block, helper, resultVR)
 
-	t.Dst.AllowedSet = []*cfg.Register{&RegDE}
+	t.Dst.ConstrainTo([]*cfg.Register{&RegDE})
 	s.emitLD16(block, t.Dst, resultVR)
 }
 
@@ -537,7 +537,7 @@ func (s *instructionSelectorZ80) SelectCompare(block *cfg.BasicBlock, t *cfg.Tac
 	oneA := s.reg8(&RegA)
 	emitInstr(block, Z80_INC_R, oneA, zeroA, nil)
 
-	t.Dst.AllowedSet = []*cfg.Register{&RegA}
+	t.Dst.ConstrainTo([]*cfg.Register{&RegA})
 	emitInstr(block, Z80_LD_R_R, t.Dst, oneA, nil)
 }
 
@@ -597,7 +597,7 @@ func (s *instructionSelectorZ80) SelectCall(block *cfg.BasicBlock, t *cfg.TacCal
 
 	if t.Dst != nil {
 		retReg := s.cc.GetReturnValueRegister(t.RetSize)
-		t.Dst.AllowedSet = []*cfg.Register{retReg}
+		t.Dst.ConstrainTo([]*cfg.Register{retReg})
 		if t.RetSize == 8 {
 			emitInstr(block, Z80_LD_R_R, t.Dst, resultVR, nil)
 		} else {
@@ -638,14 +638,14 @@ func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUn
 			emitInstr(block, Z80_LD_R_R, incVR, t.Operand, nil)
 			resVR := s.any8()
 			emitInstr(block, Z80_INC_R, resVR, incVR, nil)
-			t.Dst.AllowedSet = Z80Registers8
+			t.Dst.ConstrainTo(Z80Registers8)
 			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
 		} else {
 			hlVR := s.reg16(&RegHL)
 			s.emitLD16(block, hlVR, t.Operand)
 			resVR := s.reg16(&RegHL)
 			emitInstr(block, Z80_INC_RR, resVR, hlVR, nil)
-			t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+			t.Dst.ConstrainTo([]*cfg.Register{&RegHL})
 			s.emitLD16(block, t.Dst, resVR)
 		}
 	case cfg.TacDecrement:
@@ -654,14 +654,14 @@ func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUn
 			emitInstr(block, Z80_LD_R_R, decVR, t.Operand, nil)
 			resVR := s.any8()
 			emitInstr(block, Z80_DEC_R, resVR, decVR, nil)
-			t.Dst.AllowedSet = Z80Registers8
+			t.Dst.ConstrainTo(Z80Registers8)
 			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
 		} else {
 			hlVR := s.reg16(&RegHL)
 			s.emitLD16(block, hlVR, t.Operand)
 			resVR := s.reg16(&RegHL)
 			emitInstr(block, Z80_DEC_RR, resVR, hlVR, nil)
-			t.Dst.AllowedSet = []*cfg.Register{&RegHL}
+			t.Dst.ConstrainTo([]*cfg.Register{&RegHL})
 			s.emitLD16(block, t.Dst, resVR)
 		}
 	case cfg.TacNegate:
@@ -670,7 +670,7 @@ func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUn
 		emitInstr(block, Z80_LD_R_R, aVR, t.Operand, nil)
 		resVR := s.reg8(&RegA)
 		emitInstr(block, Z80_NEG, resVR, aVR, nil)
-		t.Dst.AllowedSet = []*cfg.Register{&RegA}
+		t.Dst.ConstrainTo([]*cfg.Register{&RegA})
 		emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
 	case cfg.TacBitwiseNot:
 		panic("SelectUnary: TacBitwiseNot not yet implemented (Z80_CPL opcode not defined)")
@@ -693,7 +693,7 @@ func (s *instructionSelectorZ80) selectBitwise8(block *cfg.BasicBlock, regOp, im
 		emitInstr(block, regOp, resVR, aVR, right)
 	}
 
-	dst.AllowedSet = []*cfg.Register{&RegA}
+	dst.ConstrainTo([]*cfg.Register{&RegA})
 	emitInstr(block, Z80_LD_R_R, dst, resVR, nil)
 }
 
@@ -731,7 +731,7 @@ func (s *instructionSelectorZ80) selectBitwise16(block *cfg.BasicBlock, regOp Z8
 	newH := s.reg8(&RegH)
 	emitInstr(block, Z80_LD_R_R, newH, resH, nil)
 
-	dst.AllowedSet = []*cfg.Register{&RegHL}
+	dst.ConstrainTo([]*cfg.Register{&RegHL})
 	s.emitLD16(block, dst, hlVR)
 }
 
@@ -809,7 +809,7 @@ func (s *instructionSelectorZ80) scaleIndex(block *cfg.BasicBlock, index cfg.VRO
 
 	if index.Size() == 8 {
 		// Zero-extend 8-bit index: lo = index, hi = 0
-		ppLos, ppHis := cfg.ToPairs(ppVR.AllowedSet)
+		ppLos, ppHis := cfg.ToPairs(ppVR.AllowedSet())
 		loVR := s.alloc.Alloc(8, ppLos)
 		emitInstr(block, Z80_LD_R_R, loVR, index, nil)
 		hiVR := s.alloc.Alloc(8, ppHis)
@@ -843,8 +843,8 @@ func (s *instructionSelectorZ80) emitLoadHL16(block *cfg.BasicBlock, hlVR *cfg.T
 	hiVR := s.alloc.Alloc(8, []*cfg.Register{&RegB, &RegD})
 	emitInstr(block, Z80_LD_R_HL, hiVR, incHL, nil)
 
-	dst.AllowedSet = Z80RegistersPP
-	dstLos, dstHis := cfg.ToPairs(dst.AllowedSet)
+	dst.ConstrainTo(Z80RegistersPP)
+	dstLos, dstHis := cfg.ToPairs(dst.AllowedSet())
 	emitInstr(block, Z80_LD_R_R, s.alloc.Alloc(8, dstLos), loVR, nil)
 	emitInstr(block, Z80_LD_R_R, s.alloc.Alloc(8, dstHis), hiVR, nil)
 }
@@ -862,7 +862,7 @@ func (s *instructionSelectorZ80) emitStoreHL16(block *cfg.BasicBlock, hlVR *cfg.
 		emitInstr(block, Z80_LD_R_N, loVR, cfg.NewImmVR(v.Value&0xFF, 8), nil)
 		emitInstr(block, Z80_LD_R_N, hiVR, cfg.NewImmVR((v.Value>>8)&0xFF, 8), nil)
 	case *cfg.TempVR:
-		srcLos, srcHis := cfg.ToPairs(v.AllowedSet)
+		srcLos, srcHis := cfg.ToPairs(v.AllowedSet())
 		emitInstr(block, Z80_LD_R_R, loVR, s.alloc.Alloc(8, srcLos), nil)
 		emitInstr(block, Z80_LD_R_R, hiVR, s.alloc.Alloc(8, srcHis), nil)
 	default:
@@ -889,8 +889,8 @@ func (s *instructionSelectorZ80) emitLD16(block *cfg.BasicBlock, dst *cfg.TempVR
 	case *cfg.ImmVR:
 		emitInstr(block, Z80_LD_RR_NN, dst, v, nil)
 	case *cfg.TempVR:
-		srcLos, srcHis := cfg.ToPairs(v.AllowedSet)
-		dstLos, dstHis := cfg.ToPairs(dst.AllowedSet)
+		srcLos, srcHis := cfg.ToPairs(v.AllowedSet())
+		dstLos, dstHis := cfg.ToPairs(dst.AllowedSet())
 		emitInstr(block, Z80_LD_R_R, s.alloc.Alloc(8, dstLos), s.alloc.Alloc(8, srcLos), nil)
 		emitInstr(block, Z80_LD_R_R, s.alloc.Alloc(8, dstHis), s.alloc.Alloc(8, srcHis), nil)
 	default:

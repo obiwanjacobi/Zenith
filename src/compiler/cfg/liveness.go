@@ -33,11 +33,11 @@ func ComputeLiveRanges(fnCFG *CFG) []LiveRange {
 		if !ok {
 			return
 		}
-		if _, seen := starts[tvr.ID]; !seen {
-			starts[tvr.ID] = pos
+		if _, seen := starts[tvr.ID()]; !seen {
+			starts[tvr.ID()] = pos
 		}
-		ends[tvr.ID] = pos
-		vrByID[tvr.ID] = tvr
+		ends[tvr.ID()] = pos
+		vrByID[tvr.ID()] = tvr
 	}
 
 	pos := 0

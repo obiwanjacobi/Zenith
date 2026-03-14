@@ -49,11 +49,11 @@ func propagateConstraints(fnCFG *CFG) {
 			// and only when that register is actually in the dst's AllowedSet.
 			// Without the membership check, a cross-class copy like LD {C,E}, L
 			// would collapse {C,E} to {L}, turning the save into a self-move.
-			if len(src.AllowedSet) == 1 && len(dst.AllowedSet) > 1 {
-				srcReg := src.AllowedSet[0]
-				for _, r := range dst.AllowedSet {
+			if len(src.AllowedSet()) == 1 && len(dst.AllowedSet()) > 1 {
+				srcReg := src.AllowedSet()[0]
+				for _, r := range dst.AllowedSet() {
 					if r == srcReg {
-						dst.AllowedSet = src.AllowedSet
+						dst.ConstrainTo(src.AllowedSet())
 						break
 					}
 				}
@@ -84,17 +84,17 @@ func linearScan(
 	for _, lr := range ranges {
 		s.expireOld(lr.Start)
 
-		if len(lr.VR.AllowedSet) == 1 {
+		if len(lr.VR.AllowedSet()) == 1 {
 			// Pre-coloured: the instruction constrains this VR to exactly one register.
-			reg := lr.VR.AllowedSet[0]
-			assigned[lr.VR.ID] = &PhysVR{ID: lr.VR.ID, Reg: reg}
+			reg := lr.VR.AllowedSet()[0]
+			assigned[lr.VR.ID()] = &PhysVR{ID: lr.VR.ID(), Reg: reg}
 			s.insertActive(lr)
 			continue
 		}
 
-		reg := s.findFreeReg(lr.VR.AllowedSet)
+		reg := s.findFreeReg(lr.VR.AllowedSet())
 		if reg != nil {
-			assigned[lr.VR.ID] = &PhysVR{ID: lr.VR.ID, Reg: reg}
+			assigned[lr.VR.ID()] = &PhysVR{ID: lr.VR.ID(), Reg: reg}
 			s.insertActive(lr)
 		} else {
 			s.spillOne(lr)
@@ -144,7 +144,7 @@ func (s *scanState) findFreeReg(allowed []*Register) *Register {
 func (s *scanState) occupiedRegisters() []*Register {
 	occ := make([]*Register, 0, len(s.active))
 	for _, lr := range s.active {
-		if phys, ok := s.assigned[lr.VR.ID]; ok {
+		if phys, ok := s.assigned[lr.VR.ID()]; ok {
 			occ = append(occ, phys.Reg)
 		}
 	}
@@ -158,7 +158,7 @@ func (s *scanState) spillOne(lr LiveRange) {
 	// Find the longest-lived active interval that is NOT pre-coloured.
 	bestIdx := -1
 	for i, a := range s.active {
-		if len(a.VR.AllowedSet) <= 1 {
+		if len(a.VR.AllowedSet()) <= 1 {
 			continue // pre-coloured; cannot evict
 		}
 		if bestIdx < 0 || s.active[i].End > s.active[bestIdx].End {
@@ -169,11 +169,11 @@ func (s *scanState) spillOne(lr LiveRange) {
 	if bestIdx >= 0 && s.active[bestIdx].End > lr.End {
 		// Evict the longer-lived interval and give its register to lr.
 		victim := s.active[bestIdx]
-		reg := s.assigned[victim.VR.ID].Reg
-		delete(s.assigned, victim.VR.ID)
+		reg := s.assigned[victim.VR.ID()].Reg
+		delete(s.assigned, victim.VR.ID())
 		s.spillVR(victim.VR)
 		s.active = append(s.active[:bestIdx], s.active[bestIdx+1:]...)
-		s.assigned[lr.VR.ID] = &PhysVR{ID: lr.VR.ID, Reg: reg}
+		s.assigned[lr.VR.ID()] = &PhysVR{ID: lr.VR.ID(), Reg: reg}
 		s.insertActive(lr)
 	} else {
 		// Spill the incoming interval itself.
@@ -187,7 +187,7 @@ func (s *scanState) spillVR(vr *TempVR) {
 	// A StackVR in a machine instruction operand signals to the emitter that
 	// it must load or store via [IX+offset]. The emitter handles the actual
 	// load sequence; the allocator's job is only to assign the stack slot.
-	s.spilled[vr.ID] = NewStackVR(vr.String(), offset, vr.Size())
+	s.spilled[vr.ID()] = NewStackVR(vr.String(), offset, vr.Size())
 }
 
 // ============================================================================
@@ -241,11 +241,11 @@ func SubstituteOne(op VROperand, assigned map[int]*PhysVR, spilled map[int]*Stac
 	if !ok {
 		return op // ImmVR, StackVR, PhysVR — pass through unchanged
 	}
-	if phys, found := assigned[tvr.ID]; found {
+	if phys, found := assigned[tvr.ID()]; found {
 		return phys
 	}
-	if sv, found := spilled[tvr.ID]; found {
+	if sv, found := spilled[tvr.ID()]; found {
 		return sv
 	}
-	panic(fmt.Sprintf("regalloc: TempVR t%d (%s) was neither assigned nor spilled", tvr.ID, tvr.String()))
+	panic(fmt.Sprintf("regalloc: TempVR t%d (%s) was neither assigned nor spilled", tvr.ID(), tvr.String()))
 }
