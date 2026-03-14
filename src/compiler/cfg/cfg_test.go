@@ -1,6 +1,7 @@
 package cfg
 
 import (
+	"io"
 	"testing"
 
 	"zenith/compiler"
@@ -870,7 +871,7 @@ func Test_CFG_MultipleEntryBlocksProblem(t *testing.T) {
 
 	// Dump the full CFG
 	t.Log("\n========== Full CFG Dump ==========")
-	DumpCFG("factorial", cfg, nil)
+	DumpCFG(io.Discard, "factorial", cfg, nil)
 }
 
 // Helper to extract block IDs from slice

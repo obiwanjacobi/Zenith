@@ -1,0 +1,74 @@
+==> Stage 1: Lexical Analysis
+==> Stage 2: Syntax Analysis (Parsing)
+==> Stage 3: Semantic Analysis & IR Generation
+==> Stage 4: Control Flow Graph Construction
+  Built CFG for function 'max' with 6 blocks
+==> [max] Stage 5: TAC Lowering
+========== TAC: max ==========
+  Block 0 [entry]:
+    JUMP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    BRANCH8 'a' t0 GT 'b' t1 ? Block3 : Block5
+  Block 3 [if.then]:
+    RETURN 'a' t0
+  Block 4 [if.merge]:
+    JUMP Block1
+  Block 5 [if.else]:
+    RETURN 'b' t1
+
+==> [max] Stage 6: Instruction Selection
+  Block 0 [entry]:
+    LD 'a' t0, t2
+    LD 'b' t1, t3
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    LD t4, 'b' t1
+    CP t4, 'a' t0
+    JP C Block3
+    JP Block5
+  Block 3 [if.then]:
+    LD t5, 'a' t0
+    JP Block1
+  Block 4 [if.merge]:
+    JP Block1
+  Block 5 [if.else]:
+    LD t6, 'b' t1
+    JP Block1
+==> [max] Stage 7: Register Allocation
+==> [max] Stage 8: Peephole Optimisation
+  Block 0 [entry]:
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    LD A, C
+    CP A, E
+    JP C Block3
+    JP Block5
+  Block 3 [if.then]:
+    LD A, E
+    JP Block1
+  Block 4 [if.merge]:
+    JP Block1
+  Block 5 [if.else]:
+    LD A, C
+    JP Block1
+==> [max] Stage 9: Prologue / Epilogue
+  Block 0 [entry]:
+    JP Block2
+  Block 1 [exit]:
+    RET 
+  Block 2 [function]:
+    LD A, C
+    CP A, E
+    JP C Block3
+    JP Block5
+  Block 3 [if.then]:
+    LD A, E
+    JP Block1
+  Block 4 [if.merge]:
+    JP Block1
+  Block 5 [if.else]:
+    LD A, C
+    JP Block1

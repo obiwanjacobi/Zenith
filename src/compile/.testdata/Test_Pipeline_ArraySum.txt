@@ -1,0 +1,150 @@
+==> Stage 1: Lexical Analysis
+==> Stage 2: Syntax Analysis (Parsing)
+==> Stage 3: Semantic Analysis & IR Generation
+==> Stage 4: Control Flow Graph Construction
+  Built CFG for function 'arrSum' with 7 blocks
+==> [arrSum] Stage 5: TAC Lowering
+========== TAC: arrSum ==========
+  Block 0 [entry]:
+    JUMP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    CALL t1 = @len('arr' t0)
+    COPY16 'l' t2, t1
+    COPY8 'sum' t3, #0
+    COPY8 'i' t4, #0
+    JUMP Block3
+  Block 3 [for.cond]:
+    BRANCH8 'i' t4 LT 'l' t2 ? Block4 : Block6
+  Block 4 [for.body]:
+    LOAD_IDX1 t5, ['arr' t0 + 'i' t4*1]
+    ADD8 t6, 'sum' t3, t5
+    COPY8 'sum' t7, t6
+    JUMP Block5
+  Block 5 [for.inc]:
+    INC8 t8, 'i' t4
+    JUMP Block3
+  Block 6 [for.exit]:
+    RETURN 'sum' t7
+
+==> [arrSum] Stage 6: Instruction Selection
+  Block 0 [entry]:
+    LD 'arr' t0, t9
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    LD t11, t12
+    LD t13, t14
+    CALL t15, @len
+    LD t16, t17
+    LD t18, t19
+    LD t20, t21
+    LD t22, t23
+    LD 'sum' t3, #0
+    LD 'i' t4, #0
+    JP Block3
+  Block 3 [for.cond]:
+    LD t24, 'i' t4
+    CP t24, 'l' t2
+    JP C Block4
+    JP Block6
+  Block 4 [for.body]:
+    LD t26, t27
+    LD t28, t29
+    LD t31, 'i' t4
+    LD t32, #0
+    ADD t33, t25, t30
+    LD t34, (t33)
+    INC t35, t33
+    LD t36, (t35)
+    LD t37, t34
+    LD t38, t36
+    LD t39, 'sum' t3
+    ADD t40, t39, t5
+    LD t6, t40
+    LD 'sum' t7, t6
+    JP Block5
+  Block 5 [for.inc]:
+    LD t41, 'i' t4
+    INC t42, t41
+    LD t8, t42
+    JP Block3
+  Block 6 [for.exit]:
+    LD t43, 'sum' t7
+    JP Block1
+==> [arrSum] Stage 7: Register Allocation
+==> [arrSum] Stage 8: Peephole Optimisation
+  Block 0 [entry]:
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    CALL DE, @len
+    LD A, #0
+    LD [SP+0], #0
+    JP Block3
+  Block 3 [for.cond]:
+    LD A, [SP+0]
+    CP A, DE
+    JP C Block4
+    JP Block6
+  Block 4 [for.body]:
+    LD L, E
+    LD H, D
+    LD C, [SP+0]
+    LD D, #0
+    ADD HL, HL, DE
+    LD C, (HL)
+    INC HL, HL
+    LD D, (HL)
+    LD E, C
+    LD B, D
+    ADD A, A, BC
+    JP Block5
+  Block 5 [for.inc]:
+    LD B, [SP+0]
+    INC C, B
+    LD B, C
+    JP Block3
+  Block 6 [for.exit]:
+    JP Block1
+==> [arrSum] Stage 9: Prologue / Epilogue
+  Block 0 [entry]:
+    LD HL, #-1
+    ADD HL, HL, SP
+    LD SP, HL
+    JP Block2
+  Block 1 [exit]:
+    LD HL, #1
+    ADD HL, HL, SP
+    LD SP, HL
+    RET 
+  Block 2 [function]:
+    CALL DE, @len
+    LD A, #0
+    LD [SP+0], #0
+    JP Block3
+  Block 3 [for.cond]:
+    LD A, [SP+0]
+    CP A, DE
+    JP C Block4
+    JP Block6
+  Block 4 [for.body]:
+    LD L, E
+    LD H, D
+    LD C, [SP+0]
+    LD D, #0
+    ADD HL, HL, DE
+    LD C, (HL)
+    INC HL, HL
+    LD D, (HL)
+    LD E, C
+    LD B, D
+    ADD A, A, BC
+    JP Block5
+  Block 5 [for.inc]:
+    LD B, [SP+0]
+    INC C, B
+    LD B, C
+    JP Block3
+  Block 6 [for.exit]:
+    JP Block1

@@ -2,6 +2,7 @@ package compile
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"zenith/compiler"
@@ -43,6 +44,7 @@ type PipelineOptions struct {
 
 	// Debug output
 	Verbose bool
+	Output  io.Writer
 }
 
 // DefaultPipelineOptions returns default pipeline options
@@ -65,7 +67,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	// Stage 1: Lexical Analysis (Tokenization)
 	// ==========================================================================
 	if opts.Verbose {
-		fmt.Println("==> Stage 1: Lexical Analysis")
+		fmt.Fprintln(opts.Output, "==> Stage 1: Lexical Analysis")
 	}
 
 	var tokenizer *lexer.Tokenizer
@@ -83,7 +85,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	// Stage 2: Syntax Analysis (Parsing)
 	// ==========================================================================
 	if opts.Verbose {
-		fmt.Println("==> Stage 2: Syntax Analysis (Parsing)")
+		fmt.Fprintln(opts.Output, "==> Stage 2: Syntax Analysis (Parsing)")
 	}
 
 	source := &compiler.Source{Name: "pipeline_input"}
@@ -93,9 +95,9 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	if len(parserErrors) > 0 {
 		if opts.Verbose {
-			fmt.Printf("Parser found %d errors\n", len(parserErrors))
+			fmt.Fprintf(opts.Output, "Parser found %d errors\n", len(parserErrors))
 			for _, err := range parserErrors {
-				fmt.Printf("  %s\n", err.Error())
+				fmt.Fprintf(opts.Output, "  %s\n", err.Error())
 			}
 		}
 		return result, fmt.Errorf("parsing failed with %d errors", len(parserErrors))
@@ -111,7 +113,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	// Stage 3: Semantic Analysis & IR Generation
 	// ==========================================================================
 	if opts.Verbose {
-		fmt.Println("==> Stage 3: Semantic Analysis & IR Generation")
+		fmt.Fprintln(opts.Output, "==> Stage 3: Semantic Analysis & IR Generation")
 	}
 
 	analyzer := zsm.NewSemanticAnalyzer()
@@ -121,9 +123,9 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 	if len(semanticErrors) > 0 {
 		if opts.Verbose {
-			fmt.Printf("Semantic analysis found %d errors\n", len(semanticErrors))
+			fmt.Fprintf(opts.Output, "Semantic analysis found %d errors\n", len(semanticErrors))
 			for _, err := range semanticErrors {
-				fmt.Printf("  %s\n", err.Error())
+				fmt.Fprintf(opts.Output, "  %s\n", err.Error())
 			}
 		}
 		return result, fmt.Errorf("semantic analysis failed with %d errors", len(semanticErrors))
@@ -133,7 +135,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	// Stage 4: Control Flow Graph Construction
 	// ==========================================================================
 	if opts.Verbose {
-		fmt.Println("==> Stage 4: Control Flow Graph Construction")
+		fmt.Fprintln(opts.Output, "==> Stage 4: Control Flow Graph Construction")
 	}
 
 	cfgBuilder := cfg.NewCFGBuilder()
@@ -143,7 +145,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 			result.FunctionCFGs[fnDecl.Name] = functionCFG
 
 			if opts.Verbose {
-				fmt.Printf("  Built CFG for function '%s' with %d blocks\n", fnDecl.Name, len(functionCFG.Blocks))
+				fmt.Fprintf(opts.Output, "  Built CFG for function '%s' with %d blocks\n", fnDecl.Name, len(functionCFG.Blocks))
 			}
 		}
 	}
@@ -176,7 +178,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 	for fnName, funcCFG := range result.FunctionCFGs {
 		// ── Stage 5: TAC Lowering ─────────────────────────────────────────────
 		if opts.Verbose {
-			fmt.Printf("==> [%s] Stage 5: TAC Lowering\n", fnName)
+			fmt.Fprintf(opts.Output, "==> [%s] Stage 5: TAC Lowering\n", fnName)
 		}
 
 		alloc := &cfg.TempVRAllocator{}
@@ -187,12 +189,12 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		result.VRAllocators[fnName] = alloc
 
 		if opts.Verbose {
-			cfg.DumpTAC(fnName, funcCFG)
+			cfg.DumpTAC(opts.Output, fnName, funcCFG)
 		}
 
 		// ── Stage 6: Instruction Selection ───────────────────────────────────
 		if opts.Verbose {
-			fmt.Printf("==> [%s] Stage 6: Instruction Selection\n", fnName)
+			fmt.Fprintf(opts.Output, "==> [%s] Stage 6: Instruction Selection\n", fnName)
 		}
 
 		sel := z80.NewInstructionSelectorZ80(alloc)
@@ -203,13 +205,13 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		if opts.Verbose {
 			for _, block := range funcCFG.Blocks {
-				z80.DumpMachineInstructions(block)
+				z80.DumpMachineInstructions(opts.Output, block)
 			}
 		}
 
 		// ── Stage 7: Register Allocation ─────────────────────────────────────
 		if opts.Verbose {
-			fmt.Printf("==> [%s] Stage 7: Register Allocation\n", fnName)
+			fmt.Fprintf(opts.Output, "==> [%s] Stage 7: Register Allocation\n", fnName)
 		}
 
 		if err := cfg.AllocateRegisters(funcCFG); err != nil {
@@ -219,21 +221,21 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		// ── Stage 8: Peephole Optimisation ───────────────────────────────────
 		if opts.Verbose {
-			fmt.Printf("==> [%s] Stage 8: Peephole Optimisation\n", fnName)
+			fmt.Fprintf(opts.Output, "==> [%s] Stage 8: Peephole Optimisation\n", fnName)
 		}
 
 		z80.RunPeephole(funcCFG)
 
 		if opts.Verbose {
 			for _, block := range funcCFG.Blocks {
-				z80.DumpMachineInstructions(block)
+				z80.DumpMachineInstructions(opts.Output, block)
 			}
 		}
 
 		// ── Stage 9: Prologue / Epilogue ──────────────────────────────────────
 		// StackFrame.Size() is final after regalloc — spill slots have been added.
 		if opts.Verbose {
-			fmt.Printf("==> [%s] Stage 9: Prologue / Epilogue\n", fnName)
+			fmt.Fprintf(opts.Output, "==> [%s] Stage 9: Prologue / Epilogue\n", fnName)
 		}
 
 		sel.SelectPrologue(funcCFG.Entry, funcCFG)
@@ -241,7 +243,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		if opts.Verbose {
 			for _, block := range funcCFG.Blocks {
-				z80.DumpMachineInstructions(block)
+				z80.DumpMachineInstructions(opts.Output, block)
 			}
 		}
 	}

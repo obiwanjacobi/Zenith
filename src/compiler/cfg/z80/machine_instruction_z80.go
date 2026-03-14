@@ -2,7 +2,6 @@ package z80
 
 import (
 	"fmt"
-	"strings"
 
 	"zenith/compiler/cfg"
 )
@@ -156,19 +155,4 @@ func emitRelJump(block *cfg.BasicBlock, cc ConditionCode, offset int8) *MachineI
 	return mi
 }
 
-// ============================================================================
-// DumpMachineInstructions — debug helper
-// ============================================================================
 
-// DumpMachineInstructions prints the machine instructions for one block.
-// Satisfies the cfg.DumpCFG dumpInstructions callback signature.
-func DumpMachineInstructions(block *cfg.BasicBlock) {
-	fmt.Printf("  Block %d [%s]:\n", block.ID, block.Label)
-	sb := &strings.Builder{}
-	for _, instr := range block.MachineInstructions {
-		sb.Reset()
-		sb.WriteString("    ")
-		sb.WriteString(instr.String())
-		fmt.Println(sb.String())
-	}
-}

@@ -392,14 +392,4 @@ func (t *TacReturn) String() string {
 
 // ===========================================================================
 
-// DumpTAC prints the TAC instructions for every block in fnCFG to stdout.
-func DumpTAC(fnName string, fnCFG *CFG) {
-	fmt.Printf("========== TAC: %s ==========\n", fnName)
-	for _, block := range fnCFG.Blocks {
-		fmt.Printf("  Block %d [%s]:\n", block.ID, block.Label)
-		for _, instr := range block.TAC {
-			fmt.Printf("    %s\n", instr)
-		}
-	}
-	fmt.Println()
-}
+

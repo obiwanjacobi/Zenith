@@ -1,7 +1,6 @@
 package zsm
 
 import (
-	"fmt"
 	"zenith/compiler/parser"
 )
 
@@ -328,21 +327,4 @@ type SemFieldInit struct {
 	Value SemExpression
 }
 
-func DumpSemanticModel(semCU *SemCompilationUnit) {
-	fmt.Println("========== Semantic Model ===========")
-	fmt.Printf("Semantic Compilation Unit with %d declarations\n", len(semCU.Declarations))
-	for _, decl := range semCU.Declarations {
-		switch d := decl.(type) {
-		case *SemFunctionDecl:
-			fmt.Printf("  Function: %s (params=%d)\n",
-				d.Name, len(d.Parameters))
-		case *SemVariableDecl:
-			fmt.Printf("  Variable: %s\n", d.Symbol.Name)
-		case *SemTypeDecl:
-			fmt.Printf("  Type: %s\n", d.TypeInfo.Name())
-		default:
-			fmt.Printf("  Unknown: %T\n", decl)
-		}
-	}
-	fmt.Println()
-}
+

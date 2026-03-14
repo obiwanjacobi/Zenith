@@ -1,0 +1,196 @@
+==> Stage 1: Lexical Analysis
+==> Stage 2: Syntax Analysis (Parsing)
+==> Stage 3: Semantic Analysis & IR Generation
+==> Stage 4: Control Flow Graph Construction
+  Built CFG for function 'localArr' with 3 blocks
+==> [localArr] Stage 5: TAC Lowering
+========== TAC: localArr ==========
+  Block 0 [entry]:
+    JUMP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    STACK_ADDR 'x' t0, SP+0
+    INIT_SEQ ['x' t0], elem=1, [#1, #2, #3]
+    STACK_ADDR 'y' t1, SP+2
+    INIT_SEQ ['y' t1], elem=2, [#1234, #5678]
+    LOAD_IDX1 t2, ['x' t0 + #0*1]
+    LOAD_IDX2 t3, ['y' t1 + #0*2]
+    ADD8 t4, t2, t3
+    RETURN t4
+
+==> [localArr] Stage 6: Instruction Selection
+  Block 0 [entry]:
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    LD t5, #0
+    ADD t7, t5, t6
+    LD 'x' t0, t7
+    LD t9, t10
+    LD t11, t12
+    LD t13, #1
+    LD (t8), t13
+    INC t14, t8
+    LD t15, #2
+    LD (t14), t15
+    INC t16, t14
+    LD t17, #3
+    LD (t16), t17
+    LD t18, #2
+    ADD t20, t18, t19
+    LD 'y' t1, t20
+    LD t22, t23
+    LD t24, t25
+    LD t26, #210
+    LD t27, #4
+    LD (t21), t26
+    INC t28, t21
+    LD (t28), t27
+    INC t29, t28
+    LD t30, #46
+    LD t31, #22
+    LD (t29), t30
+    INC t32, t29
+    LD (t32), t31
+    LD t34, t35
+    LD t36, t37
+    LD t39, #0
+    LD t40, #0
+    ADD t41, t33, t38
+    LD t42, (t41)
+    INC t43, t41
+    LD t44, (t43)
+    LD t45, t42
+    LD t46, t44
+    LD t48, t49
+    LD t50, t51
+    LD t53, #0
+    LD t54, #0
+    LD t56, t57
+    LD t58, t59
+    ADD t55, t55
+    LD t60, t61
+    LD t62, t63
+    ADD t64, t47, t52
+    LD t65, (t64)
+    INC t66, t64
+    LD t67, (t66)
+    LD t68, t65
+    LD t69, t67
+    LD t70, t2
+    ADD t71, t70, t3
+    LD t4, t71
+    LD t72, t4
+    JP Block1
+==> [localArr] Stage 7: Register Allocation
+==> [localArr] Stage 8: Peephole Optimisation
+  Block 0 [entry]:
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    LD HL, #0
+    ADD HL, HL, SP
+    LD A, #1
+    LD (HL), A
+    INC HL, HL
+    LD A, #2
+    LD (HL), A
+    INC HL, HL
+    LD A, #3
+    LD (HL), A
+    LD HL, #2
+    ADD HL, HL, SP
+    LD C, #210
+    LD B, #4
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    INC HL, HL
+    LD C, #46
+    LD B, #22
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    LD C, #0
+    LD B, #0
+    ADD HL, HL, BC
+    LD C, (HL)
+    INC HL, HL
+    LD B, (HL)
+    LD E, C
+    LD D, B
+    LD C, #0
+    LD B, #0
+    LD L, C
+    LD H, B
+    ADD HL, HL
+    LD C, L
+    LD B, H
+    ADD HL, HL, BC
+    LD C, (HL)
+    INC HL, HL
+    LD B, (HL)
+    LD E, C
+    LD D, B
+    LD A, BC
+    ADD A, A, BC
+    JP Block1
+==> [localArr] Stage 9: Prologue / Epilogue
+  Block 0 [entry]:
+    LD HL, #-4
+    ADD HL, HL, SP
+    LD SP, HL
+    JP Block2
+  Block 1 [exit]:
+    LD HL, #4
+    ADD HL, HL, SP
+    LD SP, HL
+    RET 
+  Block 2 [function]:
+    LD HL, #0
+    ADD HL, HL, SP
+    LD A, #1
+    LD (HL), A
+    INC HL, HL
+    LD A, #2
+    LD (HL), A
+    INC HL, HL
+    LD A, #3
+    LD (HL), A
+    LD HL, #2
+    ADD HL, HL, SP
+    LD C, #210
+    LD B, #4
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    INC HL, HL
+    LD C, #46
+    LD B, #22
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    LD C, #0
+    LD B, #0
+    ADD HL, HL, BC
+    LD C, (HL)
+    INC HL, HL
+    LD B, (HL)
+    LD E, C
+    LD D, B
+    LD C, #0
+    LD B, #0
+    LD L, C
+    LD H, B
+    ADD HL, HL
+    LD C, L
+    LD B, H
+    ADD HL, HL, BC
+    LD C, (HL)
+    INC HL, HL
+    LD B, (HL)
+    LD E, C
+    LD D, B
+    LD A, BC
+    ADD A, A, BC
+    JP Block1

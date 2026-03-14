@@ -1,0 +1,131 @@
+==> Stage 1: Lexical Analysis
+==> Stage 2: Syntax Analysis (Parsing)
+==> Stage 3: Semantic Analysis & IR Generation
+==> Stage 4: Control Flow Graph Construction
+  Built CFG for function 'localArr16' with 3 blocks
+==> [localArr16] Stage 5: TAC Lowering
+========== TAC: localArr16 ==========
+  Block 0 [entry]:
+    JUMP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    STACK_ADDR 'y' t0, SP+0
+    INIT_SEQ ['y' t0], elem=2, [#1234, #5678]
+    LOAD_IDX2 t1, ['y' t0 + #1*2]
+    RETURN t1
+
+==> [localArr16] Stage 6: Instruction Selection
+  Block 0 [entry]:
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    LD t2, #0
+    ADD t4, t2, t3
+    LD 'y' t0, t4
+    LD t6, t7
+    LD t8, t9
+    LD t10, #210
+    LD t11, #4
+    LD (t5), t10
+    INC t12, t5
+    LD (t12), t11
+    INC t13, t12
+    LD t14, #46
+    LD t15, #22
+    LD (t13), t14
+    INC t16, t13
+    LD (t16), t15
+    LD t18, t19
+    LD t20, t21
+    LD t23, #1
+    LD t24, #0
+    LD t26, t27
+    LD t28, t29
+    ADD t25, t25
+    LD t30, t31
+    LD t32, t33
+    ADD t34, t17, t22
+    LD t35, (t34)
+    INC t36, t34
+    LD t37, (t36)
+    LD t38, t35
+    LD t39, t37
+    LD t41, t42
+    LD t43, t44
+    JP Block1
+==> [localArr16] Stage 7: Register Allocation
+==> [localArr16] Stage 8: Peephole Optimisation
+  Block 0 [entry]:
+    JP Block2
+  Block 1 [exit]:
+  Block 2 [function]:
+    LD HL, #0
+    ADD HL, HL, SP
+    LD C, #210
+    LD B, #4
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    INC HL, HL
+    LD C, #46
+    LD B, #22
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    LD C, #1
+    LD B, #0
+    LD L, C
+    LD H, B
+    ADD HL, HL
+    LD C, L
+    LD B, H
+    ADD HL, HL, BC
+    LD C, (HL)
+    INC HL, HL
+    LD B, (HL)
+    LD E, C
+    LD D, B
+    LD E, C
+    LD D, B
+    JP Block1
+==> [localArr16] Stage 9: Prologue / Epilogue
+  Block 0 [entry]:
+    LD HL, #-2
+    ADD HL, HL, SP
+    LD SP, HL
+    JP Block2
+  Block 1 [exit]:
+    LD HL, #2
+    ADD HL, HL, SP
+    LD SP, HL
+    RET 
+  Block 2 [function]:
+    LD HL, #0
+    ADD HL, HL, SP
+    LD C, #210
+    LD B, #4
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    INC HL, HL
+    LD C, #46
+    LD B, #22
+    LD (HL), C
+    INC HL, HL
+    LD (HL), B
+    LD C, #1
+    LD B, #0
+    LD L, C
+    LD H, B
+    ADD HL, HL
+    LD C, L
+    LD B, H
+    ADD HL, HL, BC
+    LD C, (HL)
+    INC HL, HL
+    LD B, (HL)
+    LD E, C
+    LD D, B
+    LD E, C
+    LD D, B
+    JP Block1

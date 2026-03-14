@@ -476,17 +476,4 @@ func BuildCFGs(compilationUnit *zsm.SemCompilationUnit) []*CFG {
 	return cfgs
 }
 
-func DumpCFG(fnName string, fnCFG *CFG, dumpInstructions func([]MachineInstruction)) {
-	fmt.Printf("========== Control Flow Graph: %s (Stack Offset: %d) ==========\n", fnName, fnCFG.StackOffset)
-	for _, block := range fnCFG.Blocks {
-		fmt.Printf("  Block %d [%s]: %d sem-instructions, %d tac, %d successors\n",
-			block.ID, block.Label, len(block.SemInstructions), len(block.TAC), len(block.Successors))
-		for _, succ := range block.Successors {
-			fmt.Printf("    -> Block %d [%s]\n", succ.ID, succ.Label)
-		}
-		if dumpInstructions != nil {
-			dumpInstructions(block.MachineInstructions)
-		}
-	}
-	fmt.Println()
-}
+

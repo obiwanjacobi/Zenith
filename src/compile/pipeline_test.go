@@ -1,111 +1,102 @@
 package compile
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
+const snapshotDir = ".testdata"
+
 func RunPipeline(t *testing.T, source string) *CompilationResult {
+	t.Helper()
+
+	var buf bytes.Buffer
+
 	opts := DefaultPipelineOptions()
 	opts.Source = source
-	opts.TargetArch = "z80"
 	opts.Verbose = true
+	opts.Output = &buf
 
 	result, err := Pipeline(opts)
 
 	if err != nil {
-		t.Logf("Compilation failed: %s", err)
+		fmt.Fprintf(&buf, "Compilation failed: %s\n", err)
 	}
 	for _, perr := range result.Diagnostics {
-		fmt.Printf("  ParseErr: %s\n", perr.Error())
+		fmt.Fprintf(&buf, "  ParseErr: %s\n", perr.Error())
 	}
 	for _, serr := range result.SemanticErrors {
-		fmt.Printf("  SemErr: %s\n", serr.Error())
+		fmt.Fprintf(&buf, "  SemErr: %s\n", serr.Error())
 	}
+
+	assertSnapshot(t, buf.Bytes())
 
 	return result
 }
 
-// Example demonstrating the full compilation pipeline
-func Example_pipeline() {
-	sourceCode := `
-		add: (a: u8, b: u8): u8 {
-			ret a + b
+// assertSnapshot compares got against the snapshot file for the current test.
+// If the file does not exist it is created and the test passes.
+// If the content differs, the first differing line is reported and the test fails.
+func assertSnapshot(t *testing.T, got []byte) {
+	t.Helper()
+
+	snapshotFile := filepath.Join(snapshotDir, t.Name()+".txt")
+
+	existing, err := os.ReadFile(snapshotFile)
+	if os.IsNotExist(err) {
+		if err := os.MkdirAll(snapshotDir, 0755); err != nil {
+			t.Fatalf("snapshot: cannot create directory %s: %v", snapshotDir, err)
 		}
-	`
-
-	opts := DefaultPipelineOptions()
-	opts.Source = sourceCode
-	opts.TargetArch = "z80"
-	opts.Verbose = true
-
-	result, err := Pipeline(opts)
+		if err := os.WriteFile(snapshotFile, got, 0644); err != nil {
+			t.Fatalf("snapshot: cannot write %s: %v", snapshotFile, err)
+		}
+		t.Logf("snapshot: created %s", snapshotFile)
+		return
+	}
 	if err != nil {
-		fmt.Printf("Compilation failed: %s\n", err)
+		t.Fatalf("snapshot: cannot read %s: %v", snapshotFile, err)
+	}
+
+	if bytes.Equal(existing, got) {
 		return
 	}
 
-	if result.Success {
-		fmt.Println("Compilation succeeded!")
-	}
-}
-
-// Test the pipeline with simple code
-func Test_Pipeline_SimpleFunction(t *testing.T) {
-	sourceCode := `
-		addition: (x: u16, y: u16) u16 {
-			ret x + y
+	// Report the first differing line.
+	wantLines := splitLines(existing)
+	gotLines := splitLines(got)
+	for i := 0; i < len(wantLines) || i < len(gotLines); i++ {
+		var w, g string
+		if i < len(wantLines) {
+			w = wantLines[i]
 		}
-	`
-
-	opts := DefaultPipelineOptions()
-	opts.Source = sourceCode
-	opts.TargetArch = "z80"
-	opts.Verbose = true
-
-	result, err := Pipeline(opts)
-
-	if err != nil {
-		t.Logf("Compilation errors: %v", result.Diagnostics)
-	}
-
-	// Check stages completed
-	if result.AST == nil {
-		t.Error("AST was not generated")
-	}
-	if result.SemCU == nil {
-		t.Error("Semantic compilation unit was not generated")
-	}
-	if len(result.FunctionCFGs) == 0 {
-		t.Error("CFG was not generated")
-	}
-	// Only check machine instructions once the selector handles all TAC node types.
-	if result.Success {
-		for fnName, funcCFG := range result.FunctionCFGs {
-			hasInstrs := false
-			for _, block := range funcCFG.Blocks {
-				if len(block.MachineInstructions) > 0 {
-					hasInstrs = true
-					break
-				}
-			}
-			if !hasInstrs {
-				t.Errorf("no machine instructions generated for function '%s'", fnName)
-			}
+		if i < len(gotLines) {
+			g = gotLines[i]
+		}
+		if w != g {
+			t.Errorf("snapshot %s differs at line %d:\n  want: %q\n   got: %q",
+				snapshotFile, i+1, w, g)
+			return
 		}
 	}
-	// if len(result.LivenessInfo) == 0 {
-	// 	t.Error("Liveness analysis was not performed")
-	// }
-	// if len(result.InterferenceInfo) == 0 {
-	// 	t.Error("Interference graph was not built")
-	// }
-
-	t.Logf("Pipeline completed successfully")
-	t.Logf("Functions processed: %d", len(result.FunctionCFGs))
+	// Lengths differ but no line mismatch found (trailing newline difference).
+	t.Errorf("snapshot %s: content length differs (want %d bytes, got %d bytes)",
+		snapshotFile, len(existing), len(got))
 }
 
-// Test pipeline with verbose output
+func splitLines(b []byte) []string {
+	var lines []string
+	sc := bufio.NewScanner(strings.NewReader(string(b)))
+	for sc.Scan() {
+		lines = append(lines, sc.Text())
+	}
+	return lines
+}
+
 func Test_Pipeline_Factorial(t *testing.T) {
 	sourceCode := `
 		factorial: (n: u8) u8 {
