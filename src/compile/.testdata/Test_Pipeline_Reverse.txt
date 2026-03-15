@@ -38,6 +38,7 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; l : = @ len ( arr )
     LD t14, t15
     LD t16, t17
     CALL t18, @len
@@ -45,9 +46,11 @@
     LD t21, t22
     LD t23, t24
     LD t25, t26
+    ; i : = 0
     LD 'i' t3, #0
     JP Block3
   Block 3 [for.cond]:
+    ; < l / 2
     LD t28, t29
     LD t30, t31
     LD t32, #2
@@ -59,6 +62,7 @@
     JP C Block4
     JP Block6
   Block 4 [for.body]:
+    ; j : = l - 1 - i
     LD t40, t41
     LD t42, t43
     LD t44, #1
@@ -76,6 +80,7 @@
     LD t65, t66
     LD t67, t68
     LD t69, t70
+    ; tmp : = arr [ i ]
     LD t72, t73
     LD t74, t75
     LD t77, 'i' t3
@@ -87,6 +92,7 @@
     LD t83, t80
     LD t84, t82
     LD 'tmp' t9, t8
+    ; arr [ i ] = arr [ j ]
     LD t86, t87
     LD t88, t89
     LD t91, t92
@@ -107,6 +113,7 @@
     LD (t109), t110
     INC t114, t109
     LD (t114), t111
+    ; arr [ j ] = tmp
     LD t116, t117
     LD t118, t119
     LD t121, t122
@@ -119,6 +126,7 @@
     LD (t130), t127
     JP Block5
   Block 5 [for.inc]:
+    ; ++
     LD t131, 'i' t3
     INC t132, t131
     LD t11, t132
@@ -131,10 +139,13 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; l : = @ len ( arr )
     CALL DE, @len
+    ; i : = 0
     LD [SP+0], #0
     JP Block3
   Block 3 [for.cond]:
+    ; < l / 2
     LD E, C
     LD D, B
     LD BC, #2
@@ -144,6 +155,7 @@
     JP C Block4
     JP Block6
   Block 4 [for.body]:
+    ; j : = l - 1 - i
     LD L, C
     LD H, B
     LD BC, #1
@@ -153,6 +165,7 @@
     LD B, A
     AND A, A
     SBC HL, HL, BC
+    ; tmp : = arr [ i ]
     LD L, E
     LD H, D
     LD C, [SP+0]
@@ -164,9 +177,10 @@
     LD E, C
     LD D, B
     LD A, BC
+    ; arr [ i ] = arr [ j ]
     LD L, E
     LD H, D
-    LD E, C
+    LD C, E
     LD B, D
     ADD HL, HL, BC
     LD C, (HL)
@@ -179,14 +193,15 @@
     LD C, [SP+0]
     LD B, #0
     ADD HL, HL, BC
-    LD E, C
+    LD C, E
     LD D, B
-    LD (HL), E
+    LD (HL), C
     INC HL, HL
     LD (HL), D
+    ; arr [ j ] = tmp
     LD L, E
     LD H, D
-    LD C, E
+    LD E, C
     LD D, B
     ADD HL, HL, BC
     LD C, A
@@ -196,6 +211,7 @@
     LD (HL), [SP+1]
     JP Block5
   Block 5 [for.inc]:
+    ; ++
     LD A, [SP+0]
     INC B, A
     LD A, B
@@ -214,10 +230,13 @@
     LD SP, HL
     RET 
   Block 2 [function]:
+    ; l : = @ len ( arr )
     CALL DE, @len
+    ; i : = 0
     LD [SP+0], #0
     JP Block3
   Block 3 [for.cond]:
+    ; < l / 2
     LD E, C
     LD D, B
     LD BC, #2
@@ -227,6 +246,7 @@
     JP C Block4
     JP Block6
   Block 4 [for.body]:
+    ; j : = l - 1 - i
     LD L, C
     LD H, B
     LD BC, #1
@@ -236,6 +256,7 @@
     LD B, A
     AND A, A
     SBC HL, HL, BC
+    ; tmp : = arr [ i ]
     LD L, E
     LD H, D
     LD C, [SP+0]
@@ -247,9 +268,10 @@
     LD E, C
     LD D, B
     LD A, BC
+    ; arr [ i ] = arr [ j ]
     LD L, E
     LD H, D
-    LD E, C
+    LD C, E
     LD B, D
     ADD HL, HL, BC
     LD C, (HL)
@@ -262,14 +284,15 @@
     LD C, [SP+0]
     LD B, #0
     ADD HL, HL, BC
-    LD E, C
+    LD C, E
     LD D, B
-    LD (HL), E
+    LD (HL), C
     INC HL, HL
     LD (HL), D
+    ; arr [ j ] = tmp
     LD L, E
     LD H, D
-    LD C, E
+    LD E, C
     LD D, B
     ADD HL, HL, BC
     LD C, A
@@ -279,6 +302,7 @@
     LD (HL), [SP+1]
     JP Block5
   Block 5 [for.inc]:
+    ; ++
     LD A, [SP+0]
     INC B, A
     LD A, B

@@ -1,6 +1,10 @@
 package cfg
 
 import (
+	"strings"
+
+	"zenith/compiler/lexer"
+	"zenith/compiler/parser"
 	"zenith/compiler/zsm"
 )
 
@@ -137,7 +141,54 @@ func (ctx *tacLoweringCtx) lowerBlock(block *BasicBlock) {
 // Statement lowering
 // ============================================================================
 
+// nodeSourceText reconstructs a readable single-line string from the tokens
+// of any parser node. Whitespace and EOL tokens are collapsed to a single
+// space so the result is always one line regardless of source formatting.
+// Returns an empty string if node is nil.
+func nodeSourceText(node parser.ParserNode) string {
+	if node == nil {
+		return ""
+	}
+	var sb strings.Builder
+	for _, tok := range node.Tokens() {
+		id := tok.Id()
+		if id == lexer.TokenWhitespace || id == lexer.TokenEOL {
+			continue
+		}
+		if sb.Len() > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(tok.Text())
+	}
+	return sb.String()
+}
+
+// commentNodeFor selects the most informative parser node to use as the
+// source comment for a statement. The default is stmt.ASTNode(), but some
+// statement kinds are better represented by a sub-node:
+//
+//   - SemFor: the for.cond block only executes the condition, so show the
+//     condition expression rather than the entire for-statement header.
+//   - SemExpressionStmt with nil astNode: synthetic node (e.g. the for-loop
+//     increment created by the CFG builder); fall back to the wrapped
+//     expression's node.
+func commentNodeFor(stmt zsm.SemStatement) parser.ParserNode {
+	switch s := stmt.(type) {
+	case *zsm.SemFor:
+		if s.Condition != nil {
+			return s.Condition.ASTNode()
+		}
+	case *zsm.SemExpressionStmt:
+		if s.ASTNode() == nil && s.Expression != nil {
+			return s.Expression.ASTNode()
+		}
+	}
+	return stmt.ASTNode()
+}
+
 func (ctx *tacLoweringCtx) lowerStmt(block *BasicBlock, stmt zsm.SemStatement) {
+	emit(block, &TacComment{Text: nodeSourceText(commentNodeFor(stmt))})
+
 	switch s := stmt.(type) {
 	case *zsm.SemVariableDecl:
 		ctx.lowerVarDecl(block, s)

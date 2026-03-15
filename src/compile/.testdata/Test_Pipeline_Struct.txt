@@ -20,6 +20,7 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; ret pt . x + pt . y
     LD t6, t7
     LD t8, t9
     LD t10, (t5)
@@ -41,6 +42,7 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; ret pt . x + pt . y
     LD L, E
     LD H, D
     LD A, (HL)
@@ -60,6 +62,7 @@
   Block 1 [exit]:
     RET 
   Block 2 [function]:
+    ; ret pt . x + pt . y
     LD L, E
     LD H, D
     LD A, (HL)

@@ -24,14 +24,17 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; if n <= 1 { ret 1 }
     LD t5, #1
     CP t5, 'n' t0
     JP NC Block3
     JP Block4
   Block 3 [if.then]:
+    ; ret 1
     LD t6, #1
     JP Block1
   Block 4 [if.merge]:
+    ; ret n * factorial ( n - 1 )
     LD t7, 'n' t0
     SUB t8, t7, #1
     LD t1, t8
@@ -52,14 +55,17 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; if n <= 1 { ret 1 }
     LD A, #1
     CP A, E
     JP NC Block3
     JP Block4
   Block 3 [if.then]:
+    ; ret 1
     LD A, #1
     JP Block1
   Block 4 [if.merge]:
+    ; ret n * factorial ( n - 1 )
     LD A, E
     SUB A, A, #1
     LD E, A
@@ -73,14 +79,17 @@
   Block 1 [exit]:
     RET 
   Block 2 [function]:
+    ; if n <= 1 { ret 1 }
     LD A, #1
     CP A, E
     JP NC Block3
     JP Block4
   Block 3 [if.then]:
+    ; ret 1
     LD A, #1
     JP Block1
   Block 4 [if.merge]:
+    ; ret n * factorial ( n - 1 )
     LD A, E
     SUB A, A, #1
     LD E, A

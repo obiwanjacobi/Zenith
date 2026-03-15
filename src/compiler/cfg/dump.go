@@ -22,11 +22,16 @@ func DumpCFG(w io.Writer, fnName string, fnCFG *CFG, dumpInstructions func(io.Wr
 }
 
 // DumpTAC prints the TAC instructions for every block in fnCFG to w.
+// TacComment pseudo-instructions are skipped; they appear in the machine
+// instruction dump instead.
 func DumpTAC(w io.Writer, fnName string, fnCFG *CFG) {
 	fmt.Fprintf(w, "========== TAC: %s ==========\n", fnName)
 	for _, block := range fnCFG.Blocks {
 		fmt.Fprintf(w, "  Block %d [%s]:\n", block.ID, block.Label)
 		for _, instr := range block.TAC {
+			if _, isComment := instr.(*TacComment); isComment {
+				continue
+			}
 			fmt.Fprintf(w, "    %s\n", instr)
 		}
 	}

@@ -33,6 +33,7 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; l : = @ len ( arr )
     LD t11, t12
     LD t13, t14
     CALL t15, @len
@@ -40,15 +41,19 @@
     LD t18, t19
     LD t20, t21
     LD t22, t23
+    ; sum : = 0
     LD 'sum' t3, #0
+    ; i : = 0
     LD 'i' t4, #0
     JP Block3
   Block 3 [for.cond]:
+    ; < l
     LD t24, 'i' t4
     CP t24, 'l' t2
     JP C Block4
     JP Block6
   Block 4 [for.body]:
+    ; sum = sum + arr [ i ]
     LD t26, t27
     LD t28, t29
     LD t31, 'i' t4
@@ -65,11 +70,13 @@
     LD 'sum' t7, t6
     JP Block5
   Block 5 [for.inc]:
+    ; ++
     LD t41, 'i' t4
     INC t42, t41
     LD t8, t42
     JP Block3
   Block 6 [for.exit]:
+    ; ret sum
     LD t43, 'sum' t7
     JP Block1
 ==> [arrSum] Stage 7: Register Allocation
@@ -78,16 +85,21 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; l : = @ len ( arr )
     CALL DE, @len
+    ; sum : = 0
     LD A, #0
+    ; i : = 0
     LD [SP+0], #0
     JP Block3
   Block 3 [for.cond]:
+    ; < l
     LD A, [SP+0]
     CP A, DE
     JP C Block4
     JP Block6
   Block 4 [for.body]:
+    ; sum = sum + arr [ i ]
     LD L, E
     LD H, D
     LD C, [SP+0]
@@ -101,11 +113,13 @@
     ADD A, A, BC
     JP Block5
   Block 5 [for.inc]:
+    ; ++
     LD B, [SP+0]
     INC C, B
     LD B, C
     JP Block3
   Block 6 [for.exit]:
+    ; ret sum
     JP Block1
 ==> [arrSum] Stage 9: Prologue / Epilogue
   Block 0 [entry]:
@@ -119,16 +133,21 @@
     LD SP, HL
     RET 
   Block 2 [function]:
+    ; l : = @ len ( arr )
     CALL DE, @len
+    ; sum : = 0
     LD A, #0
+    ; i : = 0
     LD [SP+0], #0
     JP Block3
   Block 3 [for.cond]:
+    ; < l
     LD A, [SP+0]
     CP A, DE
     JP C Block4
     JP Block6
   Block 4 [for.body]:
+    ; sum = sum + arr [ i ]
     LD L, E
     LD H, D
     LD C, [SP+0]
@@ -142,9 +161,11 @@
     ADD A, A, BC
     JP Block5
   Block 5 [for.inc]:
+    ; ++
     LD B, [SP+0]
     INC C, B
     LD B, C
     JP Block3
   Block 6 [for.exit]:
+    ; ret sum
     JP Block1

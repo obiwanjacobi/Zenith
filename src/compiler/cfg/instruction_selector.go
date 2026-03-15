@@ -120,6 +120,9 @@ func SelectInstructions(sel InstructionSelector, fnCFG *CFG) error {
 
 func selectOne(sel InstructionSelector, block *BasicBlock, exitBlock *BasicBlock, tac TacInstruction) error {
 	switch t := tac.(type) {
+	case *TacComment:
+		// Pass the comment through as a machine-level comment pseudo-instruction.
+		block.MachineInstructions = append(block.MachineInstructions, &MachineInstrComment{Text: t.Text})
 	case *TacLoad:
 		sel.SelectLoad(block, t)
 	case *TacLoadIndexed:

@@ -208,14 +208,12 @@ func TestTACLowering_ArrayInitSeq(t *testing.T) {
 	tac := firstBodyTAC(t, fnCFG)
 	require.NotEmpty(t, tac)
 
-	// First instruction: TacStackAddr.
-	stackAddr, ok := tac[0].(*TacStackAddr)
-	require.True(t, ok, "first TAC must be TacStackAddr, got %T", tac[0])
+	// Must contain TacStackAddr followed (in TAC order) by TacInitSeq.
+	stackAddr := findFirst[*TacStackAddr](tac)
+	require.NotNil(t, stackAddr, "expected TacStackAddr for array decl")
 
-	// Second instruction: TacInitSeq referencing the same base VR.
-	require.True(t, len(tac) >= 2, "expected at least 2 TAC instructions")
-	initSeq, ok := tac[1].(*TacInitSeq)
-	require.True(t, ok, "second TAC must be TacInitSeq, got %T", tac[1])
+	initSeq := findFirst[*TacInitSeq](tac)
+	require.NotNil(t, initSeq, "expected TacInitSeq for array literal")
 
 	assert.Equal(t, stackAddr.Dst, initSeq.Base, "INIT_SEQ base must be STACK_ADDR result")
 	assert.Equal(t, uint8(1), initSeq.ElemSize, "element size should be 1 (u8)")

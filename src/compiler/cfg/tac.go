@@ -390,6 +390,36 @@ func (t *TacReturn) String() string {
 	return "RETURN"
 }
 
+// ============================================================================
+// Comment pseudo-instructions (debug aids)
+// ============================================================================
+
+// TacComment is a pseudo-TAC instruction that carries a source-level comment.
+// It flows through TAC lowering unchanged and is translated by the instruction
+// selector into a MachineInstrComment, producing a "; text" line in the debug
+// dump. It has no operands and no effect on register allocation or code gen.
+type TacComment struct {
+	Text string
+}
+
+func (t *TacComment) tacNode()          {}
+func (t *TacComment) GetDst() VROperand { return nil }
+func (t *TacComment) String() string    { return "; " + t.Text }
+
+// MachineInstrComment is a pseudo-machine instruction emitting a comment line
+// in the debug dump and assembly output. Liveness analysis, register
+// allocation, and the peephole pass all ignore it (nil result/operands,
+// no-op SubstituteVRs).
+type MachineInstrComment struct {
+	Text string
+}
+
+func (m *MachineInstrComment) GetResult() VROperand                                   { return nil }
+func (m *MachineInstrComment) GetOperands() []VROperand                               { return nil }
+func (m *MachineInstrComment) String() string                                         { return "; " + m.Text }
+func (m *MachineInstrComment) IsCopy() (dst *TempVR, src *TempVR, ok bool)            { return nil, nil, false }
+func (m *MachineInstrComment) SubstituteVRs(_ map[int]*PhysVR, _ map[int]*StackVR)   {}
+
 // ===========================================================================
 
 

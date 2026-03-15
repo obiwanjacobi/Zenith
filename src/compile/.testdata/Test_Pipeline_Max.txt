@@ -24,16 +24,19 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; if a > b { ret a } else { ret b }
     LD t4, 'b' t1
     CP t4, 'a' t0
     JP C Block3
     JP Block5
   Block 3 [if.then]:
+    ; ret a
     LD t5, 'a' t0
     JP Block1
   Block 4 [if.merge]:
     JP Block1
   Block 5 [if.else]:
+    ; ret b
     LD t6, 'b' t1
     JP Block1
 ==> [max] Stage 7: Register Allocation
@@ -42,16 +45,19 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; if a > b { ret a } else { ret b }
     LD A, C
     CP A, E
     JP C Block3
     JP Block5
   Block 3 [if.then]:
+    ; ret a
     LD A, E
     JP Block1
   Block 4 [if.merge]:
     JP Block1
   Block 5 [if.else]:
+    ; ret b
     LD A, C
     JP Block1
 ==> [max] Stage 9: Prologue / Epilogue
@@ -60,15 +66,18 @@
   Block 1 [exit]:
     RET 
   Block 2 [function]:
+    ; if a > b { ret a } else { ret b }
     LD A, C
     CP A, E
     JP C Block3
     JP Block5
   Block 3 [if.then]:
+    ; ret a
     LD A, E
     JP Block1
   Block 4 [if.merge]:
     JP Block1
   Block 5 [if.else]:
+    ; ret b
     LD A, C
     JP Block1

@@ -19,6 +19,7 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; y : u16 [ 2 ] = [ 1234 , 5678 ]
     LD t2, #0
     ADD t4, t2, t3
     LD 'y' t0, t4
@@ -35,6 +36,7 @@
     LD (t13), t14
     INC t16, t13
     LD (t16), t15
+    ; ret y [ 1 ]
     LD t18, t19
     LD t20, t21
     LD t23, #1
@@ -59,6 +61,7 @@
     JP Block2
   Block 1 [exit]:
   Block 2 [function]:
+    ; y : u16 [ 2 ] = [ 1234 , 5678 ]
     LD HL, #0
     ADD HL, HL, SP
     LD C, #210
@@ -72,6 +75,7 @@
     LD (HL), C
     INC HL, HL
     LD (HL), B
+    ; ret y [ 1 ]
     LD C, #1
     LD B, #0
     LD L, C
@@ -100,6 +104,7 @@
     LD SP, HL
     RET 
   Block 2 [function]:
+    ; y : u16 [ 2 ] = [ 1234 , 5678 ]
     LD HL, #0
     ADD HL, HL, SP
     LD C, #210
@@ -113,6 +118,7 @@
     LD (HL), C
     INC HL, HL
     LD (HL), B
+    ; ret y [ 1 ]
     LD C, #1
     LD B, #0
     LD L, C
