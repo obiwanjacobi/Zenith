@@ -4,59 +4,9 @@
 ==> Stage 4: Control Flow Graph Construction
   Built CFG for function 'variables' with 3 blocks
 ==> [variables] Stage 5: TAC Lowering
-========== TAC: variables ==========
-  Block 0 [entry]:
-    JUMP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ADD8 t1, 'p' t0, #42
-    COPY8 'x' t2, t1
-    ADD8 t3, 'x' t2, #42
-    COPY8 'y' t4, t3
-    ADD8 t5, 'x' t2, 'y' t4
-    ADD8 t6, t5, 'p' t0
-    RETURN t6
-
 ==> [variables] Stage 6: Instruction Selection
-  Block 0 [entry]:
-    LD 'p' t0, t7
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; x : = p + 42
-    LD t8, 'p' t0
-    ADD t9, t8, #42
-    LD t1, t9
-    LD 'x' t2, t1
-    ; y : = x + 42
-    LD t10, 'x' t2
-    ADD t11, t10, #42
-    LD t3, t11
-    LD 'y' t4, t3
-    ; ret x + y + p
-    LD t12, 'x' t2
-    ADD t13, t12, 'y' t4
-    LD t5, t13
-    LD t14, t5
-    ADD t15, t14, 'p' t0
-    LD t6, t15
-    LD t16, t6
-    JP Block1
 ==> [variables] Stage 7: Register Allocation
 ==> [variables] Stage 8: Peephole Optimisation
-  Block 0 [entry]:
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; x : = p + 42
-    LD A, E
-    ADD A, A, #42
-    ; y : = x + 42
-    ADD A, A, #42
-    ; ret x + y + p
-    ADD A, A, A
-    ADD A, A, E
-    JP Block1
 ==> [variables] Stage 9: Prologue / Epilogue
   Block 0 [entry]:
     JP Block2

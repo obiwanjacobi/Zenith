@@ -20,6 +20,7 @@ func RunPipeline(t *testing.T, source string) *CompilationResult {
 	opts := DefaultPipelineOptions()
 	opts.Source = source
 	opts.Verbose = true
+	opts.OutputInstr = true
 	opts.Output = &buf
 
 	result, err := Pipeline(opts)

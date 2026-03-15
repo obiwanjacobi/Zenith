@@ -823,7 +823,7 @@ func (s *instructionSelectorZ80) scaleIndex(block *cfg.BasicBlock, index cfg.VRO
 		// pp *= 2: move to HL, ADD HL,HL, move back to pp.
 		hlVR := s.reg16(&RegHL)
 		s.emitLD16(block, hlVR, ppVR)
-		emitInstr(block, Z80_ADD_HL_RR, hlVR, hlVR, nil)
+		emitInstr(block, Z80_ADD_HL_RR, hlVR, hlVR, hlVR)
 		s.emitLD16(block, ppVR, hlVR)
 	}
 

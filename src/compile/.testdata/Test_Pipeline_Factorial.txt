@@ -4,75 +4,9 @@
 ==> Stage 4: Control Flow Graph Construction
   Built CFG for function 'factorial' with 5 blocks
 ==> [factorial] Stage 5: TAC Lowering
-========== TAC: factorial ==========
-  Block 0 [entry]:
-    JUMP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    BRANCH8 'n' t0 LE #1 ? Block3 : Block4
-  Block 3 [if.then]:
-    RETURN #1
-  Block 4 [if.merge]:
-    SUB8 t1, 'n' t0, #1
-    CALL t2 = factorial(t1)
-    MUL8 t3, 'n' t0, t2
-    RETURN t3
-
 ==> [factorial] Stage 6: Instruction Selection
-  Block 0 [entry]:
-    LD 'n' t0, t4
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; if n <= 1 { ret 1 }
-    LD t5, #1
-    CP t5, 'n' t0
-    JP NC Block3
-    JP Block4
-  Block 3 [if.then]:
-    ; ret 1
-    LD t6, #1
-    JP Block1
-  Block 4 [if.merge]:
-    ; ret n * factorial ( n - 1 )
-    LD t7, 'n' t0
-    SUB t8, t7, #1
-    LD t1, t8
-    LD t9, t1
-    CALL t10, factorial
-    LD t2, t10
-    LD t11, 'n' t0
-    LD t12, t2
-    CALL t13, __mul8
-    LD t14, t15
-    LD t16, t17
-    LD t19, t20
-    LD t21, t22
-    JP Block1
 ==> [factorial] Stage 7: Register Allocation
 ==> [factorial] Stage 8: Peephole Optimisation
-  Block 0 [entry]:
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; if n <= 1 { ret 1 }
-    LD A, #1
-    CP A, E
-    JP NC Block3
-    JP Block4
-  Block 3 [if.then]:
-    ; ret 1
-    LD A, #1
-    JP Block1
-  Block 4 [if.merge]:
-    ; ret n * factorial ( n - 1 )
-    LD A, E
-    SUB A, A, #1
-    LD E, A
-    CALL A, factorial
-    LD C, A
-    CALL DE, __mul8
-    JP Block1
 ==> [factorial] Stage 9: Prologue / Epilogue
   Block 0 [entry]:
     JP Block2

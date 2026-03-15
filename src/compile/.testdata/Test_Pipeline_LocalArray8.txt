@@ -4,76 +4,9 @@
 ==> Stage 4: Control Flow Graph Construction
   Built CFG for function 'localArr8' with 3 blocks
 ==> [localArr8] Stage 5: TAC Lowering
-========== TAC: localArr8 ==========
-  Block 0 [entry]:
-    JUMP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    STACK_ADDR 'x' t0, SP+0
-    INIT_SEQ ['x' t0], elem=1, [#1, #2, #3]
-    LOAD_IDX1 t1, ['x' t0 + #1*1]
-    RETURN t1
-
 ==> [localArr8] Stage 6: Instruction Selection
-  Block 0 [entry]:
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; x : u8 [ ] = [ 1 , 2 , 3 ]
-    LD t2, #0
-    ADD t4, t2, t3
-    LD 'x' t0, t4
-    LD t6, t7
-    LD t8, t9
-    LD t10, #1
-    LD (t5), t10
-    INC t11, t5
-    LD t12, #2
-    LD (t11), t12
-    INC t13, t11
-    LD t14, #3
-    LD (t13), t14
-    ; ret x [ 1 ]
-    LD t16, t17
-    LD t18, t19
-    LD t21, #1
-    LD t22, #0
-    ADD t23, t15, t20
-    LD t24, (t23)
-    INC t25, t23
-    LD t26, (t25)
-    LD t27, t24
-    LD t28, t26
-    LD t29, t1
-    JP Block1
 ==> [localArr8] Stage 7: Register Allocation
 ==> [localArr8] Stage 8: Peephole Optimisation
-  Block 0 [entry]:
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; x : u8 [ ] = [ 1 , 2 , 3 ]
-    LD HL, #0
-    ADD HL, HL, SP
-    LD A, #1
-    LD (HL), A
-    INC HL, HL
-    LD A, #2
-    LD (HL), A
-    INC HL, HL
-    LD A, #3
-    LD (HL), A
-    ; ret x [ 1 ]
-    LD C, #1
-    LD B, #0
-    ADD HL, HL, BC
-    LD C, (HL)
-    INC HL, HL
-    LD B, (HL)
-    LD E, C
-    LD D, B
-    LD A, BC
-    JP Block1
 ==> [localArr8] Stage 9: Prologue / Epilogue
   Block 0 [entry]:
     LD HL, #-2

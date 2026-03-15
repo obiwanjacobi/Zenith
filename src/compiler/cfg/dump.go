@@ -3,6 +3,7 @@ package cfg
 import (
 	"fmt"
 	"io"
+	"zenith/compiler/zsm"
 )
 
 // DumpCFG prints the control flow graph structure for fnCFG to w.
@@ -16,6 +17,20 @@ func DumpCFG(w io.Writer, fnName string, fnCFG *CFG, dumpInstructions func(io.Wr
 		}
 		if dumpInstructions != nil {
 			dumpInstructions(w, block.MachineInstructions)
+		}
+	}
+	fmt.Fprintln(w)
+}
+
+func DumpCFG_IR(w io.Writer, fnName string, fnCFG *CFG, dumpInstructions func(io.Writer, []zsm.SemStatement)) {
+	fmt.Fprintf(w, "========== Control Flow Graph: %s ==========\n", fnName)
+	for _, block := range fnCFG.Blocks {
+		fmt.Fprintf(w, "  Block %d [%s]: %d successors\n", block.ID, block.Label, len(block.Successors))
+		for _, succ := range block.Successors {
+			fmt.Fprintf(w, "    -> Block %d [%s]\n", succ.ID, succ.Label)
+		}
+		if dumpInstructions != nil {
+			dumpInstructions(w, block.SemInstructions)
 		}
 	}
 	fmt.Fprintln(w)

@@ -4,58 +4,9 @@
 ==> Stage 4: Control Flow Graph Construction
   Built CFG for function 'pt' with 3 blocks
 ==> [pt] Stage 5: TAC Lowering
-========== TAC: pt ==========
-  Block 0 [entry]:
-    JUMP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    LOAD8 t1, ['pt' t0+0]
-    LOAD8 t2, ['pt' t0+1]
-    ADD8 t3, t1, t2
-    RETURN t3
-
 ==> [pt] Stage 6: Instruction Selection
-  Block 0 [entry]:
-    LD 'pt' t0, t4
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; ret pt . x + pt . y
-    LD t6, t7
-    LD t8, t9
-    LD t10, (t5)
-    LD t1, t10
-    LD t12, t13
-    LD t14, t15
-    LD t16, #1
-    ADD t17, t11, t16
-    LD t18, (t17)
-    LD t2, t18
-    LD t19, t1
-    ADD t20, t19, t2
-    LD t3, t20
-    LD t21, t3
-    JP Block1
 ==> [pt] Stage 7: Register Allocation
 ==> [pt] Stage 8: Peephole Optimisation
-  Block 0 [entry]:
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; ret pt . x + pt . y
-    LD L, E
-    LD H, D
-    LD A, (HL)
-    LD B, A
-    LD L, E
-    LD H, D
-    LD DE, #1
-    ADD HL, HL, DE
-    LD A, (HL)
-    LD C, A
-    LD A, B
-    ADD A, A, C
-    JP Block1
 ==> [pt] Stage 9: Prologue / Epilogue
   Block 0 [entry]:
     JP Block2

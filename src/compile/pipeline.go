@@ -43,15 +43,19 @@ type PipelineOptions struct {
 	TargetArch string // "z80", etc.
 
 	// Debug output
-	Verbose bool
-	Output  io.Writer
+	Output      io.Writer
+	Verbose     bool
+	OutputTAC   bool
+	OutputInstr bool
 }
 
 // DefaultPipelineOptions returns default pipeline options
 func DefaultPipelineOptions() *PipelineOptions {
 	return &PipelineOptions{
-		TargetArch: "z80",
-		Verbose:    false,
+		TargetArch:  "z80",
+		Verbose:     false,
+		OutputTAC:   false,
+		OutputInstr: false,
 	}
 }
 
@@ -188,7 +192,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		}
 		result.VRAllocators[fnName] = alloc
 
-		if opts.Verbose {
+		if opts.OutputTAC {
 			cfg.DumpTAC(opts.Output, fnName, funcCFG)
 		}
 
@@ -201,12 +205,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		if err := cfg.SelectInstructions(sel, funcCFG); err != nil {
 			result.CodeGenErrors = append(result.CodeGenErrors, err)
 			return result, fmt.Errorf("instruction selection failed for '%s': %w", fnName, err)
-		}
-
-		if opts.Verbose {
-			for _, block := range funcCFG.Blocks {
-				z80.DumpMachineInstructions(opts.Output, block)
-			}
 		}
 
 		// ── Stage 7: Register Allocation ─────────────────────────────────────
@@ -226,12 +224,6 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 
 		z80.RunPeephole(funcCFG)
 
-		if opts.Verbose {
-			for _, block := range funcCFG.Blocks {
-				z80.DumpMachineInstructions(opts.Output, block)
-			}
-		}
-
 		// ── Stage 9: Prologue / Epilogue ──────────────────────────────────────
 		// StackFrame.Size() is final after regalloc — spill slots have been added.
 		if opts.Verbose {
@@ -241,7 +233,7 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 		sel.SelectPrologue(funcCFG.Entry, funcCFG)
 		sel.SelectEpilogue(funcCFG.Exit, funcCFG)
 
-		if opts.Verbose {
+		if opts.OutputInstr {
 			for _, block := range funcCFG.Blocks {
 				z80.DumpMachineInstructions(opts.Output, block)
 			}

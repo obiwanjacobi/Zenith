@@ -4,85 +4,9 @@
 ==> Stage 4: Control Flow Graph Construction
   Built CFG for function 'forLoop' with 7 blocks
 ==> [forLoop] Stage 5: TAC Lowering
-========== TAC: forLoop ==========
-  Block 0 [entry]:
-    JUMP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    COPY8 'i' t1, #0
-    JUMP Block3
-  Block 3 [for.cond]:
-    BRANCH8 'i' t1 LT 'n' t0 ? Block4 : Block6
-  Block 4 [for.body]:
-    ADD8 t2, 'n' t0, 'i' t1
-    COPY8 'n' t3, t2
-    JUMP Block5
-  Block 5 [for.inc]:
-    INC8 t4, 'i' t1
-    JUMP Block3
-  Block 6 [for.exit]:
-    RETURN 'n' t3
-
 ==> [forLoop] Stage 6: Instruction Selection
-  Block 0 [entry]:
-    LD 'n' t0, t5
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; i : = 0
-    LD 'i' t1, #0
-    JP Block3
-  Block 3 [for.cond]:
-    ; < n
-    LD t6, 'i' t1
-    CP t6, 'n' t0
-    JP C Block4
-    JP Block6
-  Block 4 [for.body]:
-    ; n = n + i
-    LD t7, 'n' t0
-    ADD t8, t7, 'i' t1
-    LD t2, t8
-    LD 'n' t3, t2
-    JP Block5
-  Block 5 [for.inc]:
-    ; ++
-    LD t9, 'i' t1
-    INC t10, t9
-    LD t4, t10
-    JP Block3
-  Block 6 [for.exit]:
-    ; ret n
-    LD t11, 'n' t3
-    JP Block1
 ==> [forLoop] Stage 7: Register Allocation
 ==> [forLoop] Stage 8: Peephole Optimisation
-  Block 0 [entry]:
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; i : = 0
-    LD A, #0
-    JP Block3
-  Block 3 [for.cond]:
-    ; < n
-    CP A, E
-    JP C Block4
-    JP Block6
-  Block 4 [for.body]:
-    ; n = n + i
-    LD A, E
-    ADD A, A, A
-    JP Block5
-  Block 5 [for.inc]:
-    ; ++
-    LD B, A
-    INC C, B
-    LD B, C
-    JP Block3
-  Block 6 [for.exit]:
-    ; ret n
-    JP Block1
 ==> [forLoop] Stage 9: Prologue / Epilogue
   Block 0 [entry]:
     JP Block2

@@ -4,220 +4,9 @@
 ==> Stage 4: Control Flow Graph Construction
   Built CFG for function 'reverse' with 7 blocks
 ==> [reverse] Stage 5: TAC Lowering
-========== TAC: reverse ==========
-  Block 0 [entry]:
-    JUMP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    CALL t1 = @len('arr' t0)
-    COPY16 'l' t2, t1
-    COPY8 'i' t3, #0
-    JUMP Block3
-  Block 3 [for.cond]:
-    DIV16 t4, 'l' t2, #2
-    BRANCH8 'i' t3 LT t4 ? Block4 : Block6
-  Block 4 [for.body]:
-    SUB16 t5, 'l' t2, #1
-    SUB16 t6, t5, 'i' t3
-    COPY16 'j' t7, t6
-    LOAD_IDX1 t8, ['arr' t0 + 'i' t3*1]
-    COPY8 'tmp' t9, t8
-    LOAD_IDX1 t10, ['arr' t0 + 'j' t7*1]
-    STORE_IDX1 ['arr' t0 + 'i' t3*1], t10
-    STORE_IDX1 ['arr' t0 + 'j' t7*1], 'tmp' t9
-    JUMP Block5
-  Block 5 [for.inc]:
-    INC8 t11, 'i' t3
-    JUMP Block3
-  Block 6 [for.exit]:
-    JUMP Block1
-
 ==> [reverse] Stage 6: Instruction Selection
-  Block 0 [entry]:
-    LD 'arr' t0, t12
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; l : = @ len ( arr )
-    LD t14, t15
-    LD t16, t17
-    CALL t18, @len
-    LD t19, t20
-    LD t21, t22
-    LD t23, t24
-    LD t25, t26
-    ; i : = 0
-    LD 'i' t3, #0
-    JP Block3
-  Block 3 [for.cond]:
-    ; < l / 2
-    LD t28, t29
-    LD t30, t31
-    LD t32, #2
-    CALL t33, __div16
-    LD t34, t35
-    LD t36, t37
-    LD t38, 'i' t3
-    CP t38, t4
-    JP C Block4
-    JP Block6
-  Block 4 [for.body]:
-    ; j : = l - 1 - i
-    LD t40, t41
-    LD t42, t43
-    LD t44, #1
-    AND t45, t45
-    SBC t46, t39, t44
-    LD t47, t48
-    LD t49, t50
-    LD t52, t53
-    LD t54, t55
-    LD t57, t58
-    LD t59, t60
-    AND t61, t61
-    SBC t62, t51, t56
-    LD t63, t64
-    LD t65, t66
-    LD t67, t68
-    LD t69, t70
-    ; tmp : = arr [ i ]
-    LD t72, t73
-    LD t74, t75
-    LD t77, 'i' t3
-    LD t78, #0
-    ADD t79, t71, t76
-    LD t80, (t79)
-    INC t81, t79
-    LD t82, (t81)
-    LD t83, t80
-    LD t84, t82
-    LD 'tmp' t9, t8
-    ; arr [ i ] = arr [ j ]
-    LD t86, t87
-    LD t88, t89
-    LD t91, t92
-    LD t93, t94
-    ADD t95, t85, t90
-    LD t96, (t95)
-    INC t97, t95
-    LD t98, (t97)
-    LD t99, t96
-    LD t100, t98
-    LD t102, t103
-    LD t104, t105
-    LD t107, 'i' t3
-    LD t108, #0
-    ADD t109, t101, t106
-    LD t110, t112
-    LD t111, t113
-    LD (t109), t110
-    INC t114, t109
-    LD (t114), t111
-    ; arr [ j ] = tmp
-    LD t116, t117
-    LD t118, t119
-    LD t121, t122
-    LD t123, t124
-    ADD t125, t115, t120
-    LD t126, t128
-    LD t127, t129
-    LD (t125), t126
-    INC t130, t125
-    LD (t130), t127
-    JP Block5
-  Block 5 [for.inc]:
-    ; ++
-    LD t131, 'i' t3
-    INC t132, t131
-    LD t11, t132
-    JP Block3
-  Block 6 [for.exit]:
-    JP Block1
 ==> [reverse] Stage 7: Register Allocation
 ==> [reverse] Stage 8: Peephole Optimisation
-  Block 0 [entry]:
-    JP Block2
-  Block 1 [exit]:
-  Block 2 [function]:
-    ; l : = @ len ( arr )
-    CALL DE, @len
-    ; i : = 0
-    LD [SP+0], #0
-    JP Block3
-  Block 3 [for.cond]:
-    ; < l / 2
-    LD E, C
-    LD D, B
-    LD BC, #2
-    CALL DE, __div16
-    LD A, [SP+0]
-    CP A, DE
-    JP C Block4
-    JP Block6
-  Block 4 [for.body]:
-    ; j : = l - 1 - i
-    LD L, C
-    LD H, B
-    LD BC, #1
-    AND A, A
-    SBC HL, HL, BC
-    LD C, B
-    LD B, A
-    AND A, A
-    SBC HL, HL, BC
-    ; tmp : = arr [ i ]
-    LD L, E
-    LD H, D
-    LD C, [SP+0]
-    LD B, #0
-    ADD HL, HL, BC
-    LD C, (HL)
-    INC HL, HL
-    LD B, (HL)
-    LD E, C
-    LD D, B
-    LD A, BC
-    ; arr [ i ] = arr [ j ]
-    LD L, E
-    LD H, D
-    LD C, E
-    LD B, D
-    ADD HL, HL, BC
-    LD C, (HL)
-    INC HL, HL
-    LD B, (HL)
-    LD E, C
-    LD D, B
-    LD L, E
-    LD H, D
-    LD C, [SP+0]
-    LD B, #0
-    ADD HL, HL, BC
-    LD C, E
-    LD D, B
-    LD (HL), C
-    INC HL, HL
-    LD (HL), D
-    ; arr [ j ] = tmp
-    LD L, E
-    LD H, D
-    LD E, C
-    LD D, B
-    ADD HL, HL, BC
-    LD C, A
-    LD [SP+1], B
-    LD (HL), C
-    INC HL, HL
-    LD (HL), [SP+1]
-    JP Block5
-  Block 5 [for.inc]:
-    ; ++
-    LD A, [SP+0]
-    INC B, A
-    LD A, B
-    JP Block3
-  Block 6 [for.exit]:
-    JP Block1
 ==> [reverse] Stage 9: Prologue / Epilogue
   Block 0 [entry]:
     LD HL, #-2
@@ -285,21 +74,21 @@
     LD B, #0
     ADD HL, HL, BC
     LD C, E
-    LD D, B
+    LD B, D
     LD (HL), C
     INC HL, HL
-    LD (HL), D
+    LD (HL), B
     ; arr [ j ] = tmp
     LD L, E
     LD H, D
-    LD E, C
+    LD C, E
     LD D, B
     ADD HL, HL, BC
-    LD C, A
-    LD [SP+1], B
-    LD (HL), C
-    INC HL, HL
+    LD [SP+1], A
+    LD B, C
     LD (HL), [SP+1]
+    INC HL, HL
+    LD (HL), B
     JP Block5
   Block 5 [for.inc]:
     ; ++
