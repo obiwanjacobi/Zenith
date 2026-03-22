@@ -11,8 +11,8 @@ var InstrDesc_LD_R_R = InstrDescriptorZ80{
 	Opcode:   Z80_LD_R_R,
 	Category: CatMove,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessWrite, Registers: Z80Registers8},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagNone,
@@ -29,7 +29,7 @@ var InstrDesc_LD_R_N = InstrDescriptorZ80{
 	Opcode:   Z80_LD_R_N,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessWrite, Registers: Z80Registers8},
 		{Type: OpConstant8, Access: AccessRead},
 	},
 	AddressingMode: AddrImmediate,
@@ -47,7 +47,7 @@ var InstrDesc_LD_R_HL = InstrDescriptorZ80{
 	Opcode:   Z80_LD_R_HL,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessWrite, Registers: Z80Registers8},
 		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegHL}},
 	},
 	AddressingMode: AddrIndirect,
@@ -66,7 +66,7 @@ var InstrDesc_LD_HL_R = InstrDescriptorZ80{
 	Category: CatStore,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessWrite, Registers: []*Register{&RegHL}},
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -106,7 +106,7 @@ var InstrDesc_LD_A_PP = InstrDescriptorZ80{
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessWrite, Registers: []*Register{&RegA}},
-		{Type: OpRegisterPairPP, Access: AccessRead, Registers: []*Register{&RegBC, &RegDE}},
+		{Type: OpRegisterPairPP, Access: AccessRead, Registers: Z80RegistersPP},
 	},
 	AddressingMode: AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -141,7 +141,7 @@ var InstrDesc_LD_PP_A = InstrDescriptorZ80{
 	Opcode:   Z80_LD_PP_A,
 	Category: CatStore,
 	Dependencies: []InstrDependency{
-		{Type: OpRegisterPairPP, Access: AccessWrite, Registers: []*Register{&RegBC, &RegDE}},
+		{Type: OpRegisterPairPP, Access: AccessWrite, Registers: Z80RegistersPP},
 		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA}},
 	},
 	AddressingMode: AddrIndirect,
@@ -181,7 +181,7 @@ var InstrDesc_LD_RR_NN = InstrDescriptorZ80{
 	Opcode:   Z80_LD_RR_NN,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
-		{Type: OpRegisterPairRR, Access: AccessWrite, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessWrite, Registers: Z80RegistersRR},
 		{Type: OpConstant16, Access: AccessRead},
 	},
 	AddressingMode: AddrImmediate,
@@ -217,7 +217,7 @@ var InstrDesc_LD_RR_NN_ADDR = InstrDescriptorZ80{
 	Opcode:   Z80_LD_RR_NN_ADDR,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
-		{Type: OpRegisterPairRR, Access: AccessWrite, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessWrite, Registers: Z80RegistersRR},
 		{Type: OpConstant16, Access: AccessRead},
 	},
 	AddressingMode: AddrImmediate | AddrIndirect,
@@ -254,7 +254,7 @@ var InstrDesc_LD_NN_RR_ADDR = InstrDescriptorZ80{
 	Category: CatStore,
 	Dependencies: []InstrDependency{
 		{Type: OpConstant16, Access: AccessRead},
-		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessRead, Registers: Z80RegistersRR},
 	},
 	AddressingMode: AddrImmediate | AddrIndirect,
 	AffectedFlags:  InstrFlagNone,
@@ -294,7 +294,7 @@ var InstrDesc_ADD_A_R = InstrDescriptorZ80{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA}},
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -348,7 +348,7 @@ var InstrDesc_ADC_A_R = InstrDescriptorZ80{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA}},
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -402,7 +402,7 @@ var InstrDesc_SUB_R = InstrDescriptorZ80{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -456,7 +456,7 @@ var InstrDesc_SBC_A_R = InstrDescriptorZ80{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA}},
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -509,7 +509,7 @@ var InstrDesc_INC_R = InstrDescriptorZ80{
 	Opcode:   Z80_INC_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN,
@@ -526,7 +526,7 @@ var InstrDesc_DEC_R = InstrDescriptorZ80{
 	Opcode:   Z80_DEC_R,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN,
@@ -582,7 +582,7 @@ var InstrDesc_ADD_HL_RR = InstrDescriptorZ80{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessReadWrite, Registers: []*Register{&RegHL}},
-		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessRead, Registers: Z80RegistersRR},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagH | InstrFlagN | InstrFlagC,
@@ -600,7 +600,7 @@ var InstrDesc_ADC_HL_RR = InstrDescriptorZ80{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessReadWrite, Registers: []*Register{&RegHL}},
-		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessRead, Registers: Z80RegistersRR},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -618,7 +618,7 @@ var InstrDesc_SBC_HL_RR = InstrDescriptorZ80{
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
 		{Type: OpRegisterPairRR, Access: AccessReadWrite, Registers: []*Register{&RegHL}},
-		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessRead, Registers: Z80RegistersRR},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -635,7 +635,7 @@ var InstrDesc_INC_RR = InstrDescriptorZ80{
 	Opcode:   Z80_INC_RR,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
-		{Type: OpRegisterPairRR, Access: AccessReadWrite, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessReadWrite, Registers: Z80RegistersRR},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagNone,
@@ -652,7 +652,7 @@ var InstrDesc_DEC_RR = InstrDescriptorZ80{
 	Opcode:   Z80_DEC_RR,
 	Category: CatArithmetic,
 	Dependencies: []InstrDependency{
-		{Type: OpRegisterPairRR, Access: AccessReadWrite, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegSP}},
+		{Type: OpRegisterPairRR, Access: AccessReadWrite, Registers: Z80RegistersRR},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagNone,
@@ -674,7 +674,7 @@ var InstrDesc_AND_R = InstrDescriptorZ80{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -728,7 +728,7 @@ var InstrDesc_OR_R = InstrDescriptorZ80{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -782,7 +782,7 @@ var InstrDesc_XOR_R = InstrDescriptorZ80{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegA}}, // Implicit A destination
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -836,7 +836,7 @@ var InstrDesc_CP_R = InstrDescriptorZ80{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpNone, Access: AccessRead, Registers: []*Register{&RegA}}, // Implicit A compare source
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrImplicit,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -894,7 +894,7 @@ var InstrDesc_BIT_B_R = InstrDescriptorZ80{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpBitIndex, Access: AccessRead},
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN,
@@ -912,7 +912,7 @@ var InstrDesc_SET_B_R = InstrDescriptorZ80{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpBitIndex, Access: AccessRead},
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagNone,
@@ -930,7 +930,7 @@ var InstrDesc_RES_B_R = InstrDescriptorZ80{
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
 		{Type: OpBitIndex, Access: AccessRead},
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagNone,
@@ -951,7 +951,7 @@ var InstrDesc_RLC_R = InstrDescriptorZ80{
 	Opcode:   Z80_RLC_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -968,7 +968,7 @@ var InstrDesc_RRC_R = InstrDescriptorZ80{
 	Opcode:   Z80_RRC_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -985,7 +985,7 @@ var InstrDesc_RL_R = InstrDescriptorZ80{
 	Opcode:   Z80_RL_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -1002,7 +1002,7 @@ var InstrDesc_RR_R = InstrDescriptorZ80{
 	Opcode:   Z80_RR_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -1019,7 +1019,7 @@ var InstrDesc_SLA_R = InstrDescriptorZ80{
 	Opcode:   Z80_SLA_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -1036,7 +1036,7 @@ var InstrDesc_SRA_R = InstrDescriptorZ80{
 	Opcode:   Z80_SRA_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -1053,7 +1053,7 @@ var InstrDesc_SRL_R = InstrDescriptorZ80{
 	Opcode:   Z80_SRL_R,
 	Category: CatBitwise,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessReadWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessReadWrite, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrDirect,
 	AffectedFlags:  InstrFlagS | InstrFlagZ | InstrFlagH | InstrFlagPV | InstrFlagN | InstrFlagC,
@@ -1074,7 +1074,7 @@ var InstrDesc_PUSH_QQ = InstrDescriptorZ80{
 	Opcode:   Z80_PUSH_QQ,
 	Category: CatStack,
 	Dependencies: []InstrDependency{
-		{Type: OpRegisterPairQQ, Access: AccessRead, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegAF}},
+		{Type: OpRegisterPairQQ, Access: AccessRead, Registers: Z80RegistersQQ},
 		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP decrement
 	},
 	AddressingMode: AddrIndirect,
@@ -1092,7 +1092,7 @@ var InstrDesc_POP_QQ = InstrDescriptorZ80{
 	Opcode:   Z80_POP_QQ,
 	Category: CatStack,
 	Dependencies: []InstrDependency{
-		{Type: OpRegisterPairQQ, Access: AccessWrite, Registers: []*Register{&RegBC, &RegDE, &RegHL, &RegAF}},
+		{Type: OpRegisterPairQQ, Access: AccessWrite, Registers: Z80RegistersQQ},
 		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegSP}}, // Implicit SP increment
 	},
 	AddressingMode: AddrIndirect,
@@ -1453,7 +1453,7 @@ var InstrDesc_LD_R_IX = InstrDescriptorZ80{
 	Opcode:   Z80_LD_R_IX,
 	Category: CatLoad,
 	Dependencies: []InstrDependency{
-		{Type: OpRegister, Access: AccessWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessWrite, Registers: Z80Registers8},
 		{Type: OpDisplacement, Access: AccessRead},
 	},
 	AddressingMode: AddrIndexed,
@@ -1472,7 +1472,7 @@ var InstrDesc_LD_IX_R = InstrDescriptorZ80{
 	Category: CatStore,
 	Dependencies: []InstrDependency{
 		{Type: OpDisplacement, Access: AccessWrite},
-		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpRegister, Access: AccessRead, Registers: Z80Registers8},
 	},
 	AddressingMode: AddrIndexed,
 	AffectedFlags:  InstrFlagNone,

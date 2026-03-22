@@ -1,0 +1,57 @@
+package z80
+
+// 8-bit single registers
+var RegB = Register{Name: "B", Size: 8, RegisterId: 0}
+var RegC = Register{Name: "C", Size: 8, RegisterId: 1}
+var RegD = Register{Name: "D", Size: 8, RegisterId: 2}
+var RegE = Register{Name: "E", Size: 8, RegisterId: 3}
+var RegH = Register{Name: "H", Size: 8, RegisterId: 4}
+var RegL = Register{Name: "L", Size: 8, RegisterId: 5}
+var RegA = Register{Name: "A", Size: 8, RegisterId: 6}
+var RegF = Register{Name: "F", Size: 8, RegisterId: 7}
+
+// 16-bit register pairs
+var RegBC = Register{Name: "BC", Size: 16,
+	Composition: []*Register{&RegC, &RegB}, RegisterId: 0}
+var RegDE = Register{Name: "DE", Size: 16,
+	Composition: []*Register{&RegE, &RegD}, RegisterId: 1}
+var RegHL = Register{Name: "HL", Size: 16,
+	Composition: []*Register{&RegL, &RegH}, RegisterId: 2}
+var RegAF = Register{Name: "AF", Size: 16,
+	Composition: []*Register{&RegF, &RegA}, RegisterId: 3}
+var RegSP = Register{Name: "SP", Size: 16, RegisterId: 3}
+
+// Index register (used as frame pointer for spill-slot access)
+var RegIX = Register{Name: "IX", Size: 16}
+
+// Z80Registers defines the available registers for Z80 architecture
+// Includes both single 8-bit registers and 16-bit register pairs
+var Z80Registers = []*Register{
+	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL,
+	&RegBC, &RegDE, &RegHL, &RegAF, &RegSP, &RegIX,
+}
+
+// the 8-bit registers (A|B|C|D|E|H|L) that can be used for general purposes
+var Z80Registers8 = []*Register{
+	&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL,
+}
+
+// the 16-bit registers (BC|DE|HL) that can be used for general purposes
+var Z80Registers16 = []*Register{
+	&RegBC, &RegDE, &RegHL,
+}
+
+// registers (BC|DE|HL|AF) that can be pushed on the stack
+var Z80RegistersQQ = []*Register{
+	&RegBC, &RegDE, &RegHL, &RegAF,
+}
+
+// registers (BC|DE|HL|SP) that can be used for load operations
+var Z80RegistersRR = []*Register{
+	&RegBC, &RegDE, &RegHL, &RegSP,
+}
+
+// indirect alternative registers (BC|DE) to HL
+var Z80RegistersPP = []*Register{
+	&RegBC, &RegDE,
+}
