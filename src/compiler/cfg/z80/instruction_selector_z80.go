@@ -53,6 +53,9 @@ func (s *instructionSelectorZ80) BindParameters(entryBlock *cfg.BasicBlock, fnCF
 //	LD HL, -frameSize
 //	ADD HL, SP
 //	LD SP, HL
+//	(if spills exist)
+//	LD IX, #0
+//	ADD IX, SP        ; IX = SP = frame base, so (IX+d) == [SP+d] for spill slots
 func (s *instructionSelectorZ80) SelectPrologue(entryBlock *cfg.BasicBlock, fnCFG *cfg.CFG) {
 	frameSize := fnCFG.StackFrame.Size()
 	if frameSize == 0 {
@@ -64,6 +67,13 @@ func (s *instructionSelectorZ80) SelectPrologue(entryBlock *cfg.BasicBlock, fnCF
 		&MachineInstrZ80{Opcode: Z80_LD_RR_NN, Result: hlPhys, Src1: cfg.NewImmVR(-int32(frameSize), 16)},
 		&MachineInstrZ80{Opcode: Z80_ADD_HL_RR, Result: hlPhys, Src1: hlPhys, Src2: spPhys},
 		&MachineInstrZ80{Opcode: Z80_LD_SP_HL, Result: spPhys, Src1: hlPhys},
+	}
+	if fnCFG.StackFrame.HasSpillSlots() {
+		ixPhys := &cfg.PhysVR{Reg: &RegIX}
+		setup = append(setup,
+			&MachineInstrZ80{Opcode: Z80_LD_IX_NN, Result: ixPhys, Src1: cfg.NewImmVR(0, 16)},
+			&MachineInstrZ80{Opcode: Z80_ADD_IX_SP, Result: ixPhys, Src1: ixPhys, Src2: spPhys},
+		)
 	}
 	entryBlock.MachineInstructions = append(setup, entryBlock.MachineInstructions...)
 }
@@ -634,12 +644,16 @@ func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUn
 	switch t.Op {
 	case cfg.TacIncrement:
 		if t.Size == 8 {
+			// Copy operand into incVR, then INC in-place (same VR for Result and
+			// Src1). Z80_INC_R is a read-write operation on a single register;
+			// reusing the VR ensures the allocator places both uses in the same
+			// physical register, avoiding the spurious copy that would arise from
+			// two separate VRs allocated to different registers.
 			incVR := s.any8()
 			emitInstr(block, Z80_LD_R_R, incVR, t.Operand, nil)
-			resVR := s.any8()
-			emitInstr(block, Z80_INC_R, resVR, incVR, nil)
+			emitInstr(block, Z80_INC_R, incVR, incVR, nil)
 			t.Dst.ConstrainTo(Z80Registers8)
-			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
+			emitInstr(block, Z80_LD_R_R, t.Dst, incVR, nil)
 		} else {
 			hlVR := s.reg16(&RegHL)
 			s.emitLD16(block, hlVR, t.Operand)
@@ -650,12 +664,13 @@ func (s *instructionSelectorZ80) SelectUnary(block *cfg.BasicBlock, t *cfg.TacUn
 		}
 	case cfg.TacDecrement:
 		if t.Size == 8 {
+			// Same in-place pattern as TacIncrement: reuse decVR for Result and
+			// Src1 so the allocator binds both to the same physical register.
 			decVR := s.any8()
 			emitInstr(block, Z80_LD_R_R, decVR, t.Operand, nil)
-			resVR := s.any8()
-			emitInstr(block, Z80_DEC_R, resVR, decVR, nil)
+			emitInstr(block, Z80_DEC_R, decVR, decVR, nil)
 			t.Dst.ConstrainTo(Z80Registers8)
-			emitInstr(block, Z80_LD_R_R, t.Dst, resVR, nil)
+			emitInstr(block, Z80_LD_R_R, t.Dst, decVR, nil)
 		} else {
 			hlVR := s.reg16(&RegHL)
 			s.emitLD16(block, hlVR, t.Operand)

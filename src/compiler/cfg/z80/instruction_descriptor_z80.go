@@ -136,6 +136,13 @@ const (
 	// CPI, CPD, CPIR, CPDR (block compare instructions) - ED prefix
 	// INI, IND, INIR, INDR (block input instructions) - ED prefix
 	// OUTI, OUTD, OTIR, OTDR (block output instructions) - ED prefix
+
+	// IX-indexed (DD prefix) — used for spill-slot access via frame pointer IX
+	Z80_LD_R_IX   Z80Opcode = 0xDD46 // LD r, (IX+d)   — load register from IX-indexed memory
+	Z80_LD_IX_R   Z80Opcode = 0xDD70 // LD (IX+d), r   — store register to IX-indexed memory
+	Z80_LD_IX_N   Z80Opcode = 0xDD36 // LD (IX+d), n   — store immediate to IX-indexed memory
+	Z80_LD_IX_NN  Z80Opcode = 0xDD21 // LD IX, nn      — load IX with 16-bit immediate
+	Z80_ADD_IX_SP Z80Opcode = 0xDD39 // ADD IX, SP     — add SP to IX (used to set IX = SP)
 )
 
 // AccessType specifies how a dependency is accessed
@@ -455,6 +462,18 @@ func (op Z80Opcode) String() string {
 	// 	return "EXX"
 	// case Z80_EX_SP_HL:
 	// 	return "EX"
+
+	// IX-indexed
+	case Z80_LD_R_IX:
+		return "LD"
+	case Z80_LD_IX_R:
+		return "LD"
+	case Z80_LD_IX_N:
+		return "LD"
+	case Z80_LD_IX_NN:
+		return "LD"
+	case Z80_ADD_IX_SP:
+		return "ADD"
 
 	default:
 		return fmt.Sprintf("UNKNOWN_OP_%04X", uint16(op))

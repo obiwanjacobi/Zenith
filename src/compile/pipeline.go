@@ -217,6 +217,12 @@ func Pipeline(opts *PipelineOptions) (*CompilationResult, error) {
 			return result, fmt.Errorf("register allocation failed for '%s': %w", fnName, err)
 		}
 
+		// ── Stage 7.5: Spill Expansion ───────────────────────────────────────
+		// Replace every StackVR pseudo-operand with the real target instruction
+		// form (e.g. IX-indexed on Z80). Must run after regalloc (which creates
+		// StackVRs) and before peephole (which expects only real instructions).
+		sel.ExpandSpills(funcCFG)
+
 		// ── Stage 8: Peephole Optimisation ───────────────────────────────────
 		if opts.Verbose {
 			fmt.Fprintf(opts.Output, "==> [%s] Stage 8: Peephole Optimisation\n", fnName)

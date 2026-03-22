@@ -97,6 +97,14 @@ type InstructionSelector interface {
 
 	// SelectReturn handles TacReturn: return [Value].
 	SelectReturn(block *BasicBlock, exitBlock *BasicBlock, instr *TacReturn)
+
+	// ── Post-regalloc fixups ────────────────────────────────────────────────
+
+	// ExpandSpills rewrites any pseudo-operands that the register allocator
+	// left as StackVRs into real target instructions. Called after
+	// AllocateRegisters and before the peephole pass.
+	// Targets without register spilling may implement this as a no-op.
+	ExpandSpills(fnCFG *CFG)
 }
 
 // SelectInstructions runs instruction selection over the entire function CFG.

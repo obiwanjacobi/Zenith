@@ -14,6 +14,7 @@ type FrameSlot struct {
 type StackFrame struct {
 	slots      map[*zsm.Symbol]*FrameSlot
 	nextOffset uint16
+	spillCount int // number of anonymous spill slots added by the register allocator
 }
 
 // NewStackFrame creates an empty stack frame starting at offset 0.
@@ -68,5 +69,12 @@ func (fl *StackFrame) HasSlot(symbol *zsm.Symbol) bool {
 func (fl *StackFrame) AddSpillSlot(size uint16) uint16 {
 	offset := fl.nextOffset
 	fl.nextOffset += size
+	fl.spillCount++
 	return offset
+}
+
+// HasSpillSlots reports whether the register allocator spilled any VRs into
+// the stack frame. Used by SelectPrologue to decide whether to set up IX.
+func (fl *StackFrame) HasSpillSlots() bool {
+	return fl.spillCount > 0
 }

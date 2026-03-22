@@ -1446,6 +1446,100 @@ var InstrDesc_CCF = InstrDescriptorZ80{
 }
 
 // ============================================================================
+// IX-Indexed Instructions (DD prefix)
+// ============================================================================
+
+var InstrDesc_LD_R_IX = InstrDescriptorZ80{
+	Opcode:   Z80_LD_R_IX,
+	Category: CatLoad,
+	Dependencies: []InstrDependency{
+		{Type: OpRegister, Access: AccessWrite, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+		{Type: OpDisplacement, Access: AccessRead},
+	},
+	AddressingMode: AddrIndexed,
+	AffectedFlags:  InstrFlagNone,
+	DependentFlags: InstrFlagNone,
+	Cycles:         19,
+	CyclesTaken:    0,
+	Size:           3,
+	EncodingReg1SL: 3,
+	Prefix1:        0xDD,
+	Prefix2:        0,
+}
+
+var InstrDesc_LD_IX_R = InstrDescriptorZ80{
+	Opcode:   Z80_LD_IX_R,
+	Category: CatStore,
+	Dependencies: []InstrDependency{
+		{Type: OpDisplacement, Access: AccessWrite},
+		{Type: OpRegister, Access: AccessRead, Registers: []*Register{&RegA, &RegB, &RegC, &RegD, &RegE, &RegH, &RegL}},
+	},
+	AddressingMode: AddrIndexed,
+	AffectedFlags:  InstrFlagNone,
+	DependentFlags: InstrFlagNone,
+	Cycles:         19,
+	CyclesTaken:    0,
+	Size:           3,
+	EncodingReg1SL: 0,
+	Prefix1:        0xDD,
+	Prefix2:        0,
+}
+
+var InstrDesc_LD_IX_N = InstrDescriptorZ80{
+	Opcode:   Z80_LD_IX_N,
+	Category: CatStore,
+	Dependencies: []InstrDependency{
+		{Type: OpDisplacement, Access: AccessWrite},
+		{Type: OpConstant8, Access: AccessRead},
+	},
+	AddressingMode: AddrIndexed | AddrImmediate,
+	AffectedFlags:  InstrFlagNone,
+	DependentFlags: InstrFlagNone,
+	Cycles:         19,
+	CyclesTaken:    0,
+	Size:           4,
+	EncodingReg1SL: 0,
+	Prefix1:        0xDD,
+	Prefix2:        0,
+}
+
+var InstrDesc_LD_IX_NN = InstrDescriptorZ80{
+	Opcode:   Z80_LD_IX_NN,
+	Category: CatLoad,
+	Dependencies: []InstrDependency{
+		{Type: OpNone, Access: AccessWrite, Registers: []*Register{&RegIX}},
+		{Type: OpConstant16, Access: AccessRead},
+	},
+	AddressingMode: AddrImmediate,
+	AffectedFlags:  InstrFlagNone,
+	DependentFlags: InstrFlagNone,
+	Cycles:         14,
+	CyclesTaken:    0,
+	Size:           4,
+	EncodingReg1SL: 0,
+	Prefix1:        0xDD,
+	Prefix2:        0,
+}
+
+var InstrDesc_ADD_IX_SP = InstrDescriptorZ80{
+	Opcode:   Z80_ADD_IX_SP,
+	Category: CatArithmetic,
+	Dependencies: []InstrDependency{
+		{Type: OpNone, Access: AccessReadWrite, Registers: []*Register{&RegIX}},
+		{Type: OpRegisterPairRR, Access: AccessRead, Registers: []*Register{&RegSP}},
+	},
+	AddressingMode: AddrDirect,
+	AffectedFlags:  InstrFlagH | InstrFlagN | InstrFlagC,
+	DependentFlags: InstrFlagNone,
+	Cycles:         15,
+	CyclesTaken:    0,
+	Size:           2,
+	EncodingReg1SL: 0,
+	Prefix1:        0xDD,
+	Prefix2:        0,
+}
+
+// ============================================================================
 // Instruction Descriptor Lookup Table
 // ============================================================================
 
@@ -1553,4 +1647,11 @@ var Z80InstrDescriptors = map[Z80Opcode]*InstrDescriptorZ80{
 	Z80_HALT: &InstrDesc_HALT,
 	Z80_NEG:  &InstrDesc_NEG,
 	Z80_CCF:  &InstrDesc_CCF,
+
+	// IX-indexed
+	Z80_LD_R_IX:   &InstrDesc_LD_R_IX,
+	Z80_LD_IX_R:   &InstrDesc_LD_IX_R,
+	Z80_LD_IX_N:   &InstrDesc_LD_IX_N,
+	Z80_LD_IX_NN:  &InstrDesc_LD_IX_NN,
+	Z80_ADD_IX_SP: &InstrDesc_ADD_IX_SP,
 }

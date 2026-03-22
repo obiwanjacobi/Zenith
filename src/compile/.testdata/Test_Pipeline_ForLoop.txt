@@ -29,8 +29,8 @@
   Block 5 [for.inc]:
     ; ++
     LD B, A
-    INC C, B
-    LD B, C
+    INC B, B
+    LD C, B
     JP Block3
   Block 6 [for.exit]:
     ; ret n

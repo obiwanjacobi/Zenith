@@ -21,6 +21,9 @@ var RegAF = Register{Name: "AF", Size: 16,
 	Composition: []*Register{&RegF, &RegA}, RegisterId: 3}
 var RegSP = Register{Name: "SP", Size: 16, RegisterId: 3}
 
+// Index register (used as frame pointer for spill-slot access)
+var RegIX = Register{Name: "IX", Size: 16, RegisterId: 4}
+
 // Z80Registers defines the available registers for Z80 architecture
 // Includes both single 8-bit registers and 16-bit register pairs
 var Z80Registers = []*Register{

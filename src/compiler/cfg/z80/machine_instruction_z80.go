@@ -36,7 +36,7 @@ type MachineInstrZ80 struct {
 	Src2      cfg.VROperand   // second read operand (nil if unused)
 	Target    *cfg.BasicBlock // branch/call destination (nil if unused)
 	Label     string          // symbolic call target (non-empty for CALL_NN to named labels)
-	ImmOffset int8            // fixed JR byte offset for materialisation sequences
+	ImmOffset int8            // JR byte offset (materialisation) OR IX displacement (spill access)
 }
 
 // GetResult returns the VROperand written by this instruction, or nil.
@@ -80,6 +80,19 @@ func (m *MachineInstrZ80) SubstituteVRs(assigned map[int]*cfg.PhysVR, spilled ma
 
 // String formats the instruction as a human-readable assembly line.
 func (m *MachineInstrZ80) String() string {
+	// IX-indexed instructions: ImmOffset carries the signed 8-bit displacement.
+	// These never go through FormatInstruction because their operand layout
+	// (indexed addressing with a displacement) is not covered by the generic formatter.
+	switch m.Opcode {
+	case Z80_LD_R_IX:
+		return fmt.Sprintf("LD %s, (IX%+d)", m.Result.String(), m.ImmOffset)
+	case Z80_LD_IX_R, Z80_LD_IX_N:
+		return fmt.Sprintf("LD (IX%+d), %s", m.ImmOffset, m.Src1.String())
+	case Z80_LD_IX_NN:
+		return fmt.Sprintf("LD IX, %s", m.Src1.String())
+	case Z80_ADD_IX_SP:
+		return "ADD IX, IX, SP"
+	}
 	var parts []string
 	if m.Src1 != nil {
 		parts = append(parts, m.Src1.String())
@@ -154,5 +167,3 @@ func emitRelJump(block *cfg.BasicBlock, cc ConditionCode, offset int8) *MachineI
 	block.MachineInstructions = append(block.MachineInstructions, mi)
 	return mi
 }
-
-
